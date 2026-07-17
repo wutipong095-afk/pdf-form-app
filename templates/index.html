@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>PDF Form Marker — มาร์คจุด กรอกข้อมูล ออก PDF</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Leelawadee UI',Tahoma,sans-serif; background:#f0f2f5; height:100vh; display:flex; flex-direction:column; }
+  header { background:#1a3c6e; color:#fff; padding:8px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0 12px 0 0; }
+  header select, header input, header button { font:inherit; padding:4px 8px; border-radius:6px; border:1px solid #ccc; }
+  header button { background:#ffb84d; border:none; cursor:pointer; font-weight:bold; }
+  main { flex:1; display:flex; min-height:0; }
+  #viewer { flex:1; overflow:auto; padding:16px; text-align:center; }
+  #pagewrap { position:relative; display:inline-block; box-shadow:0 2px 12px rgba(0,0,0,.25); }
+  #pageimg { display:block; max-width:100%; cursor:crosshair; }
+  .marker { position:absolute; transform:translate(-3px,-3px); width:8px; height:8px; border-radius:50%; background:#e63946; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,.5); cursor:pointer; }
+  .marker.sel { background:#0077ff; }
+  .mlabel { position:absolute; transform:translateY(-100%); background:rgba(230,57,70,.85); color:#fff; font-size:11px; padding:0 4px; border-radius:3px; white-space:nowrap; pointer-events:none; }
+  /* จุดปัก = baseline: วางให้เส้นฐานตัวอักษรอยู่ที่จุดพอดี ตรงกับ insert_text ของ PDF */
+  .mvalue { position:absolute; transform:translateY(-76%); line-height:1; color:#0a58ca; white-space:pre; pointer-events:none; font-family:'Leelawadee UI',Tahoma,sans-serif; }
+  #side { width:400px; background:#fff; border-left:1px solid #ddd; display:flex; flex-direction:column; min-height:0; }
+  #tabs { display:flex; }
+  #tabs button { flex:1; padding:10px; border:none; background:#e8eaf0; cursor:pointer; font:inherit; font-weight:bold; }
+  #tabs button.active { background:#fff; border-bottom:3px solid #1a3c6e; }
+  .panel { flex:1; overflow:auto; padding:12px; display:none; flex-direction:column; min-height:0; }
+  .panel.active { display:flex; }
+  #fieldlist { list-style:none; padding:0; margin:0 0 8px; }
+  #fieldlist li { display:flex; gap:6px; align-items:center; padding:6px; border-bottom:1px solid #eee; font-size:14px; }
+  #fieldlist li.sel { background:#e7f1ff; }
+  #fieldlist .fname { flex:1; cursor:pointer; }
+  #fieldlist .del { color:#e63946; cursor:pointer; border:none; background:none; font-size:16px; }
+  .pgnav { display:flex; gap:8px; justify-content:center; align-items:center; margin-bottom:8px; }
+  .pgnav button { padding:2px 12px; }
+  #valuelist { overflow:auto; max-height:42%; border:1px solid #e0e0e0; border-radius:8px; margin-bottom:8px; flex-shrink:0; }
+  .vrow { display:flex; gap:6px; align-items:center; padding:4px 8px; border-bottom:1px solid #f0f0f0; font-size:13px; }
+  .vrow .vname { width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vrow input { flex:1; padding:4px 6px; border:1px solid #ccc; border-radius:6px; font:inherit; font-size:13px; }
+  .vrow input:focus { border-color:#1a3c6e; outline:none; background:#f0f6ff; }
+  #chatlog { flex:1; overflow:auto; background:#f7f8fa; border:1px solid #e0e0e0; border-radius:8px; padding:10px; margin-bottom:8px; min-height:90px; }
+  .bub { max-width:85%; padding:8px 12px; border-radius:14px; margin-bottom:8px; font-size:14px; white-space:pre-wrap; }
+  .bot { background:#e8eaf0; border-bottom-left-radius:4px; }
+  .user { background:#1a3c6e; color:#fff; margin-left:auto; border-bottom-right-radius:4px; }
+  #chatrow { display:flex; gap:6px; }
+  #chatinput { flex:1; padding:8px; border-radius:8px; border:1px solid #ccc; font:inherit; }
+  .hint { font-size:12px; color:#777; margin:6px 0; }
+  .btn { background:#1a3c6e; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font:inherit; }
+  .btn.orange { background:#ffb84d; color:#222; font-weight:bold; }
+  #result a { font-weight:bold; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📄 PDF Form Marker</h1>
+  <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
+  <select id="docsel"><option>— เลือก PDF —</option></select>
+  <select id="tplsel"><option value="">— เทมเพลตใหม่ —</option></select>
+  <input id="tplname" placeholder="ชื่อเทมเพลต" style="width:140px">
+  <button id="savetpl">💾 บันทึกเทมเพลต</button>
+  <span style="margin-left:auto;display:flex;gap:10px;align-items:center;font-size:13px">
+    <span id="who">{{ user }}</span>
+    <form method="post" action="/logout" style="margin:0">
+      <button type="submit" style="background:#e8eaf0;color:#1a3c6e">ออกจากระบบ</button>
+    </form>
+  </span>
+</header>
+<main>
+  <div id="viewer">
+    <div class="pgnav">
+      <button id="prev">◀</button> <span id="pglabel">หน้า - / -</span> <button id="next">▶</button>
+      <span class="hint" id="fonthint"></span>
+    </div>
+    <div id="pagewrap">
+      <img id="pageimg" alt="เลือก PDF ก่อน">
+    </div>
+  </div>
+  <div id="side">
+    <div id="tabs">
+      <button id="tab-edit" class="active">① มาร์คจุด</button>
+      <button id="tab-fill">② กรอกข้อมูล (แชท)</button>
+    </div>
+    <div id="panel-edit" class="panel active">
+      <p class="hint">คลิก<b>บนเส้นปะพอดี</b>ตรงจุดเริ่มต้นของช่องว่าง → ตัวอักษรจะ "นั่งทับ" บนจุดที่ปัก (จุด = เส้นฐานตัวอักษร)</p>
+      <p class="hint">🎯 จูนละเอียด: คลิกเลือกจุด (เป็นสีน้ำเงิน) แล้วกดลูกศร ↑↓←→ ขยับทีละ 0.5pt · Shift+ลูกศร = 5pt · Esc = เลิกเลือก</p>
+      <label>ขนาดตัวอักษร (pt): <input type="number" id="fsize" value="14" style="width:60px"></label>
+      <ul id="fieldlist"></ul>
+      <p class="hint">คลิกชื่อฟิลด์เพื่อเลือก แล้วคลิกตำแหน่งใหม่บนเอกสารเพื่อย้ายจุด · ✕ = ลบ</p>
+    </div>
+    <div id="panel-fill" class="panel">
+      <p class="hint">✏️ แก้ค่าได้ 3 ทาง: พิมพ์ในตารางนี้ · <b>คลิกจุดสีแดงบนเอกสาร</b> · หรือตอบแชทด้านล่าง · ✕ = ล้างค่าช่องนั้น</p>
+      <div id="valuelist"></div>
+      <button class="btn" id="clearvals" style="background:#888; margin-bottom:8px">🧹 ล้างค่าทั้งหมด (เริ่มรอบใหม่)</button>
+      <div id="chatlog"></div>
+      <div id="chatrow">
+        <input id="chatinput" placeholder="พิมพ์คำตอบแล้วกด Enter…">
+        <button class="btn" id="chatsend">ส่ง</button>
+      </div>
+      <p class="hint">พิมพ์ <b>-</b> เพื่อเว้นว่าง · <b>แก้ [ชื่อฟิลด์]</b> เพื่อแก้ค่า</p>
+      <button class="btn orange" id="makepdf">🖨️ สร้าง PDF</button>
+      <div id="result"></div>
+    </div>
+  </div>
+</main>
+<script>
+let ZOOM=2, doc=null, pages=0, cur=0, fields=[], selIdx=-1, chatIdx=-1;
+const $=id=>document.getElementById(id);
+const img=$('pageimg'), wrap=$('pagewrap');
+
+async function api(url, opts){
+  const res=await fetch(url, opts);
+  if(res.status===401){ location.href='/login'; throw new Error('unauthorized'); }
+  return res;
+}
+async function refreshDocs(){
+  const r=await (await api('/api/docs')).json();
+  $('docsel').innerHTML='<option value="">— เลือก PDF —</option>'+r.pdfs.map(p=>`<option>${p}</option>`).join('');
+  $('tplsel').innerHTML='<option value="">— เทมเพลตใหม่ —</option>'+r.templates.map(t=>`<option>${t}</option>`).join('');
+  const fontName=(r.font||'').split(/[/\\]/).pop();
+  $('fonthint').textContent=r.font?('ฟอนต์ทับ: '+fontName):'⚠️ ไม่พบฟอนต์ไทย';
+  if(r.user) $('who').textContent=r.user;
+  // โหลด demo อัตโนมัติครั้งแรกถ้ายังไม่ได้เลือกเอกสาร
+  if(!doc && r.pdfs.includes('demo-form.pdf')){
+    $('docsel').value='demo-form.pdf';
+    await loadDoc('demo-form.pdf');
+    if(r.templates.includes('demo-ใบเบิก')){
+      $('tplsel').value='demo-ใบเบิก';
+      const t=await (await api('/api/template/'+encodeURIComponent('demo-ใบเบิก'))).json();
+      $('tplname').value='demo-ใบเบิก'; fields=t.fields||[]; renderAll();
+    }
+  }
+}
+refreshDocs();
+
+$('upfile').onchange=async e=>{
+  const fd=new FormData(); fd.append('file',e.target.files[0]);
+  const r=await (await api('/api/upload',{method:'POST',body:fd})).json();
+  await refreshDocs(); $('docsel').value=r.name; loadDoc(r.name);
+};
+$('docsel').onchange=e=>{ if(e.target.value) loadDoc(e.target.value); };
+$('tplsel').onchange=async e=>{
+  if(!e.target.value) { fields=[]; renderAll(); return; }
+  const t=await (await api('/api/template/'+encodeURIComponent(e.target.value))).json();
+  $('tplname').value=e.target.value; fields=t.fields||[];
+  if(t.doc && t.doc!==doc){ await loadDoc(t.doc); $('docsel').value=t.doc; }
+  renderAll();
+};
+
+async function loadDoc(name){
+  doc=name;
+  const info=await (await api('/api/pageinfo/'+encodeURIComponent(name))).json();
+  pages=info.pages; ZOOM=info.zoom; cur=0; showPage();
+}
+function showPage(){
+  if(!doc) return;
+  img.src='/page/'+encodeURIComponent(doc)+'/'+cur+'.png?'+Date.now();
+  $('pglabel').textContent=`หน้า ${cur+1} / ${pages}`;
+  img.onload=renderMarkers;
+}
+$('prev').onclick=()=>{ if(cur>0){cur--; showPage();} };
+$('next').onclick=()=>{ if(cur<pages-1){cur++; showPage();} };
+
+function scale(){ return img.naturalWidth ? img.naturalWidth/img.clientWidth : 1; }
+
+img.onclick=e=>{
+  if(!doc || !$('panel-edit').classList.contains('active')) return;
+  const rect=img.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*scale()/ZOOM, y=(e.clientY-rect.top)*scale()/ZOOM;
+  if(selIdx>=0){ // ย้ายจุดที่เลือก
+    fields[selIdx].x=x; fields[selIdx].y=y; fields[selIdx].page=cur; selIdx=-1;
+  } else {
+    const name=prompt('ชื่อข้อมูลของจุดนี้ (เช่น ชื่อผู้เบิก):'); if(!name) return;
+    fields.push({name,page:cur,x,y,size:parseFloat($('fsize').value)||14,value:''});
+  }
+  renderAll();
+};
+
+function renderMarkers(){
+  wrap.querySelectorAll('.marker,.mlabel,.mvalue').forEach(n=>n.remove());
+  const s=scale();
+  fields.forEach((f,i)=>{
+    if(f.page!==cur) return;
+    const px=f.x*ZOOM/s, py=f.y*ZOOM/s;
+    const m=document.createElement('div'); m.className='marker'+(i===selIdx?' sel':'');
+    m.style.left=px+'px'; m.style.top=py+'px'; m.title=f.name+(f.value?' = '+f.value:'');
+    m.onclick=ev=>{
+      ev.stopPropagation();
+      if($('panel-fill').classList.contains('active')){   // โหมดกรอก: คลิกจุด = แก้ค่าตรงนั้น
+        const nv=prompt('ค่าของ "'+f.name+'":', f.value||'');
+        if(nv!==null){ f.value=nv.trim(); renderAll(); }
+        return;
+      }
+      selIdx=(selIdx===i?-1:i); renderAll();               // โหมดมาร์ค: เลือกเพื่อย้าย/ลบ
+    };
+    wrap.appendChild(m);
+    if(f.value){
+      const v=document.createElement('div'); v.className='mvalue'; v.textContent=f.value;
+      v.style.left=px+'px'; v.style.top=py+'px'; v.style.fontSize=(f.size*ZOOM/s)+'px';
+      wrap.appendChild(v);
+    } else {
+      const l=document.createElement('div'); l.className='mlabel'; l.textContent=f.name;
+      l.style.left=px+'px'; l.style.top=(py-6)+'px';
+      wrap.appendChild(l);
+    }
+  });
+}
+function renderList(){
+  $('fieldlist').innerHTML=fields.map((f,i)=>
+    `<li class="${i===selIdx?'sel':''}"><span class="fname" onclick="selField(${i})">📍 ${f.name} <small>(หน้า ${f.page+1}, ${f.size}pt)</small>${f.value?' = <b>'+f.value+'</b>':''}</span><button class="del" style="color:#0077ff" onclick="renameField(${i})" title="เปลี่ยนชื่อฟิลด์">✏️</button><button class="del" onclick="delField(${i})" title="ลบจุดนี้ทิ้ง">✕</button></li>`).join('');
+}
+function renderValues(){
+  const el=$('valuelist'); if(!el) return;
+  el.innerHTML=fields.map((f,i)=>
+    `<div class="vrow"><span class="vname" title="${f.name} (หน้า ${f.page+1})" onclick="gotoField(${i})">📍 ${f.name}</span><input data-i="${i}" value="${(f.value||'').replace(/"/g,'&quot;')}" placeholder="— ว่าง —"><button class="del" data-clear="${i}" title="ล้างค่าช่องนี้">✕</button></div>`).join('');
+}
+$('valuelist').addEventListener('input',e=>{
+  const i=e.target.dataset.i; if(i===undefined) return;
+  fields[i].value=e.target.value.trim();
+  renderMarkers(); renderList();          // อัพเดตพรีวิวสด ๆ โดยไม่รีเซ็ตช่องพิมพ์
+});
+$('valuelist').addEventListener('click',e=>{
+  const c=e.target.dataset.clear; if(c===undefined) return;
+  fields[c].value=''; renderAll();
+});
+window.gotoField=i=>{ if(fields[i].page!==cur){cur=fields[i].page; showPage();} };
+window.selField=i=>{ selIdx=(selIdx===i?-1:i); if(fields[i].page!==cur){cur=fields[i].page; showPage();} renderAll(); };
+window.delField=i=>{ if(!confirm('ลบจุด "'+fields[i].name+'" ทิ้ง?')) return; fields.splice(i,1); selIdx=-1; renderAll(); };
+window.renameField=i=>{ const n=prompt('ชื่อใหม่ของฟิลด์:', fields[i].name); if(n){ fields[i].name=n.trim(); renderAll(); } };
+$('clearvals').onclick=()=>{
+  if(!confirm('ล้างค่าที่กรอกไว้ทั้งหมด เพื่อเริ่มกรอกรอบใหม่? (จุดที่มาร์คไว้ยังอยู่ครบ)')) return;
+  fields.forEach(f=>f.value='');
+  chatIdx=-1; $('chatlog').innerHTML=''; renderAll(); startChat();
+};
+function renderAll(){ renderList(); renderValues(); renderMarkers(); }
+window.addEventListener('resize',renderMarkers);
+
+// จูนตำแหน่งละเอียดด้วยลูกศร: เลือกจุดในแท็บ ① แล้วกด ↑↓←→ (0.5pt) / Shift+ลูกศร (5pt)
+window.addEventListener('keydown',e=>{
+  if(selIdx<0 || !$('panel-edit').classList.contains('active')) return;
+  if(document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const step=e.shiftKey?5:0.5;
+  const f=fields[selIdx];
+  if(e.key==='ArrowUp') f.y-=step;
+  else if(e.key==='ArrowDown') f.y+=step;
+  else if(e.key==='ArrowLeft') f.x-=step;
+  else if(e.key==='ArrowRight') f.x+=step;
+  else if(e.key==='Escape'){ selIdx=-1; renderAll(); return; }
+  else return;
+  e.preventDefault(); renderMarkers();
+});
+
+$('savetpl').onclick=async()=>{
+  const name=$('tplname').value.trim();
+  if(!doc||!name) return alert('เลือก PDF และตั้งชื่อเทมเพลตก่อน');
+  await api('/api/template/'+encodeURIComponent(name),{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({doc,fields})});
+  await refreshDocs(); $('tplsel').value=name;
+  alert('บันทึกเทมเพลต "'+name+'" แล้ว ('+fields.length+' จุด)');
+};
+
+// ── แชทกรอกข้อมูล ──
+$('tab-edit').onclick=()=>setTab('edit');
+$('tab-fill').onclick=()=>{ setTab('fill'); renderValues(); startChat(); };
+function setTab(t){
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $('tab-'+t).classList.add('active'); $('panel-'+t).classList.add('active');
+}
+function bub(text,who){ const d=document.createElement('div'); d.className='bub '+who; d.textContent=text;
+  $('chatlog').appendChild(d); $('chatlog').scrollTop=1e9; }
+function startChat(){
+  if(!fields.length){ bub('ยังไม่มีจุดที่มาร์คไว้ — กลับไปแท็บ ① ก่อนครับ','bot'); return; }
+  if(chatIdx===-1){ chatIdx=0; bub(`มี ${fields.length} ช่องให้กรอก เริ่มเลย!`,'bot'); ask(); }
+}
+function ask(){
+  while(chatIdx<fields.length && fields[chatIdx].value) chatIdx++;
+  if(chatIdx<fields.length) bub(`กรอก: ${fields[chatIdx].name}`,'bot');
+  else bub('ครบทุกช่องแล้ว ✅ กด "สร้าง PDF" ได้เลย หรือพิมพ์ แก้ [ชื่อฟิลด์] เพื่อแก้ค่า','bot');
+}
+function handleChat(){
+  const v=$('chatinput').value.trim(); if(!v) return;
+  $('chatinput').value=''; bub(v,'user');
+  const m=v.match(/^แก้\s*(.*)$/);
+  if(m){
+    const q=m[1].trim();
+    let i=q?fields.findIndex(f=>f.name===q):-1;
+    if(i<0 && q) i=fields.findIndex(f=>f.name.includes(q));   // พิมพ์บางส่วนก็เจอ
+    if(i<0){ bub('ไม่พบฟิลด์ "'+q+'" — พิมพ์แค่บางส่วนของชื่อก็ได้ หรือแก้ในตารางด้านบน/คลิกจุดบนเอกสารได้เลย','bot'); return; }
+    fields[i].value=''; chatIdx=i; renderAll(); ask(); return;
+  }
+  if(chatIdx>=0 && chatIdx<fields.length){
+    fields[chatIdx].value=(v==='-'?'':v);
+    if(fields[chatIdx].page!==cur){cur=fields[chatIdx].page; showPage();}
+    renderAll(); chatIdx++; ask();
+  }
+}
+$('chatsend').onclick=handleChat;
+$('chatinput').addEventListener('keydown',e=>{ if(e.key==='Enter') handleChat(); });
+
+$('makepdf').onclick=async()=>{
+  if(!doc) return;
+  const outname=($('tplname').value||'filled')+'-'+new Date().toISOString().slice(0,10);
+  const r=await (await api('/api/fill',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({doc,fields,outname})})).json();
+  if(r.error){ $('result').textContent='❌ '+r.error; return; }
+  $('result').innerHTML=`✅ <a href="/download/${encodeURIComponent(r.file)}" target="_blank">เปิด ${r.file}</a>`;
+  bub('สร้างไฟล์ '+r.file+' เรียบร้อย 🎉','bot');
+};
+</script>
+</body>
+</html>

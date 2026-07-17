@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบ — PDF Form Marker</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: 'Leelawadee UI', 'Noto Sans Thai', Tahoma, sans-serif;
+    background: linear-gradient(160deg, #0f2744 0%, #1a3c6e 45%, #2a5a8a 100%);
+    color: #222;
+  }
+  .card {
+    width: min(400px, 92vw); background: #fff; border-radius: 12px; padding: 28px 24px 24px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.28);
+  }
+  h1 { margin: 0 0 6px; font-size: 22px; color: #1a3c6e; }
+  .sub { margin: 0 0 20px; color: #666; font-size: 14px; }
+  label { display: block; font-size: 13px; margin: 12px 0 4px; color: #444; }
+  input {
+    width: 100%; padding: 10px 12px; border: 1px solid #ccd; border-radius: 8px;
+    font: inherit; font-size: 15px;
+  }
+  input:focus { outline: none; border-color: #1a3c6e; box-shadow: 0 0 0 3px rgba(26,60,110,.15); }
+  button {
+    width: 100%; margin-top: 18px; padding: 11px; border: none; border-radius: 8px;
+    background: #ffb84d; color: #222; font: inherit; font-weight: bold; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.05); }
+  .err {
+    background: #fde8e8; color: #b00020; padding: 10px 12px; border-radius: 8px;
+    font-size: 14px; margin-bottom: 12px;
+  }
+  .hint { margin-top: 16px; font-size: 12px; color: #888; line-height: 1.45; }
+</style>
+</head>
+<body>
+  <form class="card" method="post" action="{{ url_for('login', next=request.args.get('next', '')) }}">
+    <h1>PDF Form Marker</h1>
+    <p class="sub">เข้าสู่ระบบเพื่อมาร์คจุดและกรอกฟอร์ม PDF</p>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <label for="username">ชื่อผู้ใช้</label>
+    <input id="username" name="username" autocomplete="username" required autofocus>
+    <label for="password">รหัสผ่าน</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">เข้าสู่ระบบ</button>
+    <p class="hint">หลังล็อกอินจะมีแบบฟอร์มตัวอย่าง (demo) ให้ลองใช้ทันที</p>
+  </form>
+</body>
+</html>

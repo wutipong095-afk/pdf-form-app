@@ -1,0 +1,14 @@
+/uploads/
+/output/
+data/
+!demo/uploads/
+!demo/uploads/**
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+~$*
+Thumbs.db
+desktop.ini
+.DS_Store
