@@ -43,3 +43,21 @@ docker compose up -d --build
 
 - คนละโฟลเดอร์: `data/users/<ชื่อ>/uploads|templates_json|output`
 - ตั้งค่าใน `.env`: `ADMIN_USER` + `ADMIN_PASSWORD` หรือ `USERS_JSON`
+
+## ไลเซนต์ (ขายขาด ผูก 1 เครื่อง ดูแล 5 ปี)
+
+- ไม่มีคีย์: มาร์ค/กรอกได้ — **สร้าง PDF ได้เฉพาะ `demo-form.pdf`**
+- มีคีย์: สร้าง PDF ได้ทุกเอกสาร จนถึงวันหมดอายุ
+- ลูกค้าส่ง **รหัสเครื่อง** จากแถบด้านบนแอป → ผู้ขายออกคีย์
+
+ออกคีย์ (ฝั่งผู้ขาย — ตั้ง `LICENSE_SECRET` ให้ตรงกับตัวแอป):
+
+```bash
+python scripts/gen_license.py <รหัสเครื่อง16ตัว>
+```
+
+ตอนพัฒนา local ใส่ใน `.env`:
+
+```env
+LICENSE_BYPASS=true
+```

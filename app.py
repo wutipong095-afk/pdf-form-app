@@ -25,6 +25,8 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from license_core import activate_license, can_fill_document, license_status
+
 BASE = Path(__file__).resolve().parent
 
 
@@ -201,7 +203,27 @@ def index():
 @app.get("/api/me")
 @login_required
 def me():
-    return jsonify({"user": current_user()})
+    return jsonify({"user": current_user(), "license": license_status(DATA_DIR)})
+
+
+@app.get("/api/license")
+@login_required
+def get_license():
+    return jsonify(license_status(DATA_DIR))
+
+
+@app.post("/api/license")
+@login_required
+def post_license():
+    data = request.get_json(force=True, silent=True) or {}
+    key = (data.get("key") or "").strip()
+    if not key:
+        return jsonify({"error": "กรุณาใส่คีย์ไลเซนต์"}), 400
+    try:
+        st = activate_license(DATA_DIR, key)
+        return jsonify({"ok": True, **st})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @app.get("/api/docs")
@@ -210,7 +232,13 @@ def list_docs():
     paths = user_paths(current_user())
     pdfs = sorted(f.name for f in paths["uploads"].glob("*.pdf"))
     tpls = sorted(f.stem for f in paths["templates"].glob("*.json"))
-    return jsonify({"pdfs": pdfs, "templates": tpls, "font": thai_font(), "user": current_user()})
+    return jsonify({
+        "pdfs": pdfs,
+        "templates": tpls,
+        "font": thai_font(),
+        "user": current_user(),
+        "license": license_status(DATA_DIR),
+    })
 
 
 @app.post("/api/upload")
@@ -283,6 +311,9 @@ def fill():
     data = request.get_json(force=True, silent=True) or {}
     doc_name = data.get("doc") or ""
     fields = data.get("fields") or []
+    ok, lic_err = can_fill_document(DATA_DIR, doc_name)
+    if not ok:
+        return jsonify({"error": lic_err, "license_required": True}), 402
     font = thai_font()
     if not font:
         return jsonify({"error": "ไม่พบฟอนต์ไทย — ตรวจโฟลเดอร์ fonts/"}), 500

@@ -72,5 +72,7 @@ docker compose logs -f app
 
 - เปลี่ยนรหัสผ่าน default ก่อนเปิดเน็ต
 - อย่า commit ไฟล์ `.env`
+- ตั้ง `LICENSE_SECRET` ให้ยาวและลับ (ใช้ชุดเดียวกับตอนออกคีย์ด้วย `scripts/gen_license.py`)
+- อย่าเปิด `LICENSE_BYPASS` บนเครื่องลูกค้า
 - แต่ละ user มีโฟลเดอร์แยกใน `/data/users/<ชื่อ>/`
 - จำกัดขนาดอัปโหลดด้วย `MAX_UPLOAD_MB`
