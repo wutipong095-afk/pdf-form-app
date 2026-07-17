@@ -34,7 +34,7 @@ docker compose up -d --build
 |------|----------|
 | `app.py` | API + login + PDF |
 | `templates/` | UI (login + แอป) |
-| `fonts/` | ฟอนต์ไทย bundled (Noto Sans Thai) |
+| `fonts/` | ฟอนต์ไทยราชการ (TH Sarabun / THSarabunIT๙) |
 | `demo/` | PDF + เทมเพลตตัวอย่าง (commit ได้) |
 | `data/users/<user>/` | อัปโหลด / เทมเพลต / ผลลัพธ์ ต่อผู้ใช้ (ไม่เข้า git) |
 | `templates_json/` | เทมเพลตเก่าจากเครื่อง local (อ้างอิงเท่านั้น) |

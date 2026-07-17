@@ -51,8 +51,12 @@ FONTS_DIR = BASE / "fonts"
 ZOOM = 2.0
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "16"))
 
-# ฟอนต์ไทย — ใช้ bundled ก่อน แล้วค่อย fallback เครื่อง local
+# ฟอนต์ไทยราชการ — TH Sarabun (IT๙ = ตัวเลขไทย) ก่อน แล้วค่อย fallback
 FONT_CANDIDATES = [
+    os.environ.get("FONT_PATH", ""),  # บังคับ path ได้ผ่าน .env
+    str(FONTS_DIR / "THSarabunIT๙.ttf"),
+    str(FONTS_DIR / "THSarabun.ttf"),
+    str(FONTS_DIR / "THSarabunNew.ttf"),
     str(FONTS_DIR / "NotoSansThai-Regular.ttf"),
     r"C:\Windows\Fonts\THSarabunNew.ttf",
     r"C:\Windows\Fonts\THSarabun.ttf",
@@ -65,8 +69,15 @@ FONT_CANDIDATES = [
 
 def thai_font():
     for f in FONT_CANDIDATES:
-        if os.path.exists(f):
+        if f and os.path.exists(f):
             return f
+    # เผื่อชื่อไฟล์ต่างเล็กน้อย — หา THSarabun*.ttf ใน fonts/ (ไม่เอา Bold/Italic)
+    if FONTS_DIR.is_dir():
+        for p in sorted(FONTS_DIR.glob("THSarabun*.ttf")):
+            name = p.name.lower()
+            if "bold" in name or "italic" in name:
+                continue
+            return str(p)
     return None
 
 
