@@ -46,17 +46,21 @@ docker compose up -d --build
 
 ## ไลเซนต์ (ขายขาด ผูก 1 เครื่อง ดูแล 5 ปี)
 
-- ไม่มีคีย์: มาร์ค/กรอกได้ — **สร้าง PDF ได้เฉพาะ `demo-form.pdf`**
-- มีคีย์: สร้าง PDF ได้ทุกเอกสาร จนถึงวันหมดอายุ
-- ลูกค้าส่ง **รหัสเครื่อง** จากแถบด้านบนแอป → ผู้ขายออกคีย์
+- ตรวจด้วย **Ed25519**: แอปมีแค่ `license_public.pem` — ลูกค้าออกคีย์เองไม่ได้
+- รหัสเครื่องเก็บถาวรใน `data/machine_id` (ทน Docker rebuild)
+- ไม่มีคีย์: สร้าง PDF ได้เฉพาะ **เนื้อหา** `demo-form.pdf` ทางการ (กัน rename/เขียนทับ)
+- มีคีย์: สร้าง PDF ได้ทุกเอกสาร จนถึงวันหมดอายุ (UTC)
 
-ออกคีย์ (ฝั่งผู้ขาย — ตั้ง `LICENSE_SECRET` ให้ตรงกับตัวแอป):
+ออกคีย์ (เฉพาะเครื่องผู้ขายที่มี private key):
 
 ```bash
+python scripts/gen_keypair.py          # ครั้งแรกเท่านั้น
 python scripts/gen_license.py <รหัสเครื่อง16ตัว>
 ```
 
-ตอนพัฒนา local ใส่ใน `.env`:
+ห้าม commit / ห้ามใส่ Docker: `keys/ed25519_private.pem`
+
+ตอนพัฒนา local:
 
 ```env
 LICENSE_BYPASS=true

@@ -3,6 +3,8 @@
 data/
 !demo/uploads/
 !demo/uploads/**
+keys/
+*.pem.tmp
 __pycache__/
 *.pyc
 .env

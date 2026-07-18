@@ -26,28 +26,18 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from license_core import activate_license, can_fill_document, license_status
+from envutil import BASE, load_dotenv
+from license_core import (
+    DEMO_DOC_NAME,
+    activate_license,
+    can_fill_document,
+    file_sha256,
+    license_status,
+)
 
-BASE = Path(__file__).resolve().parent
-
-
-def _load_dotenv() -> None:
-    env_path = BASE / ".env"
-    if not env_path.exists():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, val = line.partition("=")
-        key, val = key.strip(), val.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = val
-
-
-_load_dotenv()
+load_dotenv()
 DEMO_DIR = BASE / "demo"
-DATA_DIR = Path(os.environ.get("DATA_DIR", BASE / "data"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", BASE / "data")).resolve()
 USERS_DIR = DATA_DIR / "users"
 FONTS_DIR = BASE / "fonts"
 
@@ -165,20 +155,49 @@ def user_paths(username: str) -> dict:
 
 
 def seed_demo_for_user(username: str) -> None:
-    """คัดลอก demo PDF + เทมเพลตเข้าโฟลเดอร์ user ครั้งแรก (ไม่ทับของเดิม)"""
+    """คัดลอก demo PDF + เทมเพลตเข้าโฟลเดอร์ user
+
+    seeded.json จำ hash ของไฟล์ที่แอปเคย seed — ถ้าแอปอัปเดต demo แล้วไฟล์
+    ของ user ยังเป็นเวอร์ชัน seed เดิม (ไม่ได้แก้/แทนที่เอง) จะอัปเกรดทับให้
+    ไม่งั้น demo เก่าจะไม่ผ่านเช็คต้นฉบับตอนกรอกแบบทดลอง ไฟล์ที่ user แตะเองไม่ทับ"""
     paths = user_paths(username)
-    demo_uploads = DEMO_DIR / "uploads"
-    demo_tpl = DEMO_DIR / "templates_json"
-    if demo_uploads.is_dir():
-        for src in demo_uploads.glob("*.pdf"):
-            dst = paths["uploads"] / src.name
-            if not dst.exists():
+    seeded_path = paths["root"] / "seeded.json"
+    try:
+        seeded = json.loads(seeded_path.read_text(encoding="utf-8"))
+        if not isinstance(seeded, dict):
+            seeded = {}
+    except (OSError, ValueError):
+        seeded = {}
+    changed = False
+    for sub, pattern, dst_dir in (
+        ("uploads", "*.pdf", paths["uploads"]),
+        ("templates_json", "*.json", paths["templates"]),
+    ):
+        src_dir = DEMO_DIR / sub
+        if not src_dir.is_dir():
+            continue
+        for src in src_dir.glob(pattern):
+            dst = dst_dir / src.name
+            src_sha = file_sha256(src)
+            rec = f"{sub}/{src.name}"
+            if dst.exists():
+                try:
+                    dst_sha = file_sha256(dst)
+                except OSError:
+                    continue
+                if dst_sha != src_sha and seeded.get(rec) != dst_sha:
+                    continue  # user แก้/แทนที่เอง — ไม่แตะ
+                if dst_sha != src_sha:
+                    shutil.copy2(src, dst)
+            else:
                 shutil.copy2(src, dst)
-    if demo_tpl.is_dir():
-        for src in demo_tpl.glob("*.json"):
-            dst = paths["templates"] / src.name
-            if not dst.exists():
-                shutil.copy2(src, dst)
+            if seeded.get(rec) != src_sha:
+                seeded[rec] = src_sha
+                changed = True
+    if changed:
+        seeded_path.write_text(
+            json.dumps(seeded, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 app = Flask(__name__)
@@ -263,6 +282,9 @@ def post_license():
         return jsonify({"ok": True, **st})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    except RuntimeError as e:
+        # ปัญหา config ฝั่งแอป (public key หาย/ไฟล์รหัสเครื่องเสีย) ไม่ใช่คีย์ผิด
+        return jsonify({"error": str(e)}), 500
 
 
 @app.get("/api/docs")
@@ -289,6 +311,11 @@ def upload():
     if not f.filename:
         return jsonify({"error": "ไม่มีชื่อไฟล์"}), 400
     name = safe_name(os.path.splitext(f.filename)[0]) + ".pdf"
+    # กันเขียนทับ demo ทางการด้วยเอกสารอื่น (bypass ไลเซนต์)
+    if name.lower() == DEMO_DOC_NAME:
+        return jsonify({
+            "error": f"ชื่อ {DEMO_DOC_NAME} สงวนไว้สำหรับแบบตัวอย่าง — เปลี่ยนชื่อไฟล์ก่อนอัปโหลด",
+        }), 400
     paths = user_paths(current_user())
     f.save(paths["uploads"] / name)
     return jsonify({"ok": True, "name": name})
@@ -350,9 +377,6 @@ def fill():
     data = request.get_json(force=True, silent=True) or {}
     doc_name = data.get("doc") or ""
     fields = data.get("fields") or []
-    ok, lic_err = can_fill_document(DATA_DIR, doc_name)
-    if not ok:
-        return jsonify({"error": lic_err, "license_required": True}), 402
     font = thai_font()
     if not font:
         return jsonify({"error": "ไม่พบฟอนต์ไทย — ตรวจโฟลเดอร์ fonts/"}), 500
@@ -360,6 +384,9 @@ def fill():
     src = _pdf_path(current_user(), doc_name)
     if not src.exists():
         return jsonify({"error": "ไม่พบ PDF"}), 404
+    ok, lic_err = can_fill_document(DATA_DIR, doc_name, src)
+    if not ok:
+        return jsonify({"error": lic_err, "license_required": True}), 402
 
     out_name = safe_name(data.get("outname") or f"filled-{int(time.time())}") + ".pdf"
     out_path = user_paths(current_user())["output"] / out_name
