@@ -1,6 +1,7 @@
 /uploads/
 /output/
 data/
+.pdfmarker/
 !demo/uploads/
 !demo/uploads/**
 keys/

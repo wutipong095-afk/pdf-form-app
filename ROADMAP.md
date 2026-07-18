@@ -71,7 +71,7 @@ Frontend: โฟลเดอร์ [`frontend/`](frontend/)
 | CP6 | Pilot โรงเรียน | ทดลองกับโรงเรียนจริง ≥ 2 แห่ง ครบ 1 สัปดาห์ใช้งานจริง |
 | CP7 | Ready to sell | คู่มือไทย, ช่องทางออกคีย์, วิดีโอสั้น, นโยบายซัพพอร์ต 5 ปี ชัดเจน |
 
-สถานะปัจจุบันโดยประมาณ: **CP0 ผ่าน** · **CP-TS เกือบครบ** → ต่อไป **CP1** + logging
+สถานะปัจจุบันโดยประมาณ: **CP0 ผ่าน** · **CP-TS ผ่าน** · **CP1 ผ่าน** (logging L1–L4) → ต่อไป **CP2** คลังเอกสาร
 
 ---
 
@@ -86,7 +86,7 @@ Frontend: โฟลเดอร์ [`frontend/`](frontend/)
 - [x] Docker deploy (โหมดขั้นสูง)
 - [x] Scaffold `frontend/` (Vite + TypeScript)
 - [x] ย้าย UI หลักจาก `templates/index.html` inline JS → TypeScript modules
-- [ ] โหมดโรงเรียนเป็นค่าเริ่มต้นในเอกสารหลัก
+- [x] โหมดโรงเรียนเป็นค่าเริ่มต้นในเอกสารหลัก
 
 **ทางออก:** CP0
 
@@ -113,9 +113,9 @@ frontend/
 - [x] ย้าย license / docs / มาร์คจุด / กรอก / สร้าง PDF ไป TS
 - [x] ลบ inline `<script>` ก้อนใหญ่ใน `templates/index.html`
 - [x] Dev: `vite` proxy ไป Flask (`localhost:5000`)
-- [ ] Client error → `POST /api/client-log` (ทำคู่ logging ระยะ 1)
+- [x] Client error → `POST /api/client-log` (ทำคู่ logging ระยะ 1)
 
-**ทางออก:** CP-TS (เกือบครบ — เหลือ client-log คู่ L4)
+**ทางออก:** CP-TS
 
 ---
 
@@ -125,21 +125,21 @@ frontend/
 
 #### งานผลิตภัณฑ์
 
-- [ ] ค่าเริ่มต้น `HOST=127.0.0.1`
-- [ ] `DATA_DIR` ชี้ `%LOCALAPPDATA%\PDFFormMarker\data` บน Windows
-- [ ] โหมดเครื่องเดียว: เข้าใช้งานได้โดยไม่บังคับ login (เก็บ login เป็น Advanced)
-- [ ] ปุ่มเปิดโฟลเดอร์ข้อมูล / โฟลเดอร์ผลลัพธ์
-- [ ] แยก README เป็น “โรงเรียน” vs “นักพัฒนา”
-- [ ] ปิด `LICENSE_BYPASS` ใน build ปล่อยจริง
+- [x] ค่าเริ่มต้น `HOST=127.0.0.1`
+- [x] `DATA_DIR` ชี้ `%LOCALAPPDATA%\PDFFormMarker\data` บน Windows
+- [x] โหมดเครื่องเดียว: เข้าใช้งานได้โดยไม่บังคับ login (เก็บ login เป็น Advanced)
+- [x] ปุ่มเปิดโฟลเดอร์ข้อมูล / โฟลเดอร์ผลลัพธ์
+- [x] แยก README เป็น “โรงเรียน” vs “นักพัฒนา”
+- [x] ปิด `LICENSE_BYPASS` ใน build ปล่อยจริง (ค่าเริ่มต้นปิด; Docker ไม่เปิด; เตือนใน log ถ้าเปิด)
 
 #### งาน Logging / ตรวจจับ Error (เริ่มที่ระยะนี้)
 
 ดูรายละเอียดในหัวข้อ [แผน Logging และตรวจจับ Error](#แผน-logging-และตรวจจับ-error)
 
-- [ ] โมดูล `logging_setup.py` มาตรฐานทั้งแอป
-- [ ] เขียน log ลงไฟล์หมุนเวียน (rotating)
-- [ ] จับ exception ที่ยังไม่ถูกจัดการ (Flask + thread หลัก)
-- [ ] หน้า/ปุ่ม “ส่งรายงานปัญหา” = แพ็ก log ล่าสุดเป็น ZIP (ไม่มี PDF เนื้อหา)
+- [x] โมดูล `logging_setup.py` มาตรฐานทั้งแอป
+- [x] เขียน log ลงไฟล์หมุนเวียน (rotating)
+- [x] จับ exception ที่ยังไม่ถูกจัดการ (Flask + thread หลัก)
+- [x] หน้า/ปุ่ม “ส่งรายงานปัญหา” = แพ็ก log ล่าสุดเป็น ZIP (ไม่มี PDF เนื้อหา)
 
 **ทางออก:** CP1
 
@@ -305,10 +305,10 @@ frontend/
 
 | ID | ผ่านเมื่อ |
 |----|-----------|
-| L1 | มีไฟล์ `app.log` หลังรันแอป และหมุนเวียนได้ |
-| L2 | ทำให้ `/api/fill` พังโดยจงใจแล้วเห็น stack ใน `errors.log` |
-| L3 | ปุ่มสร้าง report ZIP ได้ และใน ZIP ไม่มีไฟล์จาก `uploads/` / `output/` |
-| L4 | UI error ส่งเข้า client-log ได้โดยไม่สแปม (rate limit) |
+| L1 | มีไฟล์ `app.log` หลังรันแอป และหมุนเวียนได้ | ✅ |
+| L2 | ทำให้ `/api/fill` พังโดยจงใจแล้วเห็น stack ใน `errors.log` | ✅ (handler + `log.exception` ใน fill) |
+| L3 | ปุ่มสร้าง report ZIP ได้ และใน ZIP ไม่มีไฟล์จาก `uploads/` / `output/` | ✅ |
+| L4 | UI error ส่งเข้า client-log ได้โดยไม่สแปม (rate limit) | ✅ |
 
 ---
 
@@ -353,3 +353,6 @@ frontend/
 |--------|----------|
 | 2026-07-18 | ร่างแรก: โรดแมปโรงเรียน + เช็กพอยต์ + แผน logging/ตรวจจับ error |
 | 2026-07-18 | เพิ่ม Hybrid Python + TypeScript, เช็กพอยต์ CP-TS, scaffold `frontend/` |
+| 2026-07-18 | CP1 + logging L1–L4: AppData DATA_DIR, ไม่บังคับ login, client-log, support-report ZIP |
+| 2026-07-19 | แก้ตามรีวิว: fallback `./data` เดิม, จำกัด open-folder นอก localhost, ignore `.pdfmarker/` |
+| 2026-07-19 | แก้ findings PR: secret_key O_EXCL, legacy marker, LOG_PER_WORKER, TRUST_XFF, BytesIO report |

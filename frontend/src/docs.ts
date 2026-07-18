@@ -21,7 +21,9 @@ export async function refreshDocs(onMarkers: () => void, onRender: () => void): 
 
   const fontName = (r.font || "").split(/[/\\]/).pop();
   $("fonthint").textContent = r.font ? "ฟอนต์ทับ: " + fontName : "⚠️ ไม่พบฟอนต์ไทย";
-  if (r.user) $("who").textContent = r.user;
+  if (r.user) {
+    $("who").textContent = r.auth_required === false ? "เครื่องนี้" : r.user;
+  }
 
   if (!state.doc && r.pdfs.includes(demoDoc)) {
     docsel.value = demoDoc;
