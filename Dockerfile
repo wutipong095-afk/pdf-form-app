@@ -13,6 +13,7 @@ COPY app.py license_core.py envutil.py license_public.pem .
 COPY fonts ./fonts
 COPY templates ./templates
 COPY demo ./demo
+COPY static ./static
 
 RUN mkdir -p /data/users \
     && useradd -m -u 10001 appuser \
