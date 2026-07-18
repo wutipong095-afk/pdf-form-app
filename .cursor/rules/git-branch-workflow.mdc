@@ -1,0 +1,29 @@
+---
+description: ห้ามทำงานบน master — ต้องสร้างกิ่งก่อนลงมือทุกครั้ง
+alwaysApply: true
+---
+
+# Git branch workflow
+
+## กฎบังคับ
+
+1. **ห้ามแก้โค้ดหรือ commit บน `master` / `main` โดยตรง**
+2. **ก่อนเริ่มงานทุกครั้ง** ตรวจ `git branch --show-current`
+   - ถ้าอยู่บน `master` หรือ `main` → สร้างกิ่งใหม่ก่อน แล้วค่อยแก้ไฟล์
+3. ชื่อกิ่งแนะนำ: `feat/...`, `fix/...`, `docs/...`, `chore/...`
+4. Commit / push ทำบนกิ่งนั้นเท่านั้น แล้วเปิด PR เข้า `master`
+5. ถ้าพบว่ากำลังแก้ไฟล์บน `master` อยู่แล้ว → หยุด, สร้างกิ่งจากสถานะปัจจุบัน (`git checkout -b ...`) แล้วย้ายงานไปกิ่งนั้นก่อนทำงานต่อ
+
+## ตัวอย่าง
+
+```bash
+git checkout master
+git pull
+git checkout -b feat/document-library
+# แล้วค่อยแก้โค้ด / commit
+```
+
+## ข้อยกเว้น
+
+- อ่านอย่างเดียว / ตอบคำถาม ไม่ต้องสร้างกิ่ง
+- ผู้ใช้สั่ง merge PR เข้า `master` ผ่าน `gh pr merge` ได้ตามปกติ

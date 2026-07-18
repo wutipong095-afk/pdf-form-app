@@ -19,6 +19,21 @@ python app.py
 
 หลังล็อกอินจะมี **demo-form.pdf** + เทมเพลต **demo-ใบเบิก** ให้ลองทันที
 
+## แผนพัฒนา
+
+ดู [ROADMAP.md](ROADMAP.md) — โรดแมปโรงเรียน, เช็กพอยต์, แผน logging / ตรวจจับ error
+
+## Frontend (TypeScript)
+
+UI กำลังย้ายไป TypeScript (Vite) ในโฟลเดอร์ [`frontend/`](frontend/) — backend ยังเป็น Python
+
+```bash
+cd frontend
+npm install
+npm run build    # → static/js/app.js ให้ Flask เสิร์ฟ
+npm run dev      # พัฒนา UI ที่ :5173 (ต้องรัน python app.py คู่กัน)
+```
+
 ## Deploy ให้คนอื่นใช้
 
 ดู [DEPLOY.md](DEPLOY.md) — Docker + Caddy (HTTPS)
