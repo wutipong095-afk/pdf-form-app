@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -16,11 +17,23 @@ class _ErrorOnlyFilter(logging.Filter):
         return record.levelno >= logging.ERROR
 
 
+def _loopback_host(host: str | None = None) -> bool:
+    h = (host if host is not None else os.environ.get("HOST", "127.0.0.1")).strip().lower()
+    return h in ("127.0.0.1", "localhost", "::1")
+
+
+def use_per_worker_logs() -> bool:
+    """แยกไฟล์ log ต่อ pid เมื่อหลาย worker / bind นอก loopback — กัน rotation ชนกัน"""
+    raw = os.environ.get("LOG_PER_WORKER")
+    if raw is not None and raw.strip() != "":
+        return raw.strip().lower() in ("1", "true", "yes", "on")
+    return not _loopback_host()
+
+
 def init_logging(log_dir: Path, *, console: bool = True) -> logging.Logger:
     """สร้าง app.log + errors.log ภายใต้ log_dir แล้วคืน root logger ของแอป"""
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
-    (log_dir / "reports").mkdir(parents=True, exist_ok=True)
 
     logger = logging.getLogger(APP_LOGGER_NAME)
     if logger.handlers:
@@ -34,8 +47,16 @@ def init_logging(log_dir: Path, *, console: bool = True) -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    if use_per_worker_logs():
+        suffix = f"-{os.getpid()}"
+        app_name = f"app{suffix}.log"
+        err_name = f"errors{suffix}.log"
+    else:
+        app_name = "app.log"
+        err_name = "errors.log"
+
     app_handler = RotatingFileHandler(
-        log_dir / "app.log",
+        log_dir / app_name,
         maxBytes=_MAX_BYTES,
         backupCount=_BACKUP_COUNT,
         encoding="utf-8",
@@ -45,7 +66,7 @@ def init_logging(log_dir: Path, *, console: bool = True) -> logging.Logger:
     logger.addHandler(app_handler)
 
     err_handler = RotatingFileHandler(
-        log_dir / "errors.log",
+        log_dir / err_name,
         maxBytes=_MAX_BYTES,
         backupCount=_BACKUP_COUNT,
         encoding="utf-8",
@@ -61,13 +82,15 @@ def init_logging(log_dir: Path, *, console: bool = True) -> logging.Logger:
         cons.setFormatter(fmt)
         logger.addHandler(cons)
 
-    # ให้ exception จาก werkzeug/flask ที่ใช้ logging.getLogger(__name__) ไหลเข้าไฟล์ด้วย
-    for name in ("werkzeug", "flask.app"):
-        lg = logging.getLogger(name)
-        lg.setLevel(logging.INFO)
-        if not lg.handlers:
-            lg.addHandler(app_handler)
-            lg.addHandler(err_handler)
+    # flask.app ERROR+ ลงไฟล์ — ไม่ดึง werkzeug access (ทุก /page/*.png) เข้า rotation
+    flask_lg = logging.getLogger("flask.app")
+    flask_lg.setLevel(logging.INFO)
+    if not flask_lg.handlers:
+        flask_lg.addHandler(app_handler)
+        flask_lg.addHandler(err_handler)
+
+    wz = logging.getLogger("werkzeug")
+    wz.setLevel(logging.WARNING)
 
     return logger
 

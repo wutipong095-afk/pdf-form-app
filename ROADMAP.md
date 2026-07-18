@@ -355,3 +355,4 @@ frontend/
 | 2026-07-18 | เพิ่ม Hybrid Python + TypeScript, เช็กพอยต์ CP-TS, scaffold `frontend/` |
 | 2026-07-18 | CP1 + logging L1–L4: AppData DATA_DIR, ไม่บังคับ login, client-log, support-report ZIP |
 | 2026-07-19 | แก้ตามรีวิว: fallback `./data` เดิม, จำกัด open-folder นอก localhost, ignore `.pdfmarker/` |
+| 2026-07-19 | แก้ findings PR: secret_key O_EXCL, legacy marker, LOG_PER_WORKER, TRUST_XFF, BytesIO report |

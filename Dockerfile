@@ -23,6 +23,8 @@ ENV DATA_DIR=/data \
     HOST=0.0.0.0 \
     PORT=8000 \
     AUTH_REQUIRED=true \
+    LOG_PER_WORKER=true \
+    TRUST_X_FORWARDED_FOR=true \
     SESSION_COOKIE_SECURE=true
 
 USER appuser

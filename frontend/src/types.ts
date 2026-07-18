@@ -30,6 +30,7 @@ export type DocsResponse = {
   templates: string[];
   font: string | null;
   user: string;
+  auth_required?: boolean;
   license: LicenseStatus;
 };
 

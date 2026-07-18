@@ -8,6 +8,7 @@ import json
 import os
 import platform
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -231,25 +232,67 @@ def seed_demo_for_user(username: str) -> None:
         )
 
 
+_SECRET_KEY_WAIT_TRIES = 20
+_SECRET_KEY_WAIT_SLEEP = 0.05
+
+
+def _read_secret_key_file(path: Path) -> Optional[str]:
+    try:
+        saved = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return saved or None
+
+
+def _wait_secret_key_file(path: Path) -> Optional[str]:
+    for _ in range(_SECRET_KEY_WAIT_TRIES):
+        saved = _read_secret_key_file(path)
+        if saved:
+            return saved
+        time.sleep(_SECRET_KEY_WAIT_SLEEP)
+    return _read_secret_key_file(path)
+
+
 def _ensure_secret_key() -> str:
+    """คีย์เซสชันร่วมทุก gunicorn worker — O_CREAT|O_EXCL กัน race เขียนคนละคีย์"""
     env_key = os.environ.get("SECRET_KEY", "").strip()
     if env_key and env_key != "replace-with-long-random-string":
         return env_key
+
     key_path = DATA_DIR / "secret_key"
     if key_path.is_file():
-        saved = key_path.read_text(encoding="utf-8").strip()
+        saved = _wait_secret_key_file(key_path)
         if saved:
             return saved
-    import secrets
 
     generated = secrets.token_hex(32)
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    key_path.write_text(generated + "\n", encoding="utf-8")
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(key_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        existing = _wait_secret_key_file(key_path)
+        if existing:
+            return existing
+        log.error("secret_key file exists but unreadable: %s", key_path)
+        return generated
+    except OSError:
+        log.exception(
+            "cannot write secret_key under %s — using in-memory key (sessions reset on restart)",
+            DATA_DIR,
+        )
+        return generated
+
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(generated + "\n")
+    except OSError:
+        log.exception("failed writing secret_key — using in-memory key")
+        return generated
     return generated
 
 
 app = Flask(__name__)
-app.secret_key = _ensure_secret_key()
+# secret_key ตั้งใน create_app() หลัง mkdir + init_logging
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -318,17 +361,40 @@ _CLIENT_LOG_LOCK = Lock()
 _CLIENT_LOG_HITS: dict[str, deque[float]] = {}
 _CLIENT_LOG_WINDOW = 60.0
 _CLIENT_LOG_MAX = 20
+_CLIENT_LOG_MAX_KEYS = 256
+
+
+def _client_log_client_key() -> str:
+    """remote_addr เป็นค่าเริ่มต้น — เชื่อ XFF เฉพาะเมื่อ TRUST_X_FORWARDED_FOR"""
+    if env_bool("TRUST_X_FORWARDED_FOR"):
+        xff = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        if xff:
+            return xff
+    return request.remote_addr or "local"
 
 
 def _client_log_allowed(ip: str) -> bool:
     now = time.time()
     with _CLIENT_LOG_LOCK:
+        dead: list[str] = []
+        for k, q in _CLIENT_LOG_HITS.items():
+            while q and now - q[0] > _CLIENT_LOG_WINDOW:
+                q.popleft()
+            if not q:
+                dead.append(k)
+        for k in dead:
+            _CLIENT_LOG_HITS.pop(k, None)
+
         q = _CLIENT_LOG_HITS.setdefault(ip, deque())
-        while q and now - q[0] > _CLIENT_LOG_WINDOW:
-            q.popleft()
         if len(q) >= _CLIENT_LOG_MAX:
             return False
         q.append(now)
+        while len(_CLIENT_LOG_HITS) > _CLIENT_LOG_MAX_KEYS:
+            candidates = [(k, v) for k, v in _CLIENT_LOG_HITS.items() if k != ip and v]
+            if not candidates:
+                break
+            oldest_ip = min(candidates, key=lambda kv: kv[1][0])[0]
+            _CLIENT_LOG_HITS.pop(oldest_ip, None)
         return True
 
 
@@ -442,6 +508,7 @@ def list_docs():
         "templates": tpls,
         "font": thai_font(),
         "user": current_user(),
+        "auth_required": AUTH_REQUIRED,
         "license": license_status(DATA_DIR),
     })
 
@@ -623,7 +690,7 @@ def open_folder():
 @app.post("/api/client-log")
 @login_required
 def client_log():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "local").split(",")[0].strip()
+    ip = _client_log_client_key()
     if not _client_log_allowed(ip):
         return jsonify({"ok": False, "error": "rate_limited"}), 429
     data = request.get_json(force=True, silent=True) or {}
@@ -632,9 +699,21 @@ def client_log():
     source = str(data.get("source") or "ui")[:80]
     stack = str(data.get("stack") or "")[:2000]
     eid = str(data.get("event_id") or getattr(g, "event_id", new_event_id()))[:40]
+    try:
+        suppressed = int(data.get("suppressed") or 0)
+    except (TypeError, ValueError):
+        suppressed = 0
+    if suppressed < 0:
+        suppressed = 0
     if not message:
         return jsonify({"error": "message required"}), 400
-    line = "client-log event=%s source=%s msg=%s" % (eid, source, message.replace("\n", " "))
+    extra = (" suppressed=%s" % suppressed) if suppressed else ""
+    line = "client-log event=%s source=%s msg=%s%s" % (
+        eid,
+        source,
+        message.replace("\n", " "),
+        extra,
+    )
     if level in ("warning", "warn"):
         log.warning("%s", line)
     else:
@@ -644,14 +723,31 @@ def client_log():
     return jsonify({"ok": True, "event_id": eid})
 
 
+def _support_report_log_files() -> list[Path]:
+    """รวม app.log / errors.log และไฟล์ต่อ-pid (app-1234.log) รวม backup หมุนเวียน"""
+    found: dict[str, Path] = {}
+    for pattern in (
+        "app.log",
+        "app.log.*",
+        "app-*.log",
+        "app-*.log.*",
+        "errors.log",
+        "errors.log.*",
+        "errors-*.log",
+        "errors-*.log.*",
+    ):
+        for fpath in LOG_DIR.glob(pattern):
+            if fpath.is_file() and fpath.name not in found:
+                found[fpath.name] = fpath
+    return sorted(found.values(), key=lambda p: p.name)
+
+
 @app.post("/api/support-report")
 @login_required
 def support_report():
-    """แพ็ก log ล่าสุดเป็น ZIP — ไม่รวม uploads/output/PDF"""
+    """แพ็ก log ล่าสุดเป็น ZIP ใน memory — ไม่สะสมไฟล์ใน LOG_DIR/reports"""
     stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    reports_dir = LOG_DIR / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = reports_dir / f"report-{stamp}.zip"
+    download_name = f"report-{stamp}.zip"
 
     meta = {
         "version": APP_VERSION,
@@ -664,23 +760,23 @@ def support_report():
         "log_dir": str(LOG_DIR),
         "license": license_status(DATA_DIR),
     }
+    buf = io.BytesIO()
     try:
-        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("meta.json", json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
-            for pattern in ("app.log", "app.log.*", "errors.log", "errors.log.*"):
-                for fpath in sorted(LOG_DIR.glob(pattern)):
-                    if fpath.is_file() and fpath.name != zip_path.name:
-                        zf.write(fpath, arcname=fpath.name)
+            for fpath in _support_report_log_files():
+                zf.write(fpath, arcname=fpath.name)
     except OSError:
         log.exception("support-report zip failed")
         return jsonify({"error": "สร้างไฟล์รายงานไม่สำเร็จ"}), 500
 
-    log.info("support-report created %s", zip_path.name)
+    buf.seek(0)
+    log.info("support-report created %s", download_name)
     return send_file(
-        zip_path,
+        buf,
         mimetype="application/zip",
         as_attachment=True,
-        download_name=zip_path.name,
+        download_name=download_name,
     )
 
 
@@ -710,6 +806,7 @@ def create_app():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     USERS_DIR.mkdir(parents=True, exist_ok=True)
     init_logging(LOG_DIR)
+    app.secret_key = _ensure_secret_key()
     log.info(
         "start version=%s os=%s auth_required=%s open_folder=%s data_dir=%s log_dir=%s",
         APP_VERSION,
@@ -723,6 +820,12 @@ def create_app():
         log.info("using legacy project data dir (./data) — set DATA_DIR to override")
     if env_bool("LICENSE_BYPASS"):
         log.warning("LICENSE_BYPASS is ON — ห้ามใช้บนเครื่องลูกค้า / build ปล่อยจริง")
+    if not AUTH_REQUIRED and _bind_host() not in ("127.0.0.1", "localhost", "::1"):
+        log.warning(
+            "AUTH_REQUIRED is false but HOST=%s — APIs are open without login on the network; "
+            "set AUTH_REQUIRED=true or bind 127.0.0.1",
+            _bind_host(),
+        )
     if not AUTH_REQUIRED:
         seed_demo_for_user(LOCAL_USER)
         log.info("school mode: local user=%s (no login)", LOCAL_USER)

@@ -52,22 +52,30 @@ def legacy_project_data_dir() -> Path:
 
 
 def _legacy_data_in_use(path: Path) -> bool:
-    """โฟลเดอร์ data ในโปรเจกต์มีร่องรอยใช้งานจริงหรือไม่"""
+    """โฟลเดอร์ data ในโปรเจกต์มี marker จริง — ไม่ใช้ความไม่ว่างของโฟลเดอร์
+
+    ไฟล์หลง (.gitkeep ฯลฯ) ต้องไม่สลับ DATA_DIR / machine_id
+    """
     if not path.is_dir():
         return False
     if (path / "machine_id").is_file() or (path / "license.json").is_file():
         return True
     users = path / "users"
-    if users.is_dir():
-        try:
-            next(users.iterdir())
-            return True
-        except StopIteration:
-            pass
+    if not users.is_dir():
+        return False
     try:
-        return any(path.iterdir())
+        for child in users.iterdir():
+            if child.is_dir():
+                try:
+                    next(child.iterdir())
+                    return True
+                except StopIteration:
+                    continue
+            elif child.is_file():
+                return True
     except OSError:
         return False
+    return False
 
 
 def resolve_data_dir() -> Path:
