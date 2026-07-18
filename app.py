@@ -2,6 +2,7 @@
 # รัน local: python app.py  →  http://localhost:5000
 from __future__ import annotations
 
+import html
 import io
 import json
 import os
@@ -81,6 +82,44 @@ def thai_font():
                 continue
             return str(p)
     return None
+
+
+# cache ค่า ascender/descender ต่อไฟล์ฟอนต์ (ใช้คำนวณ baseline)
+_FONT_METRICS: dict = {}
+
+
+def _font_metrics(fontfile: str) -> tuple:
+    if fontfile not in _FONT_METRICS:
+        f = fitz.Font(fontfile=fontfile)
+        _FONT_METRICS[fontfile] = (f.ascender, f.descender)
+    return _FONT_METRICS[fontfile]
+
+
+def insert_thai_text(page, point, text, fontsize, fontfile):
+    """วางข้อความด้วย insert_htmlbox ซึ่งทำ Thai shaping (GSUB/GPOS) ให้ —
+    วรรณยุกต์ไม่ทับสระบน (สี่ ปั่น น้ำ) ต่างจาก insert_text ที่วาง glyph ดิบ ๆ
+
+    วาง rect ให้ baseline บรรทัดแรกตกที่ point.y พอดี เพื่อให้ตำแหน่งตรงกับ
+    insert_text เดิมทุกจุด (เทมเพลตเก่าไม่เคลื่อน)
+    """
+    asc, desc = _font_metrics(fontfile)
+    line_h = asc - desc
+    top = point.y - asc * fontsize
+    n_lines = text.count("\n") + 1
+    rect = fitz.Rect(point.x, top, point.x + 10000, top + fontsize * line_h * n_lines + 2)
+    fp = Path(fontfile)
+    css = (
+        '@font-face {font-family: thf; src: url("%s");} '
+        "body {margin: 0; padding: 0;} "
+        "p {font-family: thf; font-size: %gpx; margin: 0; padding: 0; "
+        "line-height: %g; white-space: pre;}" % (fp.name, fontsize, line_h)
+    )
+    page.insert_htmlbox(
+        rect,
+        "<p>%s</p>" % html.escape(text),
+        css=css,
+        archive=fitz.Archive(str(fp.parent)),
+    )
 
 
 def safe_name(name: str) -> str:
@@ -331,15 +370,19 @@ def fill():
             if not val:
                 continue
             page = d[int(fld["page"])]
-            page.insert_text(
-                fitz.Point(float(fld["x"]), float(fld["y"])),
-                val,
-                fontsize=float(fld.get("size", 14)),
-                fontname="thaifont",
-                fontfile=font,
-                color=(0, 0, 0),
-            )
-        d.save(out_path)
+            pt = fitz.Point(float(fld["x"]), float(fld["y"]))
+            size = float(fld.get("size", 14))
+            try:
+                insert_thai_text(page, pt, val, size, font)
+            except Exception:
+                # เผื่อ insert_htmlbox ใช้ไม่ได้ — ยอมให้วรรณยุกต์เพี้ยนดีกว่าเติมไม่ได้เลย
+                page.insert_text(pt, val, fontsize=size, fontname="thaifont", fontfile=font, color=(0, 0, 0))
+        try:
+            d.subset_fonts()  # insert_htmlbox ฝังฟอนต์เต็มไฟล์ — ตัดให้เหลือเฉพาะที่ใช้
+        except Exception:
+            pass
+        # garbage=4 รวมฟอนต์ที่ฝังซ้ำกันหลายชุดให้เหลือชุดเดียว (ไฟล์เล็กลงมาก)
+        d.save(out_path, garbage=4, deflate=True)
     return jsonify({"ok": True, "file": out_name})
 
 
