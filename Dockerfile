@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py license_core.py envutil.py license_public.pem .
+COPY app.py license_core.py envutil.py logging_setup.py license_public.pem .
 COPY fonts ./fonts
 COPY templates ./templates
 COPY demo ./demo
@@ -22,6 +22,7 @@ RUN mkdir -p /data/users \
 ENV DATA_DIR=/data \
     HOST=0.0.0.0 \
     PORT=8000 \
+    AUTH_REQUIRED=true \
     SESSION_COOKIE_SECURE=true
 
 USER appuser

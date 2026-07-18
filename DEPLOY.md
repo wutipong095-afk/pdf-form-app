@@ -25,6 +25,7 @@ nano .env
 | `ADMIN_USER` / `ADMIN_PASSWORD` | บัญชีแรก |
 | `DOMAIN` | โดเมนจริง เช่น `forms.example.com` |
 | `SESSION_COOKIE_SECURE` | `true` |
+| `AUTH_REQUIRED` | Docker ตั้ง `true` ให้อยู่แล้ว (บังคับ login) |
 
 หลายผู้ใช้:
 

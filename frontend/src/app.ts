@@ -9,6 +9,8 @@ import { bindViewer, nudgeSelected, renderMarkers, showPage } from "./viewer";
 import { bindValues, renderList, renderValues } from "./fields";
 import { bindChat, bub, startChat } from "./chat";
 import { bindDocs, refreshDocs } from "./docs";
+import { bindClientLog } from "./clientLog";
+import { bindSchoolUi } from "./school";
 import type { FillResponse } from "./types";
 
 function setTab(t: "edit" | "fill"): void {
@@ -173,6 +175,8 @@ function bindMarking(): void {
 }
 
 function init(): void {
+  bindClientLog();
+  bindSchoolUi();
   bindLicenseUi();
   bindDocs(paintMarkers, renderAll);
   bindMarking();

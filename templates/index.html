@@ -62,9 +62,13 @@
   <select id="tplsel"><option value="">— เทมเพลตใหม่ —</option></select>
   <input id="tplname" placeholder="ชื่อเทมเพลต" style="width:140px">
   <button id="savetpl">💾 บันทึกเทมเพลต</button>
-  <span style="margin-left:auto;display:flex;gap:10px;align-items:center;font-size:13px">
+  <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
+    <button type="button" id="btn-open-data" title="เปิดโฟลเดอร์ข้อมูล" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">โฟลเดอร์ข้อมูล</button>
+    <button type="button" id="btn-open-output" title="เปิดโฟลเดอร์ผลลัพธ์" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">ผลลัพธ์ PDF</button>
+    <button type="button" id="btn-support-report" title="แพ็ก log ส่งผู้ขาย (ไม่มีเนื้อหา PDF)" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">รายงานปัญหา</button>
+    <span id="appver" style="opacity:.75;font-size:12px"></span>
     <span id="who">{{ user }}</span>
-    <form method="post" action="/logout" style="margin:0">
+    <form id="logout-form" method="post" action="/logout" style="margin:0{% if not auth_required %};display:none{% endif %}">
       <button type="submit" style="background:#e8eaf0;color:#1a3c6e">ออกจากระบบ</button>
     </form>
   </span>
