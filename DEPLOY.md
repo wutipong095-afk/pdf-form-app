@@ -72,7 +72,9 @@ docker compose logs -f app
 
 - เปลี่ยนรหัสผ่าน default ก่อนเปิดเน็ต
 - อย่า commit ไฟล์ `.env`
-- ตั้ง `LICENSE_SECRET` ให้ยาวและลับ (ใช้ชุดเดียวกับตอนออกคีย์ด้วย `scripts/gen_license.py`)
+- ไลเซนต์ใช้ `license_public.pem` ใน image — **อย่า**ใส่ `keys/ed25519_private.pem` หรือโฟลเดอร์ `scripts/` ลง image ลูกค้า
 - อย่าเปิด `LICENSE_BYPASS` บนเครื่องลูกค้า
+- `data/machine_id` อยู่บน volume — rebuild container แล้วคีย์เดิมยังใช้ได้
+- ถ้าลูกค้าเจอ "ตรวจพบนาฬิกาย้อนหลัง": ให้ปรับเวลาเครื่องให้ถูก หรือออกคีย์ใหม่ให้แล้ว activate (คีย์ใหม่จะรีเซ็ตตัวตรวจนาฬิกา)
 - แต่ละ user มีโฟลเดอร์แยกใน `/data/users/<ชื่อ>/`
 - จำกัดขนาดอัปโหลดด้วย `MAX_UPLOAD_MB`

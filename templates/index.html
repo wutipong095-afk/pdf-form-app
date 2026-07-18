@@ -143,22 +143,23 @@ $('licactivate').onclick=async()=>{
   if(!key) return alert('กรุณาใส่คีย์ไลเซนต์');
   const res=await api('/api/license',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
   const r=await res.json();
-  if(!res.ok){ alert(r.error||'เปิดใช้ไม่สำเร็จ'); return; }
+  if(!res.ok || !r.licensed){ alert(r.error||r.message||'เปิดใช้ไม่สำเร็จ'); renderLicense(r); return; }
   renderLicense(r);
   alert('เปิดใช้ไลเซนต์สำเร็จ');
 };
 async function refreshDocs(){
   const r=await (await api('/api/docs')).json();
   if(r.license) renderLicense(r.license);
+  const demoDoc=(r.license && r.license.demo_doc) || 'demo-form.pdf';
   $('docsel').innerHTML='<option value="">— เลือก PDF —</option>'+r.pdfs.map(p=>`<option>${p}</option>`).join('');
   $('tplsel').innerHTML='<option value="">— เทมเพลตใหม่ —</option>'+r.templates.map(t=>`<option>${t}</option>`).join('');
   const fontName=(r.font||'').split(/[/\\]/).pop();
   $('fonthint').textContent=r.font?('ฟอนต์ทับ: '+fontName):'⚠️ ไม่พบฟอนต์ไทย';
   if(r.user) $('who').textContent=r.user;
   // โหลด demo อัตโนมัติครั้งแรกถ้ายังไม่ได้เลือกเอกสาร
-  if(!doc && r.pdfs.includes('demo-form.pdf')){
-    $('docsel').value='demo-form.pdf';
-    await loadDoc('demo-form.pdf');
+  if(!doc && r.pdfs.includes(demoDoc)){
+    $('docsel').value=demoDoc;
+    await loadDoc(demoDoc);
     if(r.templates.includes('demo-ใบเบิก')){
       $('tplsel').value='demo-ใบเบิก';
       const t=await (await api('/api/template/'+encodeURIComponent('demo-ใบเบิก'))).json();
@@ -336,8 +337,9 @@ $('chatinput').addEventListener('keydown',e=>{ if(e.key==='Enter') handleChat();
 
 $('makepdf').onclick=async()=>{
   if(!doc) return;
-  if(lic && !lic.licensed && doc!=='demo-form.pdf'){
-    $('result').textContent='❌ ยังไม่มีไลเซนต์ — ส่งรหัสเครื่องด้านบนให้ผู้ขาย หรือทดลองกับ demo-form.pdf';
+  const demoDoc=(lic && lic.demo_doc) || 'demo-form.pdf';
+  if(lic && !lic.licensed && String(doc||'').toLowerCase()!==String(demoDoc).toLowerCase()){
+    $('result').textContent='❌ ยังไม่มีไลเซนต์ — ส่งรหัสเครื่องด้านบนให้ผู้ขาย หรือทดลองกับ '+demoDoc;
     return;
   }
   const outname=($('tplname').value||'filled')+'-'+new Date().toISOString().slice(0,10);

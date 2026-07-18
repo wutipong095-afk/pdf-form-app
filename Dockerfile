@@ -9,11 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py license_core.py .
+COPY app.py license_core.py envutil.py license_public.pem .
 COPY fonts ./fonts
 COPY templates ./templates
 COPY demo ./demo
-COPY scripts ./scripts
 
 RUN mkdir -p /data/users \
     && useradd -m -u 10001 appuser \
