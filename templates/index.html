@@ -58,6 +58,9 @@
   #libbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
   #libbar select { min-width:220px; max-width:360px; padding:4px 6px; border-radius:6px; border:1px solid #ccc; font:inherit; }
   #libstatus { color:#555; font-size:12px; flex:1 1 180px; }
+  #bakbar { padding:6px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f3f6f3; }
+  #bakbar button { background:#2e7d32; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
+  #bakbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
 </style>
 </head>
 <body>
@@ -98,6 +101,17 @@
   <select id="libresults"><option value="">— เลือกจากคลัง —</option></select>
   <button type="button" id="libopenfile" class="secondary">เปิดไฟล์ใน Explorer</button>
   <span id="libstatus">กำลังโหลดคลัง…</span>
+</div>
+<div id="bakbar">
+  <strong>สำรอง / เทมเพลต</strong>
+  <button type="button" id="btn-backup">สำรองข้อมูล</button>
+  <button type="button" id="btn-restore" class="secondary">กู้คืน…</button>
+  <input type="file" id="restore-file" accept=".zip,application/zip" hidden>
+  <button type="button" id="btn-tpl-export" class="secondary">ส่งออกเทมเพลต</button>
+  <button type="button" id="btn-tpl-import" class="secondary">นำเข้าเทมเพลต…</button>
+  <input type="file" id="tpl-import-file" accept=".json,.tpl.json,application/json" hidden>
+  <button type="button" id="btn-formpack" class="secondary">ติดตั้งแพ็กฟอร์ม v1</button>
+  <span class="hint" style="margin:0">ดูคู่มือ: docs/BACKUP.md — ย้ายเครื่องต้องขอคีย์ใหม่</span>
 </div>
 <main>
   <div id="viewer">

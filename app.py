@@ -35,6 +35,13 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from backup_core import (
+    create_backup_zip,
+    export_template_bytes,
+    install_formpack,
+    list_formpack_templates,
+    restore_backup,
+)
 from envutil import (
     APP_VERSION,
     BASE,
@@ -1005,6 +1012,159 @@ def support_report():
         as_attachment=True,
         download_name=download_name,
     )
+
+
+@app.post("/api/backup")
+@login_required
+def api_backup():
+    """สำรอง uploads + templates + output + library settings — ไม่มี machine_id/license"""
+    user = current_user()
+    paths = user_paths(user)
+    try:
+        buf, filename, meta = create_backup_zip(
+            data_dir=DATA_DIR,
+            username=user or LOCAL_USER,
+            user_root=paths["root"],
+            app_version=APP_VERSION,
+        )
+    except OSError:
+        log.exception("backup failed")
+        return jsonify({"error": "สร้างไฟล์สำรองไม่สำเร็จ"}), 500
+    log.info(
+        "backup created user=%s uploads=%s templates=%s output=%s",
+        user,
+        (meta.get("counts") or {}).get("uploads"),
+        (meta.get("counts") or {}).get("templates"),
+        (meta.get("counts") or {}).get("output"),
+    )
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.post("/api/restore")
+@login_required
+def api_restore():
+    """กู้จาก ZIP — mode=merge|replace; ไม่เขียน machine_id/license"""
+    mode = (request.form.get("mode") or request.args.get("mode") or "merge").strip().lower()
+    if mode not in ("merge", "replace"):
+        return jsonify({"error": "mode ต้องเป็น merge หรือ replace"}), 400
+    if "file" not in request.files:
+        return jsonify({"error": "ไม่มีไฟล์ ZIP"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "ไม่มีชื่อไฟล์"}), 400
+    raw = io.BytesIO(f.read())
+    user = current_user()
+    paths = user_paths(user)
+    try:
+        result = restore_backup(
+            raw,
+            user_root=paths["root"],
+            data_dir=DATA_DIR,
+            mode=mode,  # type: ignore[arg-type]
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except OSError:
+        log.exception("restore failed")
+        return jsonify({"error": "กู้คืนไม่สำเร็จ"}), 500
+    log.info(
+        "restore mode=%s written=%s skipped=%s user=%s",
+        mode,
+        result.get("written"),
+        result.get("skipped"),
+        user,
+    )
+    return jsonify(result)
+
+
+@app.get("/api/template-export/<name>")
+@login_required
+def api_template_export(name):
+    path = user_paths(current_user())["templates"] / (safe_name(name) + ".json")
+    if not path.is_file():
+        return jsonify({"error": "ไม่พบเทมเพลต"}), 404
+    data, filename = export_template_bytes(path, safe_name(name))
+    return send_file(
+        io.BytesIO(data),
+        mimetype="application/json",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.post("/api/template-import")
+@login_required
+def api_template_import():
+    """นำเข้าเทมเพลตเดี่ยว (.json / .tpl.json)"""
+    if "file" not in request.files:
+        return jsonify({"error": "ไม่มีไฟล์"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "ไม่มีชื่อไฟล์"}), 400
+    raw_name = f.filename
+    stem = os.path.splitext(raw_name)[0]
+    if stem.lower().endswith(".tpl"):
+        stem = stem[:-4]
+    name = safe_name(stem)
+    if not name:
+        return jsonify({"error": "ชื่อเทมเพลตไม่ถูกต้อง"}), 400
+    try:
+        payload = json.loads(f.read().decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return jsonify({"error": "ไฟล์ต้องเป็น JSON"}), 400
+    if not isinstance(payload, dict):
+        return jsonify({"error": "รูปแบบเทมเพลตไม่ถูกต้อง"}), 400
+    overwrite = (request.form.get("overwrite") or "").lower() in ("1", "true", "yes")
+    path = user_paths(current_user())["templates"] / (name + ".json")
+    if path.exists() and not overwrite:
+        return jsonify({"error": f"มีเทมเพลต \"{name}\" อยู่แล้ว — ระบุ overwrite=true เพื่อทับ", "name": name}), 409
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    log.info("template imported name=%s", name)
+    return jsonify({"ok": True, "name": name})
+
+
+@app.get("/api/formpack")
+@login_required
+def api_formpack_list():
+    pack = BASE / "formpacks" / "v1"
+    return jsonify({
+        "id": "v1",
+        "title": "แพ็กฟอร์มโรงเรียน v1",
+        "templates": list_formpack_templates(pack),
+        "note_th": "เทมเพลตตัวอย่างตำแหน่งฟิลด์ — ต้องจับคู่กับ PDF จริงของโรงเรียนหลังติดตั้ง",
+    })
+
+
+@app.post("/api/formpack/install")
+@login_required
+def api_formpack_install():
+    data = request.get_json(force=True, silent=True) or {}
+    pack_id = data.get("id") or "v1"
+    pack = BASE / "formpacks" / str(pack_id)
+    overwrite = bool(data.get("overwrite"))
+    try:
+        result = install_formpack(
+            pack,
+            user_paths(current_user())["templates"],
+            overwrite=overwrite,
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except OSError:
+        log.exception("formpack install failed")
+        return jsonify({"error": "ติดตั้งแพ็กไม่สำเร็จ"}), 500
+    log.info(
+        "formpack %s installed=%s skipped=%s",
+        pack_id,
+        result.get("installed"),
+        result.get("skipped"),
+    )
+    return jsonify({"ok": True, "pack": pack_id, **result})
 
 
 @app.errorhandler(Exception)
