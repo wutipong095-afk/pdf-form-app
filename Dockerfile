@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py license_core.py envutil.py logging_setup.py license_public.pem .
+COPY app.py license_core.py envutil.py logging_setup.py library_core.py license_public.pem .
 COPY fonts ./fonts
 COPY templates ./templates
 COPY demo ./demo

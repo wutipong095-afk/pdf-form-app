@@ -51,3 +51,25 @@ export type PageInfo = {
   sizes: { w: number; h: number }[];
   zoom: number;
 };
+
+export type LibraryDoc = {
+  rel: string;
+  name: string;
+  filename: string;
+  folder: string;
+  has_template: boolean;
+  tags?: string[];
+  last_used?: number | null;
+  doc_id: string;
+};
+
+export type LibraryStatus = {
+  configured: boolean;
+  root: string | null;
+  suggested_root: string;
+  count: number;
+  scanned_at?: number;
+  max_depth?: number;
+  docs: LibraryDoc[];
+  open_folder_enabled?: boolean;
+};
