@@ -9,10 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py license_core.py envutil.py logging_setup.py library_core.py license_public.pem .
+COPY app.py license_core.py envutil.py logging_setup.py library_core.py backup_core.py license_public.pem .
 COPY fonts ./fonts
 COPY templates ./templates
 COPY demo ./demo
+COPY formpacks ./formpacks
 COPY static ./static
 
 RUN mkdir -p /data/users \

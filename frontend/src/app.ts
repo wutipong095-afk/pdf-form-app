@@ -12,6 +12,7 @@ import { bindDocs, refreshDocs } from "./docs";
 import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
+import { bindBackupUi } from "./backup";
 import type { FillResponse } from "./types";
 
 function setTab(t: "edit" | "fill"): void {
@@ -190,6 +191,7 @@ function init(): void {
   bindSchoolUi();
   bindLicenseUi();
   bindLibrary(paintMarkers, renderAll);
+  bindBackupUi(paintMarkers, renderAll);
   bindDocs(paintMarkers, renderAll);
   bindMarking();
   bindValues(

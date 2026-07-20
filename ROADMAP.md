@@ -71,7 +71,7 @@ Frontend: โฟลเดอร์ [`frontend/`](frontend/)
 | CP6 | Pilot โรงเรียน | ทดลองกับโรงเรียนจริง ≥ 2 แห่ง ครบ 1 สัปดาห์ใช้งานจริง |
 | CP7 | Ready to sell | คู่มือไทย, ช่องทางออกคีย์, วิดีโอสั้น, นโยบายซัพพอร์ต 5 ปี ชัดเจน |
 
-สถานะปัจจุบันโดยประมาณ: **CP0 ผ่าน** · **CP-TS ผ่าน** · **CP1 ผ่าน** · **CP2 ผ่าน** → ต่อไป **CP3** Backup/Restore (+ CP5 Form pack)
+สถานะปัจจุบันโดยประมาณ: **CP0–CP3 ผ่าน** · Form pack v1 มีแล้ว → ต่อไป **CP4** Windows installer (วิดีโอคู่มือยังเป็น follow-up)
 
 ---
 
@@ -180,14 +180,14 @@ frontend/
 
 ### ระยะ 3 — Backup / Restore + Form packs
 
-- [ ] สำรอง ZIP: originals + templates + filled + settings คลัง
-- [ ] กู้คืนแบบ merge / แทนที่ (ถามผู้ใช้)
-- [ ] ไม่บังคับย้าย `machine_id` ไปเครื่องใหม่ (ต้องออกคีย์ใหม่)
-- [ ] Export / Import เทมเพลตเดี่ยว
-- [ ] Form pack v1: อย่างน้อย ใบเบิก / จัดซื้อ / เดินทาง (หรือฟอร์มที่โรงเรียนเป้าใช้จริง)
-- [ ] คู่มือสั้น + วิดีโอ 3–5 นาที
+- [x] สำรอง ZIP: originals + templates + filled + settings คลัง
+- [x] กู้คืนแบบ merge / แทนที่ (ถามผู้ใช้)
+- [x] ไม่บังคับย้าย `machine_id` ไปเครื่องใหม่ (ต้องออกคีย์ใหม่)
+- [x] Export / Import เทมเพลตเดี่ยว
+- [x] Form pack v1: อย่างน้อย ใบเบิก / จัดซื้อ / เดินทาง (หรือฟอร์มที่โรงเรียนเป้าใช้จริง)
+- [x] คู่มือสั้น ([docs/BACKUP.md](docs/BACKUP.md)) — วิดีโอ 3–5 นาทีเป็น follow-up
 
-**ทางออก:** CP3 + CP5 (ทำคู่กันได้)
+**ทางออก:** CP3 (+ Form pack v1); วิดีโอยังค้าง
 
 ---
 
@@ -358,3 +358,4 @@ frontend/
 | 2026-07-19 | แก้ findings PR: secret_key O_EXCL, legacy marker, LOG_PER_WORKER, TRUST_XFF, BytesIO report |
 | 2026-07-19 | CP2 คลังเอกสาร: เลือกโฟลเดอร์ราก, สแกน/ค้นหา, `@lib.` + `ชื่อ.tpl.json`, เปิด Explorer |
 | 2026-07-19 | แก้รีวิว CP2: atomic index, base64url doc id, escape UI, save-tpl คลัง |
+| 2026-07-20 | CP3 Backup/Restore + Form pack v1 + docs/BACKUP.md (วิดีโอยังค้าง) |
