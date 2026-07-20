@@ -52,6 +52,12 @@
   #licbar code { background:rgba(0,0,0,.06); padding:2px 6px; border-radius:4px; user-select:all; }
   #licbar input[type=text] { min-width:260px; flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
   #licbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font:inherit; }
+  #libbar { padding:8px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f7f9fc; }
+  #libbar input[type=text] { padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
+  #libbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
+  #libbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
+  #libbar select { min-width:220px; max-width:360px; padding:4px 6px; border-radius:6px; border:1px solid #ccc; font:inherit; }
+  #libstatus { color:#555; font-size:12px; flex:1 1 180px; }
 </style>
 </head>
 <body>
@@ -80,6 +86,18 @@
     <input type="text" id="lickey" placeholder="วางคีย์ไลเซนต์ที่ได้รับหลังชำระเงิน">
     <button type="button" id="licactivate">เปิดใช้ไลเซนต์</button>
   </span>
+</div>
+<div id="libbar">
+  <strong>คลังเอกสาร</strong>
+  <input type="text" id="libroot" placeholder="path โฟลเดอร์รากคลัง" style="flex:1;min-width:220px">
+  <button type="button" id="libset">ตั้งราก</button>
+  <button type="button" id="libdefault" class="secondary">ใช้ค่าแนะนำ</button>
+  <button type="button" id="libscan" class="secondary">สแกนใหม่</button>
+  <button type="button" id="libopenroot" class="secondary">เปิดรากใน Explorer</button>
+  <input type="text" id="libsearch" placeholder="ค้นหาชื่อ / โฟลเดอร์ / แท็ก" style="min-width:160px">
+  <select id="libresults"><option value="">— เลือกจากคลัง —</option></select>
+  <button type="button" id="libopenfile" class="secondary">เปิดไฟล์ใน Explorer</button>
+  <span id="libstatus">กำลังโหลดคลัง…</span>
 </div>
 <main>
   <div id="viewer">

@@ -51,6 +51,23 @@ from license_core import (
     file_sha256,
     license_status,
 )
+from library_core import (
+    MAX_SCAN_DEPTH,
+    get_library_root,
+    init_scaffold,
+    is_lib_doc,
+    lib_rel_from_doc,
+    load_index,
+    make_lib_doc,
+    mark_has_template,
+    resolve_under_root,
+    scan_library,
+    search_index,
+    set_library_root,
+    suggest_default_root,
+    touch_last_used,
+    tpl_beside_pdf,
+)
 from logging_setup import get_logger, init_logging
 
 load_dotenv()
@@ -538,16 +555,39 @@ def upload():
 
 
 def _pdf_path(username: str, doc: str) -> Path:
+    if is_lib_doc(doc):
+        root = get_library_root(DATA_DIR)
+        if root is None:
+            raise FileNotFoundError("ยังไม่ได้ตั้งโฟลเดอร์รากคลังเอกสาร")
+        return resolve_under_root(root, lib_rel_from_doc(doc))
     name = safe_name(doc[:-4] if doc.lower().endswith(".pdf") else doc) + ".pdf"
     return user_paths(username)["uploads"] / name
+
+
+def _require_library_root() -> Path:
+    root = get_library_root(DATA_DIR)
+    if root is None:
+        raise ValueError("ยังไม่ได้ตั้งโฟลเดอร์รากคลังเอกสาร")
+    return root
 
 
 @app.get("/api/pageinfo/<doc>")
 @login_required
 def pageinfo(doc):
-    path = _pdf_path(current_user(), doc)
+    # doc อาจเป็น @lib/... (frontend ส่งแบบ encodeURIComponent ทั้งก้อน)
+    try:
+        path = _pdf_path(current_user(), doc)
+    except (ValueError, FileNotFoundError) as e:
+        return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
+    if is_lib_doc(doc):
+        root = get_library_root(DATA_DIR)
+        if root is not None:
+            try:
+                touch_last_used(root, lib_rel_from_doc(doc))
+            except OSError:
+                pass
     with fitz.open(path) as d:
         sizes = [{"w": p.rect.width, "h": p.rect.height} for p in d]
     return jsonify({"pages": len(sizes), "sizes": sizes, "zoom": ZOOM})
@@ -556,7 +596,10 @@ def pageinfo(doc):
 @app.get("/page/<doc>/<int:pno>.png")
 @login_required
 def page_png(doc, pno):
-    path = _pdf_path(current_user(), doc)
+    try:
+        path = _pdf_path(current_user(), doc)
+    except (ValueError, FileNotFoundError) as e:
+        return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
     with fitz.open(path) as d:
@@ -581,12 +624,190 @@ def get_template(name):
 @login_required
 def save_template(name):
     data = request.get_json(force=True, silent=True) or {}
+    # ถ้ากำลังแก้เอกสารในคลัง — บันทึกเป็นชื่อ.tpl.json คู่กับ PDF
+    doc = data.get("doc") or ""
+    if is_lib_doc(doc):
+        try:
+            root = _require_library_root()
+            pdf = resolve_under_root(root, lib_rel_from_doc(doc))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        if not pdf.is_file():
+            return jsonify({"error": "ไม่พบ PDF ในคลัง"}), 404
+        path = tpl_beside_pdf(pdf)
+        fields = data.get("fields") or []
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        rel = lib_rel_from_doc(doc)
+        try:
+            mark_has_template(root, rel, True)
+        except OSError:
+            log.exception("mark_has_template failed rel=%s", rel)
+        log.info("library template saved rel=%s fields=%s", rel, len(fields))
+        return jsonify({"ok": True, "name": pdf.stem, "library": True})
+
     path = user_paths(current_user())["templates"] / (safe_name(name) + ".json")
     fields = data.get("fields") or []
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     log.info("template saved name=%s fields=%s", safe_name(name), len(fields))
     return jsonify({"ok": True, "name": safe_name(name)})
+
+
+@app.get("/api/library")
+@login_required
+def library_status():
+    root = get_library_root(DATA_DIR)
+    suggested = str(suggest_default_root())
+    if root is None:
+        return jsonify({
+            "configured": False,
+            "root": None,
+            "suggested_root": suggested,
+            "count": 0,
+            "docs": [],
+            "open_folder_enabled": _open_folder_allowed(),
+        })
+    idx = load_index(root)
+    return jsonify({
+        "configured": True,
+        "root": str(root),
+        "suggested_root": suggested,
+        "count": idx.get("count") or len(idx.get("docs") or []),
+        "scanned_at": idx.get("scanned_at"),
+        "max_depth": idx.get("max_depth") or MAX_SCAN_DEPTH,
+        "docs": idx.get("docs") or [],
+        "open_folder_enabled": _open_folder_allowed(),
+    })
+
+
+@app.post("/api/library/root")
+@login_required
+def library_set_root():
+    data = request.get_json(force=True, silent=True) or {}
+    raw = (data.get("root") or "").strip()
+    if raw.lower() in ("default", "auto", ""):
+        raw = str(suggest_default_root())
+    try:
+        root = set_library_root(DATA_DIR, raw)
+        created = init_scaffold(root) if data.get("scaffold", True) else []
+        idx = scan_library(root)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except OSError:
+        log.exception("library set root failed")
+        return jsonify({"error": "ตั้งโฟลเดอร์รากไม่สำเร็จ"}), 500
+    count = int(idx.get("count") or 0)
+    log.info("library root=%s docs=%s scaffold=%s", root, count, created)
+    warn = None
+    if count >= 500:
+        warn = f"พบ PDF {count} ไฟล์ — คลังใหญ่อาจสแกนช้า ควรเลือกโฟลเดอร์ย่อยที่ใช้งานจริง"
+    return jsonify({
+        "ok": True,
+        "root": str(root),
+        "scaffold_created": created,
+        "count": count,
+        "docs": idx.get("docs") or [],
+        "warning": warn,
+    })
+
+
+@app.post("/api/library/scan")
+@login_required
+def library_scan():
+    try:
+        root = _require_library_root()
+        idx = scan_library(root)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except OSError:
+        log.exception("library scan failed")
+        return jsonify({"error": "สแกนคลังไม่สำเร็จ"}), 500
+    count = int(idx.get("count") or 0)
+    log.info("library scan docs=%s", count)
+    warn = None
+    if count >= 500:
+        warn = f"พบ PDF {count} ไฟล์ — คลังใหญ่อาจสแกนช้า"
+    return jsonify({
+        "ok": True,
+        "count": count,
+        "docs": idx.get("docs") or [],
+        "scanned_at": idx.get("scanned_at"),
+        "warning": warn,
+    })
+
+
+@app.get("/api/library/search")
+@login_required
+def library_search():
+    try:
+        root = _require_library_root()
+    except ValueError as e:
+        return jsonify({"error": str(e), "docs": []}), 400
+    q = request.args.get("q") or ""
+    idx = load_index(root)
+    hits = search_index(idx, q)
+    return jsonify({"ok": True, "q": q, "docs": hits, "count": len(hits)})
+
+
+@app.post("/api/library/open")
+@login_required
+def library_open_explorer():
+    if not _open_folder_allowed():
+        return jsonify({
+            "error": "เปิดโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost) — หรือตั้ง ENABLE_OPEN_FOLDER=true",
+        }), 403
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        root = _require_library_root()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    rel = (data.get("rel") or "").strip()
+    try:
+        target = root if not rel else resolve_under_root(root, rel)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if target.is_file():
+        # เปิดโฟลเดอร์ที่ไฟล์อยู่ + เลือกไฟล์บน Windows
+        folder = target.parent
+        try:
+            if sys.platform == "win32":
+                subprocess.Popen(["explorer", "/select,", str(target)])
+            else:
+                _open_in_explorer(folder)
+        except OSError:
+            log.exception("library open file failed")
+            return jsonify({"error": "เปิดใน Explorer ไม่สำเร็จ"}), 500
+    else:
+        try:
+            _open_in_explorer(target if target.is_dir() else root)
+        except OSError:
+            log.exception("library open folder failed")
+            return jsonify({"error": "เปิดโฟลเดอร์ไม่สำเร็จ"}), 500
+    return jsonify({"ok": True, "path": str(target)})
+
+
+@app.get("/api/library/template")
+@login_required
+def library_get_template():
+    doc = request.args.get("doc") or ""
+    if not is_lib_doc(doc):
+        return jsonify({"error": "doc ต้องเป็นเอกสารในคลัง (@lib|...)"}), 400
+    try:
+        root = _require_library_root()
+        pdf = resolve_under_root(root, lib_rel_from_doc(doc))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    path = tpl_beside_pdf(pdf)
+    if not path.is_file():
+        return jsonify({"error": "not found", "has_template": False}), 404
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    data["has_template"] = True
+    data["doc"] = make_lib_doc(lib_rel_from_doc(doc))
+    return jsonify(data)
 
 
 @app.post("/api/fill")
@@ -600,15 +821,21 @@ def fill():
         log.error("fill aborted: Thai font missing")
         return jsonify({"error": "ไม่พบฟอนต์ไทย — ตรวจโฟลเดอร์ fonts/"}), 500
 
-    src = _pdf_path(current_user(), doc_name)
+    try:
+        src = _pdf_path(current_user(), doc_name)
+    except (ValueError, FileNotFoundError) as e:
+        return jsonify({"error": str(e)}), 404
     if not src.exists():
         return jsonify({"error": "ไม่พบ PDF"}), 404
-    ok, lic_err = can_fill_document(DATA_DIR, doc_name, src)
+    # ตรวจไลเซนต์ด้วยชื่อไฟล์จริง (ไม่ใช้ @lib/... ทั้งก้อน)
+    lic_doc = src.name if is_lib_doc(doc_name) else doc_name
+    ok, lic_err = can_fill_document(DATA_DIR, lic_doc, src)
     if not ok:
-        log.warning("fill blocked by license doc=%s", safe_name(doc_name))
+        log.warning("fill blocked by license doc=%s", src.name)
         return jsonify({"error": lic_err, "license_required": True}), 402
 
-    out_name = safe_name(data.get("outname") or f"filled-{int(time.time())}") + ".pdf"
+    out_base = data.get("outname") or src.stem + f"-{int(time.time())}"
+    out_name = safe_name(out_base) + ".pdf"
     out_path = user_paths(current_user())["output"] / out_name
 
     try:

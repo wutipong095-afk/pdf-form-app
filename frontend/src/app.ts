@@ -11,6 +11,7 @@ import { bindChat, bub, startChat } from "./chat";
 import { bindDocs, refreshDocs } from "./docs";
 import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
+import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import type { FillResponse } from "./types";
 
 function setTab(t: "edit" | "fill"): void {
@@ -83,13 +84,23 @@ function bindTemplateSave(): void {
       alert("เลือก PDF และตั้งชื่อเทมเพลตก่อน");
       return;
     }
-    await api("/api/template/" + encodeURIComponent(name), {
+    const res = await api("/api/template/" + encodeURIComponent(name), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ doc: state.doc, fields: state.fields }),
     });
-    await refreshDocs(paintMarkers, renderAll);
-    ($("tplsel") as HTMLSelectElement).value = name;
+    const body = (await res.json().catch(() => ({}))) as { error?: string; library?: boolean };
+    if (!res.ok) {
+      alert(body.error || "บันทึกเทมเพลตไม่สำเร็จ");
+      return;
+    }
+    if (isLibDoc(state.doc)) {
+      // เทมเพลตคลังไม่อยู่ใน #tplsel — รีเฟรชรายการคลังให้โชว์ "มีเทมเพลต"
+      await refreshLibrary().catch(() => undefined);
+    } else {
+      await refreshDocs(paintMarkers, renderAll);
+      ($("tplsel") as HTMLSelectElement).value = name;
+    }
     alert(`บันทึกเทมเพลต "${name}" แล้ว (${state.fields.length} จุด)`);
   };
 }
@@ -178,6 +189,7 @@ function init(): void {
   bindClientLog();
   bindSchoolUi();
   bindLicenseUi();
+  bindLibrary(paintMarkers, renderAll);
   bindDocs(paintMarkers, renderAll);
   bindMarking();
   bindValues(
