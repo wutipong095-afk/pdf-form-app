@@ -34,6 +34,8 @@ python app.py
 
 สำรอง/กู้คืน: [docs/BACKUP.md](docs/BACKUP.md) — ZIP ไม่มี `machine_id`/license (เครื่องใหม่ต้องขอคีย์ใหม่)
 
+ตัวติดตั้ง Windows (โรงเรียน): [docs/INSTALLER.md](docs/INSTALLER.md) — `.\scripts\build_windows.ps1`
+
 ถ้าเคยเก็บข้อมูลใน `./data` ของโปรเจกต์อยู่แล้ว แอปจะ**ใช้โฟลเดอร์นั้นต่ออัตโนมัติ**  
 (ไม่ต้องตั้งอะไร — หรือจะใส่ `DATA_DIR=./data` ใน `.env` ก็ได้)
 

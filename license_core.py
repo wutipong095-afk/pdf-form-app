@@ -22,7 +22,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from envutil import BASE, env_bool
+from envutil import BASE, env_bool, is_frozen
 
 DEFAULT_SUPPORT_DAYS = 1825
 KEY_PREFIX = "PFM2"
@@ -354,7 +354,7 @@ def license_status(data_dir: Path) -> dict[str, Any]:
             message=str(e),
         )
 
-    if env_bool("LICENSE_BYPASS"):
+    if env_bool("LICENSE_BYPASS") and not is_frozen():
         return _make_status(
             licensed=True,
             bypass=True,
