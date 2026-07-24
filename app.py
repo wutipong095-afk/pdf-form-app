@@ -46,6 +46,7 @@ from envutil import (
     APP_VERSION,
     BASE,
     env_bool,
+    is_frozen,
     legacy_project_data_dir,
     load_dotenv,
     resolve_data_dir,
@@ -315,7 +316,11 @@ def _ensure_secret_key() -> str:
     return generated
 
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=str(BASE / "templates"),
+    static_folder=str(BASE / "static"),
+)
 # secret_key ตั้งใน create_app() หลัง mkdir + init_logging
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -1192,7 +1197,8 @@ def handle_unexpected(exc):
 def create_app():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     USERS_DIR.mkdir(parents=True, exist_ok=True)
-    init_logging(LOG_DIR)
+    # windowed frozen: sys.stderr เป็น None — ห้ามติด StreamHandler
+    init_logging(LOG_DIR, console=not is_frozen())
     app.secret_key = _ensure_secret_key()
     log.info(
         "start version=%s os=%s auth_required=%s open_folder=%s data_dir=%s log_dir=%s",

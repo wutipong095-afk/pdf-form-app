@@ -66,12 +66,12 @@ Frontend: โฟลเดอร์ [`frontend/`](frontend/)
 | CP1 | School baseline | โหมดเครื่องเดียวไม่บังคับ login, DATA_DIR ชัด, bind localhost, มี logging พื้นฐาน |
 | CP2 | คลังเอกสาร v1 | เลือกโฟลเดอร์รากได้, สแกน/ค้นจากชื่อ+โฟลเดอร์, เปิดใน Explorer ได้ |
 | CP3 | Backup / Restore | สำรองและกู้เป็น ZIP ได้โดยไม่พัง license ของเครื่องใหม่ |
-| CP4 | Windows installer | ติดตั้งจาก Setup.exe เปิดจากไอคอนได้โดยไม่ต้องรู้ Python |
+| CP4 | Windows installer | ติดตั้งจาก Setup.exe เปิดจากไอคอนได้โดยไม่ต้องรู้ Python | ✅ |
 | CP5 | Form pack โรงเรียน | มีแพ็กฟอร์มพร้อมมาร์คอย่างน้อย 3–5 แบบที่ใช้บ่อย |
 | CP6 | Pilot โรงเรียน | ทดลองกับโรงเรียนจริง ≥ 2 แห่ง ครบ 1 สัปดาห์ใช้งานจริง |
 | CP7 | Ready to sell | คู่มือไทย, ช่องทางออกคีย์, วิดีโอสั้น, นโยบายซัพพอร์ต 5 ปี ชัดเจน |
 
-สถานะปัจจุบันโดยประมาณ: **CP0–CP3 ผ่าน** · Form pack v1 มีแล้ว → ต่อไป **CP4** Windows installer (วิดีโอคู่มือยังเป็น follow-up)
+สถานะปัจจุบันโดยประมาณ: **CP0–CP4** · ต่อไป **CP5–CP7** (pilot + พร้อมขาย; วิดีโอคู่มือยังเป็น follow-up)
 
 ---
 
@@ -193,11 +193,12 @@ frontend/
 
 ### ระยะ 4 — Windows installer
 
-- [ ] แพ็กด้วย PyInstaller (one-folder)
-- [ ] Inno Setup / ตัวติดตั้งเทียบเท่า → Start Menu + Desktop shortcut
-- [ ] Bundle ฟอนต์สารบรรณ + demo + `license_public.pem`
-- [ ] First-run: สร้าง DATA_DIR, SECRET_KEY, เปิดเบราว์เซอร์อัตโนมัติ
-- [ ] ไม่ใส่ `scripts/gen_license.py` / private key ในตัวติดตั้งลูกค้า
+- [x] แพ็กด้วย PyInstaller (one-folder) — `PDFFormMarker.spec` + `launcher.py`
+- [x] Inno Setup → Start Menu + Desktop shortcut — `installer/PDFFormMarker.iss`
+- [x] Bundle ฟอนต์สารบรรณ + demo + formpacks + `license_public.pem`
+- [x] First-run: สร้าง DATA_DIR, SECRET_KEY, เปิดเบราว์เซอร์ + หน้าต่างสถานะ
+- [x] ไม่ใส่ `scripts/gen_license.py` / private key ในตัวติดตั้งลูกค้า
+- คู่มือแพ็ก: [docs/INSTALLER.md](docs/INSTALLER.md) · สคริปต์: `scripts/build_windows.ps1`
 
 **ทางออก:** CP4
 
@@ -320,8 +321,8 @@ frontend/
 4. ย้าย UI กรอกฟอร์มครบไป TypeScript (**CP-TS** เสร็จ)  
 5. คลังเอกสารเลือกโฟลเดอร์ได้ + ค้นหา (**CP2**)  
 6. Backup ZIP + report ZIP (**CP3 + L3**)  
-7. Installer (**CP4**) — bundle ทั้ง Python และ `static/` จาก `npm run build`  
-8. Form pack + pilot (**CP5–CP7**)
+7. Installer (**CP4**) — ✅ PyInstaller + Inno Setup (`scripts/build_windows.ps1`)  
+8. Pilot + พร้อมขาย (**CP5–CP7**)
 
 ---
 
@@ -359,3 +360,4 @@ frontend/
 | 2026-07-19 | CP2 คลังเอกสาร: เลือกโฟลเดอร์ราก, สแกน/ค้นหา, `@lib.` + `ชื่อ.tpl.json`, เปิด Explorer |
 | 2026-07-19 | แก้รีวิว CP2: atomic index, base64url doc id, escape UI, save-tpl คลัง |
 | 2026-07-20 | CP3 Backup/Restore + Form pack v1 + docs/BACKUP.md (วิดีโอยังค้าง) |
+| 2026-07-20 | CP4 Windows installer: PyInstaller + Inno Setup + docs/INSTALLER.md |

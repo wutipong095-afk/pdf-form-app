@@ -76,7 +76,8 @@ def init_logging(log_dir: Path, *, console: bool = True) -> logging.Logger:
     err_handler.addFilter(_ErrorOnlyFilter())
     logger.addHandler(err_handler)
 
-    if console:
+    # console=False หรือ stderr หาย (PyInstaller windowed) — เขียนไฟล์อย่างเดียว
+    if console and sys.stderr is not None:
         cons = logging.StreamHandler(sys.stderr)
         cons.setLevel(logging.INFO)
         cons.setFormatter(fmt)
