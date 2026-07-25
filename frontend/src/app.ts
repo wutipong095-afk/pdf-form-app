@@ -20,6 +20,9 @@ function setTab(t: "edit" | "fill"): void {
   document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
   $("tab-" + t).classList.add("active");
   $("panel-" + t).classList.add("active");
+  // crosshair เฉพาะแท็บมาร์ค — โหมดกรอกใช้ลูกศรปกติ (กันเคอร์เซอร์ขาวบน PDF)
+  $("pagewrap").classList.toggle("marking", t === "edit");
+  paintMarkers();
 }
 
 function gotoField(i: number): void {

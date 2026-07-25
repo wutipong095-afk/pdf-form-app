@@ -94,7 +94,7 @@ docker compose up -d --build
 | `logging_setup.py` | ไฟล์ log หมุนเวียน |
 | `templates/` | HTML (login + แอป) |
 | `frontend/` | TypeScript UI (Vite) |
-| `fonts/` | ฟอนต์ไทยราชการ (TH Sarabun / THSarabunIT๙) |
+| `fonts/` | ฟอนต์ไทยราชการ (TH Sarabun = เลขอาราบิก; IT๙ = เลขไทย ถ้าตั้ง `FONT_PATH`) |
 | `demo/` | PDF + เทมเพลตตัวอย่าง (commit ได้) |
 | `data/users/<user>/` | ใช้เมื่อตั้ง `DATA_DIR=./data` (ไม่เข้า git) |
 

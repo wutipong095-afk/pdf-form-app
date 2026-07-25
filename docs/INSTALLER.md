@@ -7,7 +7,7 @@
 | ผลลัพธ์ | ความหมาย |
 |---------|----------|
 | `dist/PDFFormMarker/` | โฟลเดอร์รันได้จาก PyInstaller (one-folder) |
-| `dist/installer/PDFFormMarker-Setup-0.1.0.exe` | ตัวติดตั้ง Inno Setup (ถ้ามี ISCC) |
+| `dist/installer/PDFFormMarker-Setup-0.1.5.exe` | ตัวติดตั้ง Inno Setup (ถ้ามี ISCC) |
 
 รวมในแพ็ก: ฟอนต์สารบรรณ, demo, `formpacks/`, `license_public.pem`, UI จาก `static/`
 
@@ -34,7 +34,7 @@
 .\scripts\build_windows.ps1 -SkipFrontend   # ใช้ static/ ที่มีอยู่แล้ว
 ```
 
-ผลลัพธ์: `dist\PDFFormMarker\PDFFormMarker.exe` และ (ถ้ามี Inno) `dist\installer\PDFFormMarker-Setup-0.1.0.exe`
+ผลลัพธ์: `dist\PDFFormMarker\PDFFormMarker.exe` และ (ถ้ามี Inno) `dist\installer\PDFFormMarker-Setup-0.1.5.exe`
 ## ทดสอบบนเครื่องแพ็ก
 
 1. รัน `dist\PDFFormMarker\PDFFormMarker.exe`
@@ -55,5 +55,7 @@
 2. ติดตั้ง (ไม่ต้องสิทธิ์แอดมิน — PrivilegesRequired=lowest)
 3. เปิดจาก Desktop / Start Menu
 4. คัดลอกรหัสเครื่องจากแอป → ขอคีย์จากผู้ขาย
+
+ถ้าโปรแกรมเก่ายังเปิดอยู่ Setup จะ**ปิดให้อัตโนมัติ**ก่อนคัดลอกไฟล์ทับ (และตอนถอนการติดตั้งด้วย) — ไม่ต้องปิดมือ
 
 ถอนการติดตั้งไม่ลบโฟลเดอร์ AppData — สำรองด้วยปุ่มในแอปก่อนย้ายเครื่อง
