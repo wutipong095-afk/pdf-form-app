@@ -104,20 +104,25 @@ if ($SkipInno) {
 
 Write-Host ""
 Write-Host "[4/4] Inno Setup..." -ForegroundColor Yellow
+# Force array: a single match must not become a string (else [0] is char 'C')
+$pf86 = ${env:ProgramFiles(x86)}
 $IsccCandidates = @(
-    (Get-Command iscc -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
-    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-    "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-    "${env:LocalAppData}\Programs\Inno Setup 6\ISCC.exe"
-) | Where-Object { $_ -and (Test-Path $_) }
+    @(
+        (Get-Command iscc -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
+        (Join-Path $pf86 "Inno Setup 6\ISCC.exe"),
+        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"),
+        (Join-Path $env:LocalAppData "Programs\Inno Setup 6\ISCC.exe")
+    ) | Where-Object { $_ -and (Test-Path $_) }
+)
 
-if (-not $IsccCandidates) {
+if ($IsccCandidates.Count -eq 0) {
     Write-Host "ISCC.exe not found - folder ready at dist\PDFFormMarker\" -ForegroundColor Yellow
     Write-Host "Install Inno Setup 6, then re-run without -SkipInno."
     exit 0
 }
 
-$Iscc = $IsccCandidates[0]
+$Iscc = $IsccCandidates | Select-Object -First 1
+Write-Host "Using ISCC: $Iscc"
 New-Item -ItemType Directory -Force -Path (Join-Path $Root "dist\installer") | Out-Null
 & $Iscc (Join-Path $Root "installer\PDFFormMarker.iss")
 if ($LASTEXITCODE -ne 0) {

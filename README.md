@@ -28,7 +28,8 @@ python app.py
 | Log | `%LOCALAPPDATA%\PDFFormMarker\logs` |
 | Bind | `127.0.0.1` เท่านั้น |
 
-ในแอปมีปุ่ม **โฟลเดอร์ข้อมูล** · **ผลลัพธ์ PDF** · **รายงานปัญหา** · **สำรองข้อมูล / กู้คืน**
+ในแอปมีปุ่ม **ผลลัพธ์ PDF** · **รายงานปัญหา** · **สำรองข้อมูล / กู้คืน**  
+(โฟลเดอร์ระบบ `%LOCALAPPDATA%\PDFFormMarker\data` ยังใช้ภายใน — ไม่เปิดให้กดจาก UI)
 
 หลังเปิดครั้งแรกจะมี **demo-form.pdf** + เทมเพลต **demo-ใบเบิก** ให้ลองทันที
 
@@ -94,7 +95,7 @@ docker compose up -d --build
 | `logging_setup.py` | ไฟล์ log หมุนเวียน |
 | `templates/` | HTML (login + แอป) |
 | `frontend/` | TypeScript UI (Vite) |
-| `fonts/` | ฟอนต์ไทยราชการ (TH Sarabun / THSarabunIT๙) |
+| `fonts/` | ฟอนต์ไทยราชการ (TH Sarabun = เลขอาราบิก; IT๙ = เลขไทย ถ้าตั้ง `FONT_PATH`) |
 | `demo/` | PDF + เทมเพลตตัวอย่าง (commit ได้) |
 | `data/users/<user>/` | ใช้เมื่อตั้ง `DATA_DIR=./data` (ไม่เข้า git) |
 

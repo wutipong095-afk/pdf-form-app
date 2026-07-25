@@ -6,10 +6,31 @@ import { loadDoc } from "./viewer";
 import type { LibraryDoc, LibraryStatus, TemplatePayload } from "./types";
 
 let selectedRel = "";
+let libraryOpen = false;
 
 export function isLibDoc(doc: string | null | undefined): boolean {
   const d = doc || "";
   return d.startsWith("@lib.") || d.startsWith("@lib|") || d.startsWith("@lib/");
+}
+
+export function isLibraryOpen(): boolean {
+  return libraryOpen;
+}
+
+/** แสดง/ซ่อนแถบคลัง — โหลดรายการเมื่อเปิดเท่านั้น */
+export function setLibraryOpen(open: boolean): void {
+  libraryOpen = open;
+  const bar = $("libbar");
+  bar.classList.toggle("open", open);
+  bar.setAttribute("aria-hidden", open ? "false" : "true");
+  const btn = $("btn-lib-toggle");
+  btn.classList.toggle("active", open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  btn.textContent = open ? "ซ่อนคลัง" : "คลังเอกสาร";
+  if (open) {
+    setStatus("กำลังโหลดคลัง…");
+    void refreshLibrary().catch(() => setStatus("โหลดคลังไม่สำเร็จ"));
+  }
 }
 
 function escapeHtml(s: string): string {
@@ -67,9 +88,11 @@ export async function refreshLibrary(q?: string): Promise<void> {
 
   const openBtn = $("libopenroot") as HTMLButtonElement;
   const openFileBtn = $("libopenfile") as HTMLButtonElement;
+  const browseBtn = $("libbrowse") as HTMLButtonElement;
   if (!st.open_folder_enabled) {
     openBtn.style.display = "none";
     openFileBtn.style.display = "none";
+    browseBtn.style.display = "none";
   }
 
   if (!st.configured) {
@@ -88,10 +111,31 @@ export async function refreshLibrary(q?: string): Promise<void> {
   }
 
   fillResults(st.docs || []);
+  if (!st.count) {
+    setStatus(
+      "คลังยังว่าง — กดเปิดรากใน Explorer แล้วใส่ไฟล์ .pdf จากนั้นกดสแกนใหม่ หรือกดเลือกโฟลเดอร์… ที่มี PDF อยู่แล้ว",
+    );
+    return;
+  }
   setStatus(
     `คลัง: ${st.count} ไฟล์` +
       (st.scanned_at ? ` · สแกนล่าสุด ${new Date(st.scanned_at * 1000).toLocaleString()}` : ""),
   );
+}
+
+function statusAfterScan(count: number, extra = "", seeded?: string | null): void {
+  if (seeded) {
+    setStatus(`ใส่ตัวอย่าง ${seeded} ให้แล้ว · ${count} ไฟล์ — เลือกจากรายการด้านขวาได้เลย${extra}`);
+    return;
+  }
+  if (!count) {
+    setStatus(
+      "ยังไม่มีไฟล์ PDF ในโฟลเดอร์นี้ — กดเปิดรากใน Explorer คัดลอก .pdf เข้าไป แล้วกดสแกนใหม่" +
+        extra,
+    );
+    return;
+  }
+  setStatus(`${count} ไฟล์ในคลัง — เลือกจากรายการเพื่อเปิด` + extra);
 }
 
 async function openLibraryDoc(
@@ -120,6 +164,31 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
   const search = $("libsearch") as HTMLInputElement;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
+  $("btn-lib-toggle").onclick = () => setLibraryOpen(!libraryOpen);
+  $("libhide").onclick = () => setLibraryOpen(false);
+
+  $("libbrowse").onclick = async () => {
+    const cur = ($("libroot") as HTMLInputElement).value.trim();
+    try {
+      const res = await apiJson<{ ok?: boolean; cancelled?: boolean; path?: string | null }>(
+        "/api/library/browse",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initial: cur }),
+        },
+      );
+      if (res.cancelled || !res.path) {
+        setStatus("ยกเลิกเลือกโฟลเดอร์");
+        return;
+      }
+      ($("libroot") as HTMLInputElement).value = res.path;
+      $("libset").click();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "เลือกโฟลเดอร์ไม่สำเร็จ");
+    }
+  };
+
   $("libset").onclick = async () => {
     const root = ($("libroot") as HTMLInputElement).value.trim();
     try {
@@ -128,6 +197,7 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
         count: number;
         docs: LibraryDoc[];
         scaffold_created?: string[];
+        seeded_demo?: string | null;
         warning?: string | null;
       }>("/api/library/root", {
         method: "POST",
@@ -140,7 +210,7 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
         res.scaffold_created && res.scaffold_created.length
           ? ` · สร้างโฟลเดอร์: ${res.scaffold_created.join(", ")}`
           : "";
-      setStatus(`ตั้งรากแล้ว · ${res.count} ไฟล์${extra}`);
+      statusAfterScan(res.count, extra, res.seeded_demo);
       if (res.warning) alert(res.warning);
     } catch (e) {
       alert(e instanceof Error ? e.message : "ตั้งรากไม่สำเร็จ");
@@ -154,12 +224,14 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
 
   $("libscan").onclick = async () => {
     try {
-      const res = await apiJson<{ count: number; docs: LibraryDoc[]; warning?: string | null }>(
-        "/api/library/scan",
-        { method: "POST" },
-      );
+      const res = await apiJson<{
+        count: number;
+        docs: LibraryDoc[];
+        seeded_demo?: string | null;
+        warning?: string | null;
+      }>("/api/library/scan", { method: "POST" });
       fillResults(res.docs || []);
-      setStatus(`สแกนใหม่ · ${res.count} ไฟล์`);
+      statusAfterScan(res.count, "", res.seeded_demo);
       search.value = "";
       if (res.warning) alert(res.warning);
     } catch (e) {
@@ -215,7 +287,5 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
     void openLibraryDoc(docId, stem, onMarkers, onRender);
   };
 
-  void refreshLibrary().catch(() => {
-    setStatus("โหลดคลังไม่สำเร็จ");
-  });
+  // ไม่โหลดคลังตอนเปิดแอป — รอจนผู้ใช้กดปุ่มคลังเอกสาร
 }

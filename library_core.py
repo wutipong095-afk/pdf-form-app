@@ -14,6 +14,9 @@ from __future__ import annotations
 import base64
 import json
 import os
+import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -343,6 +346,118 @@ def suggest_default_root() -> Path:
     docs = home / "Documents"
     base = docs if docs.is_dir() else home
     return (base / "PDFFormMarker-คลังเอกสาร").resolve()
+
+
+def load_settings(root: Path) -> dict[str, Any]:
+    ensure_pdfmarker(root)
+    sp = settings_path(root)
+    try:
+        data = json.loads(sp.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(root: Path, data: dict[str, Any]) -> None:
+    ensure_pdfmarker(root)
+    _atomic_write_json(settings_path(root), data)
+
+
+def maybe_seed_demo_pdf(root: Path, demo_pdf: Path) -> Optional[str]:
+    """ถ้าคลังยังไม่มี PDF และยังไม่เคย seed — คัดลอก demo เข้า 01-การเงิน
+
+    คืน rel ของไฟล์ที่สร้าง หรือ None
+    """
+    root = root.resolve()
+    if not demo_pdf.is_file():
+        return None
+    settings = load_settings(root)
+    if settings.get("demo_seeded"):
+        return None
+    # มี PDF อยู่แล้ว — แค่ติดธงกัน seed ซ้ำภายหลัง
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIR_NAMES and not d.startswith(".")]
+        if any(n.lower().endswith(".pdf") for n in filenames):
+            settings["demo_seeded"] = True
+            save_settings(root, settings)
+            return None
+    dest_dir = root / STARTER_FOLDERS[0]
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / demo_pdf.name
+    if not dest.exists():
+        shutil.copy2(demo_pdf, dest)
+    settings["demo_seeded"] = True
+    save_settings(root, settings)
+    return str(dest.relative_to(root)).replace("\\", "/")
+
+
+def browse_folder_dialog(initial: Optional[str] = None) -> Optional[str]:
+    """เปิดไดอะล็อกเลือกโฟลเดอร์ (Windows WinForms / fallback tkinter subprocess)"""
+    init = ""
+    if initial:
+        try:
+            p = Path(initial).expanduser()
+            if p.is_dir():
+                init = str(p.resolve())
+        except OSError:
+            init = ""
+
+    if sys.platform == "win32":
+        safe = init.replace("'", "''")
+        script = (
+            "Add-Type -AssemblyName System.Windows.Forms; "
+            "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
+            "$d.Description = 'เลือกโฟลเดอร์รากคลังเอกสาร (มีไฟล์ .pdf)'; "
+            "$d.ShowNewFolderButton = $true; "
+        )
+        if safe:
+            script += f"$d.SelectedPath = '{safe}'; "
+        script += (
+            "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+            "Write-Output $d.SelectedPath }"
+        )
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        try:
+            r = subprocess.run(
+                ["powershell", "-NoProfile", "-STA", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=600,
+                creationflags=flags,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        lines = [ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip()]
+        if not lines:
+            return None
+        chosen = lines[-1]
+        try:
+            return str(Path(chosen).resolve()) if Path(chosen).is_dir() else None
+        except OSError:
+            return None
+
+    # Linux/mac: tkinter ในโปรเซสย่อย — กันชนกับ thread ของเซิร์ฟเวอร์
+    code = (
+        "import sys\n"
+        "from tkinter import Tk, filedialog\n"
+        "root = Tk(); root.withdraw(); root.attributes('-topmost', True)\n"
+        f"p = filedialog.askdirectory(initialdir={init!r} or None, title='เลือกโฟลเดอร์รากคลังเอกสาร')\n"
+        "print(p or '', end='')\n"
+    )
+    try:
+        r = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    chosen = (r.stdout or "").strip()
+    try:
+        return str(Path(chosen).resolve()) if chosen and Path(chosen).is_dir() else None
+    except OSError:
+        return None
 
 
 def mark_has_template(root: Path, rel: str, has: bool = True) -> None:

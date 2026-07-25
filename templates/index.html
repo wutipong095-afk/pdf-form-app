@@ -13,7 +13,11 @@
   main { flex:1; display:flex; min-height:0; }
   #viewer { flex:1; overflow:auto; padding:16px; text-align:center; }
   #pagewrap { position:relative; display:inline-block; box-shadow:0 2px 12px rgba(0,0,0,.25); }
-  #pageimg { display:block; max-width:100%; cursor:crosshair; }
+  /* crosshair ของ Windows มองเกือบขาวบนพื้น PDF — ใช้ SVG ตัดขอบขาว+ดำเฉพาะโหมดมาร์ค */
+  #pageimg { display:block; max-width:100%; cursor:default; }
+  #pagewrap.marking #pageimg {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 1v8M12 15v8M1 12h8M15 12h8' stroke='%23fff' stroke-width='3.5' stroke-linecap='round'/%3E%3Cpath d='M12 1v8M12 15v8M1 12h8M15 12h8' stroke='%231a1a1a' stroke-width='1.75' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='2.5' fill='%23e63946' stroke='%23fff' stroke-width='1'/%3E%3C/svg%3E") 12 12, crosshair;
+  }
   .marker { position:absolute; transform:translate(-3px,-3px); width:8px; height:8px; border-radius:50%; background:#e63946; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,.5); cursor:pointer; }
   .marker.sel { background:#0077ff; }
   .mlabel { position:absolute; transform:translateY(-100%); background:rgba(230,57,70,.85); color:#fff; font-size:11px; padding:0 4px; border-radius:3px; white-space:nowrap; pointer-events:none; }
@@ -52,12 +56,15 @@
   #licbar code { background:rgba(0,0,0,.06); padding:2px 6px; border-radius:4px; user-select:all; }
   #licbar input[type=text] { min-width:260px; flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
   #licbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font:inherit; }
-  #libbar { padding:8px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f7f9fc; }
+  /* คลังเอกสาร: ซ่อนจนกดเรียกใช้จากปุ่มใน header */
+  #libbar { padding:8px 16px; font-size:13px; display:none; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f7f9fc; }
+  #libbar.open { display:flex; }
   #libbar input[type=text] { padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
   #libbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
   #libbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
   #libbar select { min-width:220px; max-width:360px; padding:4px 6px; border-radius:6px; border:1px solid #ccc; font:inherit; }
   #libstatus { color:#555; font-size:12px; flex:1 1 180px; }
+  #btn-lib-toggle.active { background:#ffb84d !important; color:#222 !important; font-weight:bold; }
   #bakbar { padding:6px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f3f6f3; }
   #bakbar button { background:#2e7d32; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
   #bakbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
@@ -72,7 +79,7 @@
   <input id="tplname" placeholder="ชื่อเทมเพลต" style="width:140px">
   <button id="savetpl">💾 บันทึกเทมเพลต</button>
   <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
-    <button type="button" id="btn-open-data" title="เปิดโฟลเดอร์ข้อมูล" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">โฟลเดอร์ข้อมูล</button>
+    <button type="button" id="btn-lib-toggle" title="เปิด/ปิดแถบคลังเอกสาร" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">คลังเอกสาร</button>
     <button type="button" id="btn-open-output" title="เปิดโฟลเดอร์ผลลัพธ์" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">ผลลัพธ์ PDF</button>
     <button type="button" id="btn-support-report" title="แพ็ก log ส่งผู้ขาย (ไม่มีเนื้อหา PDF)" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">รายงานปัญหา</button>
     <span id="appver" style="opacity:.75;font-size:12px"></span>
@@ -90,9 +97,10 @@
     <button type="button" id="licactivate">เปิดใช้ไลเซนต์</button>
   </span>
 </div>
-<div id="libbar">
+<div id="libbar" aria-hidden="true">
   <strong>คลังเอกสาร</strong>
-  <input type="text" id="libroot" placeholder="path โฟลเดอร์รากคลัง" style="flex:1;min-width:220px">
+  <input type="text" id="libroot" placeholder="path โฟลเดอร์ที่มีไฟล์ .pdf" style="flex:1;min-width:220px">
+  <button type="button" id="libbrowse" class="secondary" title="เปิดหน้าต่างเลือกโฟลเดอร์">เลือกโฟลเดอร์…</button>
   <button type="button" id="libset">ตั้งราก</button>
   <button type="button" id="libdefault" class="secondary">ใช้ค่าแนะนำ</button>
   <button type="button" id="libscan" class="secondary">สแกนใหม่</button>
@@ -100,7 +108,8 @@
   <input type="text" id="libsearch" placeholder="ค้นหาชื่อ / โฟลเดอร์ / แท็ก" style="min-width:160px">
   <select id="libresults"><option value="">— เลือกจากคลัง —</option></select>
   <button type="button" id="libopenfile" class="secondary">เปิดไฟล์ใน Explorer</button>
-  <span id="libstatus">กำลังโหลดคลัง…</span>
+  <span id="libstatus">กดปุ่มคลังเอกสารเพื่อโหลด</span>
+  <button type="button" id="libhide" class="secondary" title="ซ่อนแถบคลัง">ซ่อน</button>
 </div>
 <div id="bakbar">
   <strong>สำรอง / เทมเพลต</strong>
@@ -119,7 +128,7 @@
       <button id="prev">◀</button> <span id="pglabel">หน้า - / -</span> <button id="next">▶</button>
       <span class="hint" id="fonthint"></span>
     </div>
-    <div id="pagewrap">
+    <div id="pagewrap" class="marking">
       <img id="pageimg" alt="เลือก PDF ก่อน">
     </div>
   </div>

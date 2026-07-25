@@ -61,6 +61,7 @@ from license_core import (
 )
 from library_core import (
     MAX_SCAN_DEPTH,
+    browse_folder_dialog,
     get_library_root,
     init_scaffold,
     is_lib_doc,
@@ -68,6 +69,7 @@ from library_core import (
     load_index,
     make_lib_doc,
     mark_has_template,
+    maybe_seed_demo_pdf,
     resolve_under_root,
     scan_library,
     search_index,
@@ -95,10 +97,10 @@ MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "16"))
 
 log = get_logger("app")
 
-# ฟอนต์ไทยราชการ — TH Sarabun (IT๙ = ตัวเลขไทย) ก่อน แล้วค่อย fallback
+# ฟอนต์ไทยราชการ — TH Sarabun (เลขอาราบิก) ก่อน
+# IT๙ แมป glyph ของ 0-9 เป็นตัวเลขไทย จึงใช้เมื่อตั้ง FONT_PATH เองเท่านั้น
 FONT_CANDIDATES = [
     os.environ.get("FONT_PATH", ""),  # บังคับ path ได้ผ่าน .env
-    str(FONTS_DIR / "THSarabunIT๙.ttf"),
     str(FONTS_DIR / "THSarabun.ttf"),
     str(FONTS_DIR / "THSarabunNew.ttf"),
     str(FONTS_DIR / "NotoSansThai-Regular.ttf"),
@@ -108,7 +110,13 @@ FONT_CANDIDATES = [
     r"C:\Windows\Fonts\leelawui.ttf",
     r"C:\Windows\Fonts\tahoma.ttf",
     "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
+    str(FONTS_DIR / "THSarabunIT๙.ttf"),  # fallback สุดท้าย (ตัวเลขไทย)
 ]
+
+
+def _is_it9_font(name: str) -> bool:
+    n = name.lower()
+    return "it๙" in n or "it9" in n
 
 
 def thai_font():
@@ -116,12 +124,17 @@ def thai_font():
         if f and os.path.exists(f):
             return f
     # เผื่อชื่อไฟล์ต่างเล็กน้อย — หา THSarabun*.ttf ใน fonts/ (ไม่เอา Bold/Italic)
+    # เลขอาราบิกก่อน — ข้าม IT๙ จนกว่าจะไม่มีตัวเลือกอื่น
     if FONTS_DIR.is_dir():
-        for p in sorted(FONTS_DIR.glob("THSarabun*.ttf")):
+        regular, it9 = [], []
+        for p in FONTS_DIR.glob("THSarabun*.ttf"):
             name = p.name.lower()
             if "bold" in name or "italic" in name:
                 continue
-            return str(p)
+            (it9 if _is_it9_font(name) else regular).append(p)
+        for group in (regular, it9):
+            if group:
+                return str(sorted(group, key=lambda x: x.name.lower())[0])
     return None
 
 
@@ -695,6 +708,45 @@ def library_status():
     })
 
 
+def _library_demo_pdf() -> Path:
+    return DEMO_DIR / "uploads" / "demo-form.pdf"
+
+
+def _scan_library_with_demo(root: Path) -> tuple[dict, Optional[str]]:
+    """สแกนคลัง — ถ้ายังว่างจะ seed demo-form.pdf ครั้งแรก"""
+    idx = scan_library(root)
+    seeded_rel = None
+    if int(idx.get("count") or 0) == 0:
+        seeded_rel = maybe_seed_demo_pdf(root, _library_demo_pdf())
+        if seeded_rel:
+            idx = scan_library(root)
+            log.info("library seeded demo rel=%s", seeded_rel)
+    return idx, seeded_rel
+
+
+@app.post("/api/library/browse")
+@login_required
+def library_browse():
+    """เปิดไดอะล็อกเลือกโฟลเดอร์ (โหมดเครื่องเดียวเท่านั้น)"""
+    if not _open_folder_allowed():
+        return jsonify({
+            "error": "เลือกโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost)",
+        }), 403
+    data = request.get_json(force=True, silent=True) or {}
+    initial = (data.get("initial") or "").strip()
+    if not initial:
+        root = get_library_root(DATA_DIR)
+        initial = str(root) if root else str(suggest_default_root().parent)
+    try:
+        chosen = browse_folder_dialog(initial or None)
+    except Exception:
+        log.exception("library browse failed")
+        return jsonify({"error": "เปิดหน้าต่างเลือกโฟลเดอร์ไม่สำเร็จ"}), 500
+    if not chosen:
+        return jsonify({"ok": False, "cancelled": True, "path": None})
+    return jsonify({"ok": True, "cancelled": False, "path": chosen})
+
+
 @app.post("/api/library/root")
 @login_required
 def library_set_root():
@@ -705,7 +757,7 @@ def library_set_root():
     try:
         root = set_library_root(DATA_DIR, raw)
         created = init_scaffold(root) if data.get("scaffold", True) else []
-        idx = scan_library(root)
+        idx, seeded_rel = _scan_library_with_demo(root)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except OSError:
@@ -720,6 +772,7 @@ def library_set_root():
         "ok": True,
         "root": str(root),
         "scaffold_created": created,
+        "seeded_demo": seeded_rel,
         "count": count,
         "docs": idx.get("docs") or [],
         "warning": warn,
@@ -731,7 +784,7 @@ def library_set_root():
 def library_scan():
     try:
         root = _require_library_root()
-        idx = scan_library(root)
+        idx, seeded_rel = _scan_library_with_demo(root)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except OSError:
@@ -747,6 +800,7 @@ def library_scan():
         "count": count,
         "docs": idx.get("docs") or [],
         "scanned_at": idx.get("scanned_at"),
+        "seeded_demo": seeded_rel,
         "warning": warn,
     })
 

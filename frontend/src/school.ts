@@ -40,10 +40,9 @@ async function downloadSupportReport(): Promise<void> {
 }
 
 export function bindSchoolUi(): void {
-  const dataBtn = document.getElementById("btn-open-data");
+  // ไม่โชว์ปุ่มเปิด DATA_DIR (มี machine_id/secret_key) — ใช้สำรอง/กู้คืนแทน
   const outBtn = document.getElementById("btn-open-output");
   const reportBtn = document.getElementById("btn-support-report");
-  if (dataBtn) dataBtn.addEventListener("click", () => void openFolder("data"));
   if (outBtn) outBtn.addEventListener("click", () => void openFolder("output"));
   if (reportBtn) reportBtn.addEventListener("click", () => void downloadSupportReport());
 
@@ -54,9 +53,8 @@ export function bindSchoolUi(): void {
       if (!me.auth_required && logoutForm) {
         logoutForm.style.display = "none";
       }
-      if (!me.open_folder_enabled) {
-        if (dataBtn) dataBtn.style.display = "none";
-        if (outBtn) outBtn.style.display = "none";
+      if (!me.open_folder_enabled && outBtn) {
+        outBtn.style.display = "none";
       }
       if (who && me.user) {
         who.textContent = me.auth_required ? me.user : "เครื่องนี้";
