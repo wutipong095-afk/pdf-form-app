@@ -392,7 +392,10 @@ def maybe_seed_demo_pdf(root: Path, demo_pdf: Path) -> Optional[str]:
 
 
 def browse_folder_dialog(initial: Optional[str] = None) -> Optional[str]:
-    """เปิดไดอะล็อกเลือกโฟลเดอร์ (Windows WinForms / fallback tkinter subprocess)"""
+    """เปิดไดอะล็อกเลือกโฟลเดอร์ (Windows WinForms / fallback tkinter subprocess)
+
+    path เริ่มต้นส่งผ่าน env — กันปัญหา escape/encoding ในสคริปต์
+    """
     init = ""
     if initial:
         try:
@@ -402,17 +405,21 @@ def browse_folder_dialog(initial: Optional[str] = None) -> Optional[str]:
         except OSError:
             init = ""
 
+    env = os.environ.copy()
+    if init:
+        env["PDFMARKER_BROWSE_INIT"] = init
+    else:
+        env.pop("PDFMARKER_BROWSE_INIT", None)
+
     if sys.platform == "win32":
-        safe = init.replace("'", "''")
+        # Description เป็นอังกฤษ — กัน mojibake จาก -Command บนบางเครื่อง
         script = (
             "Add-Type -AssemblyName System.Windows.Forms; "
             "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
-            "$d.Description = 'เลือกโฟลเดอร์รากคลังเอกสาร (มีไฟล์ .pdf)'; "
+            "$d.Description = 'Select PDF library folder'; "
             "$d.ShowNewFolderButton = $true; "
-        )
-        if safe:
-            script += f"$d.SelectedPath = '{safe}'; "
-        script += (
+            "$init = $env:PDFMARKER_BROWSE_INIT; "
+            "if ($init) { $d.SelectedPath = $init }; "
             "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
             "Write-Output $d.SelectedPath }"
         )
@@ -424,6 +431,7 @@ def browse_folder_dialog(initial: Optional[str] = None) -> Optional[str]:
                 text=True,
                 timeout=600,
                 creationflags=flags,
+                env=env,
             )
         except (OSError, subprocess.TimeoutExpired):
             return None
@@ -438,10 +446,11 @@ def browse_folder_dialog(initial: Optional[str] = None) -> Optional[str]:
 
     # Linux/mac: tkinter ในโปรเซสย่อย — กันชนกับ thread ของเซิร์ฟเวอร์
     code = (
-        "import sys\n"
+        "import os\n"
         "from tkinter import Tk, filedialog\n"
+        "init = os.environ.get('PDFMARKER_BROWSE_INIT') or None\n"
         "root = Tk(); root.withdraw(); root.attributes('-topmost', True)\n"
-        f"p = filedialog.askdirectory(initialdir={init!r} or None, title='เลือกโฟลเดอร์รากคลังเอกสาร')\n"
+        "p = filedialog.askdirectory(initialdir=init, title='Select PDF library folder')\n"
         "print(p or '', end='')\n"
     )
     try:
@@ -450,6 +459,7 @@ def browse_folder_dialog(initial: Optional[str] = None) -> Optional[str]:
             capture_output=True,
             text=True,
             timeout=600,
+            env=env,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
