@@ -6,10 +6,31 @@ import { loadDoc } from "./viewer";
 import type { LibraryDoc, LibraryStatus, TemplatePayload } from "./types";
 
 let selectedRel = "";
+let libraryOpen = false;
 
 export function isLibDoc(doc: string | null | undefined): boolean {
   const d = doc || "";
   return d.startsWith("@lib.") || d.startsWith("@lib|") || d.startsWith("@lib/");
+}
+
+export function isLibraryOpen(): boolean {
+  return libraryOpen;
+}
+
+/** แสดง/ซ่อนแถบคลัง — โหลดรายการเมื่อเปิดเท่านั้น */
+export function setLibraryOpen(open: boolean): void {
+  libraryOpen = open;
+  const bar = $("libbar");
+  bar.classList.toggle("open", open);
+  bar.setAttribute("aria-hidden", open ? "false" : "true");
+  const btn = $("btn-lib-toggle");
+  btn.classList.toggle("active", open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  btn.textContent = open ? "ซ่อนคลัง" : "คลังเอกสาร";
+  if (open) {
+    setStatus("กำลังโหลดคลัง…");
+    void refreshLibrary().catch(() => setStatus("โหลดคลังไม่สำเร็จ"));
+  }
 }
 
 function escapeHtml(s: string): string {
@@ -143,6 +164,9 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
   const search = $("libsearch") as HTMLInputElement;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
+  $("btn-lib-toggle").onclick = () => setLibraryOpen(!libraryOpen);
+  $("libhide").onclick = () => setLibraryOpen(false);
+
   $("libbrowse").onclick = async () => {
     const cur = ($("libroot") as HTMLInputElement).value.trim();
     try {
@@ -263,7 +287,5 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
     void openLibraryDoc(docId, stem, onMarkers, onRender);
   };
 
-  void refreshLibrary().catch(() => {
-    setStatus("โหลดคลังไม่สำเร็จ");
-  });
+  // ไม่โหลดคลังตอนเปิดแอป — รอจนผู้ใช้กดปุ่มคลังเอกสาร
 }
