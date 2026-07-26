@@ -12,14 +12,16 @@ import secrets
 import shutil
 import subprocess
 import sys
+import threading
 import time
+import uuid
 import zipfile
 from collections import deque
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 from threading import Lock
-from typing import Optional
+from typing import Any, Optional
 
 import fitz  # PyMuPDF
 from flask import (
@@ -712,11 +714,11 @@ def _library_demo_pdf() -> Path:
     return DEMO_DIR / "uploads" / "demo-form.pdf"
 
 
-def _scan_library_with_demo(root: Path) -> tuple[dict, Optional[str]]:
-    """สแกนคลัง — ถ้ายังว่างจะ seed demo-form.pdf ครั้งแรก"""
+def _scan_library_with_demo(root: Path, *, allow_seed: bool = False) -> tuple[dict, Optional[str]]:
+    """สแกนคลัง — seed demo เฉพาะเมื่อ allow_seed (ค่าแนะนำ / scaffold ใหม่)"""
     idx = scan_library(root)
     seeded_rel = None
-    if int(idx.get("count") or 0) == 0:
+    if allow_seed and int(idx.get("count") or 0) == 0:
         seeded_rel = maybe_seed_demo_pdf(root, _library_demo_pdf())
         if seeded_rel:
             idx = scan_library(root)
@@ -724,10 +726,23 @@ def _scan_library_with_demo(root: Path) -> tuple[dict, Optional[str]]:
     return idx, seeded_rel
 
 
+# ไดอะล็อกเลือกโฟลเดอร์รันนอก waitress worker — client poll ผล
+_BROWSE_LOCK = Lock()
+_BROWSE_JOBS: dict[str, dict[str, Any]] = {}
+_BROWSE_ACTIVE = False
+
+
+def _browse_job_cleanup(max_age_s: float = 600.0) -> None:
+    now = time.time()
+    dead = [k for k, v in _BROWSE_JOBS.items() if now - float(v.get("started") or 0) > max_age_s]
+    for k in dead:
+        _BROWSE_JOBS.pop(k, None)
+
+
 @app.post("/api/library/browse")
 @login_required
 def library_browse():
-    """เปิดไดอะล็อกเลือกโฟลเดอร์ (โหมดเครื่องเดียวเท่านั้น)"""
+    """เริ่มเลือกโฟลเดอร์แบบ async — คืน job_id แล้ว poll ที่ GET .../browse/<id>"""
     if not _open_folder_allowed():
         return jsonify({
             "error": "เลือกโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost)",
@@ -737,14 +752,72 @@ def library_browse():
     if not initial:
         root = get_library_root(DATA_DIR)
         initial = str(root) if root else str(suggest_default_root().parent)
-    try:
-        chosen = browse_folder_dialog(initial or None)
-    except Exception:
-        log.exception("library browse failed")
-        return jsonify({"error": "เปิดหน้าต่างเลือกโฟลเดอร์ไม่สำเร็จ"}), 500
-    if not chosen:
-        return jsonify({"ok": False, "cancelled": True, "path": None})
-    return jsonify({"ok": True, "cancelled": False, "path": chosen})
+
+    global _BROWSE_ACTIVE
+    with _BROWSE_LOCK:
+        _browse_job_cleanup()
+        if _BROWSE_ACTIVE:
+            return jsonify({"error": "กำลังเลือกโฟลเดอร์อยู่แล้ว — รอให้จบก่อน"}), 409
+        job_id = uuid.uuid4().hex
+        _BROWSE_ACTIVE = True
+        _BROWSE_JOBS[job_id] = {
+            "started": time.time(),
+            "done": False,
+            "cancelled": False,
+            "path": None,
+            "error": None,
+        }
+
+    def _run(jid: str, init_path: str) -> None:
+        global _BROWSE_ACTIVE
+        try:
+            chosen = browse_folder_dialog(init_path or None)
+            with _BROWSE_LOCK:
+                job = _BROWSE_JOBS.get(jid)
+                if job is not None:
+                    job["done"] = True
+                    job["cancelled"] = chosen is None
+                    job["path"] = chosen
+        except Exception as exc:  # noqa: BLE001 — ส่งข้อความให้ client
+            log.exception("library browse failed")
+            with _BROWSE_LOCK:
+                job = _BROWSE_JOBS.get(jid)
+                if job is not None:
+                    job["done"] = True
+                    job["error"] = "เปิดหน้าต่างเลือกโฟลเดอร์ไม่สำเร็จ"
+                    job["detail"] = str(exc)
+        finally:
+            with _BROWSE_LOCK:
+                _BROWSE_ACTIVE = False
+
+    threading.Thread(target=_run, args=(job_id, initial), daemon=True).start()
+    return jsonify({"ok": True, "job_id": job_id, "pending": True})
+
+
+@app.get("/api/library/browse/<job_id>")
+@login_required
+def library_browse_status(job_id: str):
+    if not _open_folder_allowed():
+        return jsonify({"error": "เลือกโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost)"}), 403
+    with _BROWSE_LOCK:
+        job = _BROWSE_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"error": "ไม่พบงานเลือกโฟลเดอร์ (หมดอายุหรือรหัสผิด)"}), 404
+        if not job.get("done"):
+            return jsonify({"ok": True, "pending": True, "job_id": job_id})
+        payload = {
+            "ok": not job.get("error"),
+            "pending": False,
+            "job_id": job_id,
+            "cancelled": bool(job.get("cancelled")),
+            "path": job.get("path"),
+            "error": job.get("error"),
+        }
+        # ลบหลังอ่านครั้งแรก — กัน poll ซ้ำกินหน่วยความจำ
+        _BROWSE_JOBS.pop(job_id, None)
+    if payload.get("error"):
+        return jsonify(payload), 500
+    return jsonify(payload)
 
 
 @app.post("/api/library/root")
@@ -752,19 +825,22 @@ def library_browse():
 def library_set_root():
     data = request.get_json(force=True, silent=True) or {}
     raw = (data.get("root") or "").strip()
-    if raw.lower() in ("default", "auto", ""):
+    used_default = raw.lower() in ("default", "auto", "")
+    if used_default:
         raw = str(suggest_default_root())
     try:
         root = set_library_root(DATA_DIR, raw)
         created = init_scaffold(root) if data.get("scaffold", True) else []
-        idx, seeded_rel = _scan_library_with_demo(root)
+        # seed demo เฉพาะ「ใช้ค่าแนะนำ」— ไม่ใส่ในโฟลเดอร์ว่างที่ผู้ใช้เลือกเอง
+        allow_seed = used_default
+        idx, seeded_rel = _scan_library_with_demo(root, allow_seed=allow_seed)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except OSError:
         log.exception("library set root failed")
         return jsonify({"error": "ตั้งโฟลเดอร์รากไม่สำเร็จ"}), 500
     count = int(idx.get("count") or 0)
-    log.info("library root=%s docs=%s scaffold=%s", root, count, created)
+    log.info("library root=%s docs=%s scaffold=%s seed=%s", root, count, created, allow_seed)
     warn = None
     if count >= 500:
         warn = f"พบ PDF {count} ไฟล์ — คลังใหญ่อาจสแกนช้า ควรเลือกโฟลเดอร์ย่อยที่ใช้งานจริง"
@@ -784,7 +860,8 @@ def library_set_root():
 def library_scan():
     try:
         root = _require_library_root()
-        idx, seeded_rel = _scan_library_with_demo(root)
+        # สแกนอย่างเดียว — ไม่ seed ทับโฟลเดอร์ที่ผู้ใช้ตั้งใจให้ว่าง
+        idx, seeded_rel = _scan_library_with_demo(root, allow_seed=False)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except OSError:

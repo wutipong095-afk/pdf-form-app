@@ -7,14 +7,11 @@ import type { LibraryDoc, LibraryStatus, TemplatePayload } from "./types";
 
 let selectedRel = "";
 let libraryOpen = false;
+let browseBusy = false;
 
 export function isLibDoc(doc: string | null | undefined): boolean {
   const d = doc || "";
   return d.startsWith("@lib.") || d.startsWith("@lib|") || d.startsWith("@lib/");
-}
-
-export function isLibraryOpen(): boolean {
-  return libraryOpen;
 }
 
 /** แสดง/ซ่อนแถบคลัง — โหลดรายการเมื่อเปิดเท่านั้น */
@@ -48,6 +45,44 @@ function statusEl(): HTMLElement {
 
 function setStatus(msg: string): void {
   statusEl().textContent = msg;
+}
+
+function setBrowseBusy(busy: boolean): void {
+  browseBusy = busy;
+  const btn = $("libbrowse") as HTMLButtonElement;
+  btn.disabled = busy;
+  btn.textContent = busy ? "กำลังเลือก…" : "เลือกโฟลเดอร์…";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** เริ่ม browse แบบ async แล้ว poll — ไม่บล็อก worker ของเซิร์ฟเวอร์ค้าง request */
+async function browseFolderAsync(initial: string): Promise<string | null> {
+  const started = await apiJson<{ job_id?: string; error?: string }>("/api/library/browse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initial }),
+  });
+  const jobId = started.job_id;
+  if (!jobId) throw new Error(started.error || "เริ่มเลือกโฟลเดอร์ไม่สำเร็จ");
+
+  const deadline = Date.now() + 10 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await sleep(400);
+    const st = await apiJson<{
+      pending?: boolean;
+      cancelled?: boolean;
+      path?: string | null;
+      error?: string;
+    }>("/api/library/browse/" + encodeURIComponent(jobId));
+    if (st.pending) continue;
+    if (st.error) throw new Error(st.error);
+    if (st.cancelled || !st.path) return null;
+    return st.path;
+  }
+  throw new Error("หมดเวลารอเลือกโฟลเดอร์");
 }
 
 function fillResults(docs: LibraryDoc[]): void {
@@ -168,24 +203,22 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
   $("libhide").onclick = () => setLibraryOpen(false);
 
   $("libbrowse").onclick = async () => {
+    if (browseBusy) return;
     const cur = ($("libroot") as HTMLInputElement).value.trim();
+    setBrowseBusy(true);
+    setStatus("เปิดหน้าต่างเลือกโฟลเดอร์… (แอปยังใช้ได้อย่างอื่นได้)");
     try {
-      const res = await apiJson<{ ok?: boolean; cancelled?: boolean; path?: string | null }>(
-        "/api/library/browse",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initial: cur }),
-        },
-      );
-      if (res.cancelled || !res.path) {
+      const path = await browseFolderAsync(cur);
+      if (!path) {
         setStatus("ยกเลิกเลือกโฟลเดอร์");
         return;
       }
-      ($("libroot") as HTMLInputElement).value = res.path;
+      ($("libroot") as HTMLInputElement).value = path;
       $("libset").click();
     } catch (e) {
       alert(e instanceof Error ? e.message : "เลือกโฟลเดอร์ไม่สำเร็จ");
+    } finally {
+      setBrowseBusy(false);
     }
   };
 
