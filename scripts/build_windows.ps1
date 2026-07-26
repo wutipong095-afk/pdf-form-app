@@ -85,6 +85,7 @@ if ($Leaks.Count -gt 0) {
 }
 
 # Sanity: bundled assets (PyInstaller 6 onedir puts datas under _internal)
+# อัปเดต: ผู้ขายวาง update_feed.url เองหลัง build (ดู docs/UPDATE.md)
 foreach ($rel in @("license_public.pem", "fonts", "demo", "templates", "static", "formpacks")) {
     $p = Join-Path $BundleRoot $rel
     $pInternal = Join-Path $BundleRoot "_internal\$rel"

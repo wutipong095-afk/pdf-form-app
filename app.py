@@ -81,6 +81,7 @@ from library_core import (
     tpl_beside_pdf,
 )
 from logging_setup import get_logger, init_logging
+from update_core import check_for_update
 
 load_dotenv()
 
@@ -509,6 +510,27 @@ def me():
         },
         "license": license_status(DATA_DIR),
     })
+
+
+@app.get("/api/update-check")
+@login_required
+def update_check():
+    """เช็กเวอร์ชันจาก latest.json — เน็ตไม่ได้ก็ตอบ offline แล้วใช้แอปต่อได้"""
+    force = (request.args.get("force") or "").strip().lower() in ("1", "true", "yes")
+    try:
+        info = check_for_update(force=force)
+    except Exception:
+        log.exception("update-check failed")
+        return jsonify({
+            "current": APP_VERSION,
+            "update_available": False,
+            "disabled": False,
+            "offline": True,
+            "latest": None,
+            "setup_url": None,
+            "notes": None,
+        })
+    return jsonify(info)
 
 
 @app.get("/api/license")

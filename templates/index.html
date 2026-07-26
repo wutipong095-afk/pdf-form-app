@@ -68,6 +68,11 @@
   #bakbar { padding:6px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f3f6f3; }
   #bakbar button { background:#2e7d32; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
   #bakbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
+  #updbar { display:none; padding:8px 16px; font-size:13px; flex-wrap:wrap; gap:10px; align-items:center; border-bottom:1px solid #b3d4fc; background:#e7f1ff; color:#0b3d91; }
+  #updbar.show { display:flex; }
+  #updbar a { color:#0b3d91; font-weight:bold; }
+  #updbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font:inherit; }
+  #updbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
 </style>
 </head>
 <body>
@@ -96,6 +101,12 @@
     <input type="text" id="lickey" placeholder="วางคีย์ไลเซนต์ที่ได้รับหลังชำระเงิน">
     <button type="button" id="licactivate">เปิดใช้ไลเซนต์</button>
   </span>
+</div>
+<div id="updbar" role="status" aria-live="polite">
+  <span id="updmsg">มีเวอร์ชันใหม่</span>
+  <a id="updlink" href="#" target="_blank" rel="noopener">ดาวน์โหลด Setup</a>
+  <button type="button" id="updopen">เปิดลิงก์อัปเดต</button>
+  <button type="button" id="upddismiss" class="secondary">ปิด</button>
 </div>
 <div id="libbar" aria-hidden="true">
   <strong>คลังเอกสาร</strong>

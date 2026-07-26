@@ -1,0 +1,3 @@
+# คัดลอกเป็น update_feed.url (ข้าง PDFFormMarker.exe หรือ %LOCALAPPDATA%\PDFFormMarker\)
+# ใส่ URL ชี้ไปที่ latest.json บนเว็บคุณ หนึ่งบรรทัด
+https://example.com/releases/latest.json

@@ -1,5 +1,6 @@
 /** ปุ่มโหมดโรงเรียน: เปิดโฟลเดอร์ / สร้างรายงานปัญหา */
 import { api, apiJson } from "./api";
+import { bindUpdateCheck } from "./update";
 
 type MeResponse = {
   auth_required?: boolean;
@@ -65,4 +66,6 @@ export function bindSchoolUi(): void {
     .catch(() => {
       /* ignore */
     });
+
+  bindUpdateCheck();
 }

@@ -64,6 +64,7 @@ hiddenimports = [
     "logging_setup",
     "library_core",
     "backup_core",
+    "update_core",
     "cryptography",
     "cryptography.hazmat.primitives.asymmetric.ed25519",
     "fitz",
