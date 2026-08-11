@@ -10,8 +10,22 @@ export class ApiError extends Error {
   }
 }
 
+function securedOptions(opts?: RequestInit): RequestInit | undefined {
+  if (!opts?.method || !["POST", "PUT", "PATCH", "DELETE"].includes(opts.method.toUpperCase())) return opts;
+  const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+  if (!token) return opts;
+  const headers = new Headers(opts.headers);
+  headers.set("X-CSRF-Token", token);
+  return { ...opts, headers };
+}
+
+export function csrfHeaders(): HeadersInit {
+  const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+  return token ? { "X-CSRF-Token": token } : {};
+}
+
 export async function apiJson<T>(url: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(url, opts);
+  const res = await fetch(url, securedOptions(opts));
   if (res.status === 401) {
     location.href = "/login";
     throw new ApiError("unauthorized", 401);
@@ -25,7 +39,7 @@ export async function apiJson<T>(url: string, opts?: RequestInit): Promise<T> {
 
 /** Like the old api() — returns Response for callers that parse JSON themselves */
 export async function api(url: string, opts?: RequestInit): Promise<Response> {
-  const res = await fetch(url, opts);
+  const res = await fetch(url, securedOptions(opts));
   if (res.status === 401) {
     location.href = "/login";
     throw new ApiError("unauthorized", 401);

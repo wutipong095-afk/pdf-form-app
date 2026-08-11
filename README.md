@@ -69,10 +69,10 @@ ADMIN_PASSWORD=changeme
 SESSION_COOKIE_SECURE=false
 ```
 
-Deploy ด้วย Docker + Caddy: ดู [DEPLOY.md](DEPLOY.md)
+Deploy ด้วย Docker + Caddy (โหมดขั้นสูง / นักพัฒนา — **ไม่ใช่**เส้นทางหลักสำหรับโรงเรียน): ดู [DEPLOY.md](DEPLOY.md)
 
 ```bash
-cp .env.example .env   # ตั้ง SECRET_KEY, รหัสผ่าน, DOMAIN
+cp .env.example .env   # ตั้ง SECRET_KEY, รหัสผ่าน, DOMAIN — ห้ามใช้รหัสผ่าน default บนเน็ต
 docker compose up -d --build
 ```
 

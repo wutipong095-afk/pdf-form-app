@@ -13,11 +13,10 @@ export async function refreshDocs(onMarkers: () => void, onRender: () => void): 
   const demoDoc = r.license?.demo_doc || "demo-form.pdf";
   const docsel = $("docsel") as HTMLSelectElement;
   const tplsel = $("tplsel") as HTMLSelectElement;
-  docsel.innerHTML =
-    '<option value="">— เลือก PDF —</option>' + r.pdfs.map((p) => `<option>${p}</option>`).join("");
-  tplsel.innerHTML =
-    '<option value="">— เทมเพลตใหม่ —</option>' +
-    r.templates.map((t) => `<option>${t}</option>`).join("");
+  docsel.replaceChildren(new Option("Select PDF", ""));
+  for (const name of r.pdfs) docsel.add(new Option(name, name));
+  tplsel.replaceChildren(new Option("New template", ""));
+  for (const name of r.templates) tplsel.add(new Option(name, name));
 
   const fontName = (r.font || "").split(/[/\\]/).pop();
   $("fonthint").textContent = r.font ? "ฟอนต์ทับ: " + fontName : "⚠️ ไม่พบฟอนต์ไทย";

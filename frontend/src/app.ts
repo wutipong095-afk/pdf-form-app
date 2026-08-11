@@ -147,7 +147,14 @@ function bindClearAndFill(): void {
       $("result").textContent = "❌ " + r.error;
       return;
     }
-    $("result").innerHTML = `✅ <a href="/download/${encodeURIComponent(r.file!)}" target="_blank">เปิด ${r.file}</a>`;
+    const result = $("result");
+    result.replaceChildren("Done: ");
+    const link = document.createElement("a");
+    link.href = "/download/" + encodeURIComponent(r.file!);
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Open " + r.file;
+    result.appendChild(link);
     bub("สร้างไฟล์ " + r.file + " เรียบร้อย 🎉", "bot");
   };
 }

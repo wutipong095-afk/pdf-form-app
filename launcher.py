@@ -16,9 +16,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 # ค่าเริ่มต้นโหมดโรงเรียน ก่อน import app
-os.environ.setdefault("HOST", "127.0.0.1")
+# The packaged desktop build must never inherit a network-facing HOST value.
+os.environ["HOST"] = "127.0.0.1"
 os.environ.setdefault("PORT", "5000")
-os.environ.setdefault("SESSION_COOKIE_SECURE", "false")
+os.environ["SESSION_COOKIE_SECURE"] = "false"
 
 # ห้าม bypass ไลเซนต์ใน build ปล่อยจริง
 if getattr(sys, "frozen", False):

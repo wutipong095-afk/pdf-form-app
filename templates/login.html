@@ -38,6 +38,7 @@
 </head>
 <body>
   <form class="card" method="post" action="{{ url_for('login', next=request.args.get('next', '')) }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
     <h1>PDF Form Marker</h1>
     <p class="sub">เข้าสู่ระบบเพื่อมาร์คจุดและกรอกฟอร์ม PDF</p>
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
