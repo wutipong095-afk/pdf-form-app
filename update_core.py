@@ -6,6 +6,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any, Optional
 
@@ -38,11 +39,22 @@ def is_newer(latest: str, current: str) -> bool:
     return parse_version(latest) > parse_version(current)
 
 
+def _safe_update_url(value: str) -> str:
+    url = (value or "").strip()
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return ""
+    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+        return ""
+    return url
+
+
 def resolve_update_feed_url() -> str:
     """ลำดับ: UPDATE_CHECK_URL env → AppData/update_feed.url → ข้าง exe/update_feed.url"""
     env = (os.environ.get("UPDATE_CHECK_URL") or "").strip()
     if env:
-        return env
+        return _safe_update_url(env)
     candidates = [
         app_root_dir() / "update_feed.url",
         BASE / "update_feed.url",
@@ -59,7 +71,7 @@ def resolve_update_feed_url() -> str:
             if p.is_file():
                 url = p.read_text(encoding="utf-8").strip().splitlines()[0].strip()
                 if url and not url.startswith("#"):
-                    return url
+                    return _safe_update_url(url)
         except OSError:
             continue
     return ""
@@ -110,7 +122,7 @@ def check_for_update(*, force: bool = False, current: Optional[str] = None) -> d
     try:
         data = _fetch_latest(feed)
         latest = str(data.get("version") or data.get("latest") or "").strip()
-        setup_url = str(data.get("setup_url") or data.get("url") or "").strip()
+        setup_url = _safe_update_url(str(data.get("setup_url") or data.get("url") or ""))
         notes = data.get("notes")
         published = data.get("published_at") or data.get("date")
         available = bool(latest and is_newer(latest, cur))

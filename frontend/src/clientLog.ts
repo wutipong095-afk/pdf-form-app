@@ -1,3 +1,4 @@
+import { csrfHeaders } from "./api";
 /** ส่ง error จากเบราว์เซอร์ไป server (rate-limit ฝั่งเซิร์ฟเวอร์ + trailing flush) */
 
 const MIN_INTERVAL_MS = 2500;
@@ -42,7 +43,7 @@ async function postLog(
   try {
     await fetch("/api/client-log", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...csrfHeaders() },
       body: JSON.stringify(body),
       keepalive: true,
     });

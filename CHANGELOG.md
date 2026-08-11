@@ -1,7 +1,15 @@
 # Changelog
 
 ## Unreleased
-- แจ้งอัปเดตจาก `latest.json` (แถบดาวน์โหลด Setup) — ไม่บังคับออนไลน์
+
+## 0.1.9
+- Hardening ความปลอดภัย: CSRF, Host check บน loopback, security headers, rate-limit login
+- ตรวจ PDF อัปโหลด (magic/%PDF, หน้าสูงสุด, ไม่รองรับรหัสผ่าน)
+- สำรอง/กู้: จำกัดขนาด·จำนวนไฟล์·compression ratio·path allowlist
+- จำกัด API จัดการเครื่อง (ไลเซนต์, คลัง, สำรอง, โฟลเดอร์, รายงาน) ให้ admin
+- launcher บังคับ `HOST=127.0.0.1` ในแพ็กเกจ desktop
+- อัปเดต feed/`setup_url` รับเฉพาะ HTTPS
+- Dockerfile คัดลอก `update_core.py` ให้ container บูตได้; เอกสารระบุ Docker เป็นโหมดขั้นสูง
 
 ## 0.1.8
 - Seed `demo-form.pdf` เฉพาะตอน「ใช้ค่าแนะนำ」— ไม่ใส่ในโฟลเดอร์ว่างที่ผู้ใช้เลือกเอง

@@ -2,6 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
+<meta name="csrf-token" content="{{ csrf_token }}">
 <title>PDF Form Marker — มาร์คจุด กรอกข้อมูล ออก PDF</title>
 <style>
   * { box-sizing: border-box; }
@@ -90,6 +91,7 @@
     <span id="appver" style="opacity:.75;font-size:12px"></span>
     <span id="who">{{ user }}</span>
     <form id="logout-form" method="post" action="/logout" style="margin:0{% if not auth_required %};display:none{% endif %}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <button type="submit" style="background:#e8eaf0;color:#1a3c6e">ออกจากระบบ</button>
     </form>
   </span>

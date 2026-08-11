@@ -97,6 +97,7 @@ LOCAL_USER = (os.environ.get("LOCAL_USER", "local").strip() or "local")
 
 ZOOM = 2.0
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "16"))
+MAX_PDF_PAGES = int(os.environ.get("MAX_PDF_PAGES", "500"))
 
 log = get_logger("app")
 
@@ -208,6 +209,13 @@ def load_users() -> dict:
 
 
 USERS = load_users()
+ADMIN_USERS = {
+    u.strip()
+    for u in os.environ.get(
+        "ADMIN_USERS", os.environ.get("ADMIN_USER", "admin")
+    ).split(",")
+    if u.strip()
+}
 
 
 def user_root(username: str) -> Path:
@@ -349,6 +357,18 @@ def current_user() -> Optional[str]:
     return session.get("user")
 
 
+def _csrf_token() -> str:
+    token = session.get("_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+def _is_admin() -> bool:
+    return not AUTH_REQUIRED or current_user() in ADMIN_USERS
+
+
 def ensure_local_session() -> str:
     user = current_user()
     if user:
@@ -372,6 +392,17 @@ def login_required(view):
             ):
                 return jsonify({"error": "unauthorized"}), 401
             return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+def machine_admin_required(view):
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if not _is_admin():
+            return jsonify({"error": "forbidden: admin required"}), 403
         return view(*args, **kwargs)
 
     return wrapped
@@ -407,6 +438,9 @@ _CLIENT_LOG_HITS: dict[str, deque[float]] = {}
 _CLIENT_LOG_WINDOW = 60.0
 _CLIENT_LOG_MAX = 20
 _CLIENT_LOG_MAX_KEYS = 256
+_LOGIN_WINDOW = 300.0
+_LOGIN_MAX = 10
+_LOGIN_HITS: dict[str, deque[float]] = {}
 
 
 def _client_log_client_key() -> str:
@@ -416,6 +450,23 @@ def _client_log_client_key() -> str:
         if xff:
             return xff
     return request.remote_addr or "local"
+
+
+def _login_attempt_allowed(ip: str) -> bool:
+    now = time.time()
+    with _CLIENT_LOG_LOCK:
+        q = _LOGIN_HITS.setdefault(ip, deque())
+        while q and now - q[0] > _LOGIN_WINDOW:
+            q.popleft()
+        if len(q) >= _LOGIN_MAX:
+            return False
+        q.append(now)
+        return True
+
+
+def _clear_login_attempts(ip: str) -> None:
+    with _CLIENT_LOG_LOCK:
+        _LOGIN_HITS.pop(ip, None)
 
 
 def _client_log_allowed(ip: str) -> bool:
@@ -446,6 +497,38 @@ def _client_log_allowed(ip: str) -> bool:
 @app.before_request
 def _assign_request_event():
     g.event_id = new_event_id()
+    if _bind_host() in ("127.0.0.1", "localhost", "::1"):
+        host = (request.host or "").lower()
+        if not (
+            host in ("127.0.0.1", "localhost", "[::1]")
+            or host.startswith("127.0.0.1:")
+            or host.startswith("localhost:")
+            or host.startswith("[::1]:")
+        ):
+            return jsonify({"error": "invalid host"}), 400
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        supplied = request.headers.get("X-CSRF-Token") or request.form.get("_csrf_token")
+        expected = session.get("_csrf_token")
+        if not expected or not supplied or not secrets.compare_digest(expected, supplied):
+            return jsonify({"error": "invalid csrf token"}), 403
+
+
+@app.after_request
+def _security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; "
+        "frame-ancestors 'none'; form-action 'self'",
+    )
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Cache-Control", "no-store")
+    if request.is_secure:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    return response
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -457,21 +540,30 @@ def login():
         return redirect(url_for("index"))
     error = None
     if request.method == "POST":
+        client_key = _client_log_client_key()
+        if not _login_attempt_allowed(client_key):
+            return render_template(
+                "login.html",
+                error="Too many login attempts. Please wait and try again.",
+                csrf_token=_csrf_token(),
+            ), 429
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
         hashed = USERS.get(username)
         if hashed and check_password_hash(hashed, password):
             session.clear()
             session["user"] = username
+            _csrf_token()
+            _clear_login_attempts(client_key)
             seed_demo_for_user(username)
             log.info("login ok user=%s", username)
             nxt = request.args.get("next") or url_for("index")
-            if not nxt.startswith("/"):
+            if not nxt.startswith("/") or nxt.startswith("//"):
                 nxt = url_for("index")
             return redirect(nxt)
         log.warning("login failed user=%s", username or "(empty)")
         error = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
-    return render_template("login.html", error=error)
+    return render_template("login.html", error=error, csrf_token=_csrf_token())
 
 
 @app.post("/logout")
@@ -490,6 +582,7 @@ def index():
         user=current_user(),
         auth_required=AUTH_REQUIRED,
         app_version=APP_VERSION,
+        csrf_token=_csrf_token(),
     )
 
 
@@ -503,6 +596,8 @@ def me():
         "auth_required": AUTH_REQUIRED,
         "open_folder_enabled": _open_folder_allowed(),
         "version": APP_VERSION,
+        "csrf_token": _csrf_token(),
+        "is_admin": _is_admin(),
         "paths": {
             "data": str(DATA_DIR),
             "output": str(paths["output"]),
@@ -540,7 +635,7 @@ def get_license():
 
 
 @app.post("/api/license")
-@login_required
+@machine_admin_required
 def post_license():
     data = request.get_json(force=True, silent=True) or {}
     key = (data.get("key") or "").strip()
@@ -593,9 +688,20 @@ def upload():
         return jsonify({
             "error": f"ชื่อ {DEMO_DOC_NAME} สงวนไว้สำหรับแบบตัวอย่าง — เปลี่ยนชื่อไฟล์ก่อนอัปโหลด",
         }), 400
+    raw = f.read()
+    if not raw.startswith(b"%PDF-"):
+        return jsonify({"error": "The upload must be a valid PDF file"}), 400
+    try:
+        with fitz.open(stream=raw, filetype="pdf") as pdf:
+            if pdf.needs_pass:
+                return jsonify({"error": "Password-protected PDFs are not supported"}), 400
+            if len(pdf) < 1 or len(pdf) > MAX_PDF_PAGES:
+                return jsonify({"error": f"PDF must contain 1-{MAX_PDF_PAGES} pages"}), 400
+    except Exception:
+        return jsonify({"error": "The PDF failed validation"}), 400
     paths = user_paths(current_user())
     try:
-        f.save(paths["uploads"] / name)
+        (paths["uploads"] / name).write_bytes(raw)
     except OSError:
         log.exception("upload failed name=%s", name)
         return jsonify({"error": "บันทึกไฟล์ไม่สำเร็จ"}), 500
@@ -762,7 +868,7 @@ def _browse_job_cleanup(max_age_s: float = 600.0) -> None:
 
 
 @app.post("/api/library/browse")
-@login_required
+@machine_admin_required
 def library_browse():
     """เริ่มเลือกโฟลเดอร์แบบ async — คืน job_id แล้ว poll ที่ GET .../browse/<id>"""
     if not _open_folder_allowed():
@@ -817,7 +923,7 @@ def library_browse():
 
 
 @app.get("/api/library/browse/<job_id>")
-@login_required
+@machine_admin_required
 def library_browse_status(job_id: str):
     if not _open_folder_allowed():
         return jsonify({"error": "เลือกโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost)"}), 403
@@ -843,7 +949,7 @@ def library_browse_status(job_id: str):
 
 
 @app.post("/api/library/root")
-@login_required
+@machine_admin_required
 def library_set_root():
     data = request.get_json(force=True, silent=True) or {}
     raw = (data.get("root") or "").strip()
@@ -878,7 +984,7 @@ def library_set_root():
 
 
 @app.post("/api/library/scan")
-@login_required
+@machine_admin_required
 def library_scan():
     try:
         root = _require_library_root()
@@ -918,7 +1024,7 @@ def library_search():
 
 
 @app.post("/api/library/open")
-@login_required
+@machine_admin_required
 def library_open_explorer():
     if not _open_folder_allowed():
         return jsonify({
@@ -1051,7 +1157,7 @@ def download(name):
 
 
 @app.post("/api/open-folder")
-@login_required
+@machine_admin_required
 def open_folder():
     if not _open_folder_allowed():
         return jsonify({
@@ -1135,7 +1241,7 @@ def _support_report_log_files() -> list[Path]:
 
 
 @app.post("/api/support-report")
-@login_required
+@machine_admin_required
 def support_report():
     """แพ็ก log ล่าสุดเป็น ZIP ใน memory — ไม่สะสมไฟล์ใน LOG_DIR/reports"""
     stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -1173,7 +1279,7 @@ def support_report():
 
 
 @app.post("/api/backup")
-@login_required
+@machine_admin_required
 def api_backup():
     """สำรอง uploads + templates + output + library settings — ไม่มี machine_id/license"""
     user = current_user()
@@ -1204,7 +1310,7 @@ def api_backup():
 
 
 @app.post("/api/restore")
-@login_required
+@machine_admin_required
 def api_restore():
     """กู้จาก ZIP — mode=merge|replace; ไม่เขียน machine_id/license"""
     mode = (request.form.get("mode") or request.args.get("mode") or "merge").strip().lower()
@@ -1225,7 +1331,7 @@ def api_restore():
             data_dir=DATA_DIR,
             mode=mode,  # type: ignore[arg-type]
         )
-    except ValueError as e:
+    except (ValueError, zipfile.BadZipFile) as e:
         return jsonify({"error": str(e)}), 400
     except OSError:
         log.exception("restore failed")
@@ -1353,6 +1459,16 @@ def create_app():
     # windowed frozen: sys.stderr เป็น None — ห้ามติด StreamHandler
     init_logging(LOG_DIR, console=not is_frozen())
     app.secret_key = _ensure_secret_key()
+    if (
+        AUTH_REQUIRED
+        and _bind_host() not in ("127.0.0.1", "localhost", "::1")
+        and os.environ.get("ADMIN_PASSWORD", "changeme") == "changeme"
+        and not os.environ.get("USERS_JSON", "").strip()
+    ):
+        raise RuntimeError(
+            "Refusing network startup with the default admin password; "
+            "set ADMIN_PASSWORD or USERS_JSON"
+        )
     log.info(
         "start version=%s os=%s auth_required=%s open_folder=%s data_dir=%s log_dir=%s",
         APP_VERSION,

@@ -18,7 +18,7 @@ def _resolve_base() -> Path:
 
 BASE = _resolve_base()
 APP_NAME = "PDFFormMarker"
-APP_VERSION = "0.1.8"
+APP_VERSION = "0.1.9"
 
 
 def is_frozen() -> bool:

@@ -20,6 +20,11 @@ FORBIDDEN_NAMES = frozenset({
     "clock_guard.json",
 })
 RestoreMode = Literal["merge", "replace"]
+MAX_ZIP_ENTRIES = int(os.environ.get("MAX_BACKUP_ENTRIES", "2000"))
+MAX_ZIP_FILE_BYTES = int(os.environ.get("MAX_BACKUP_FILE_MB", "64")) * 1024 * 1024
+MAX_ZIP_TOTAL_BYTES = int(os.environ.get("MAX_BACKUP_TOTAL_MB", "256")) * 1024 * 1024
+MAX_ZIP_RATIO = 200
+MAX_META_BYTES = 1024 * 1024
 
 
 def _now_stamp() -> str:
@@ -115,11 +120,54 @@ def create_backup_zip(
     return buf, filename, meta
 
 
+def _validated_members(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
+    members = [info for info in zf.infolist() if not info.is_dir()]
+    if len(members) > MAX_ZIP_ENTRIES:
+        raise ValueError("Backup contains too many entries")
+    total = 0
+    seen: set[str] = set()
+    for info in members:
+        name = info.filename.replace("\\", "/")
+        folded = name.casefold()
+        if folded in seen:
+            raise ValueError("Backup contains duplicate paths")
+        seen.add(folded)
+        if (info.external_attr >> 16) & 0o170000 == 0o120000:
+            raise ValueError("Backup must not contain symbolic links")
+        if info.file_size > MAX_ZIP_FILE_BYTES:
+            raise ValueError("A backup member is too large")
+        total += info.file_size
+        if total > MAX_ZIP_TOTAL_BYTES:
+            raise ValueError("Expanded backup exceeds the size limit")
+        if info.file_size and (not info.compress_size or info.file_size / info.compress_size > MAX_ZIP_RATIO):
+            raise ValueError("Backup compression ratio is unsafe")
+        parts = Path(name).parts
+        basename = parts[-1] if parts else ""
+        safe_basename = bool(basename) and all(
+            ch.isalnum() or ch in "._- " for ch in basename
+        )
+        allowed = safe_basename and (
+            name in {
+                "meta.json", "user/seeded.json", "library/library.json",
+                "library/pdfmarker/settings.json", "library/pdfmarker/index.json",
+            }
+            or (len(parts) == 3 and parts[0] == "user" and parts[1] == "uploads" and name.lower().endswith(".pdf"))
+            or (len(parts) == 3 and parts[0] == "user" and parts[1] == "templates_json" and name.lower().endswith(".json"))
+            or (len(parts) == 3 and parts[0] == "user" and parts[1] == "output" and name.lower().endswith(".pdf"))
+        )
+        if not allowed:
+            raise ValueError(f"Backup path is not allowed: {name}")
+    return members
+
+
 def read_backup_meta(fileobj: BinaryIO) -> dict[str, Any]:
     with zipfile.ZipFile(fileobj, "r") as zf:
         if "meta.json" not in zf.namelist():
             raise ValueError("ไม่ใช่ไฟล์สำรองของ PDF Form Marker (ไม่มี meta.json)")
-        meta = json.loads(zf.read("meta.json").decode("utf-8"))
+        info = zf.getinfo("meta.json")
+        if info.file_size > MAX_META_BYTES:
+            raise ValueError("meta.json is too large")
+        meta = json.loads(zf.read(info).decode("utf-8"))
         if meta.get("kind") != "pdf-form-marker-backup":
             raise ValueError("ชนิดไฟล์สำรองไม่ถูกต้อง")
         return meta
@@ -143,6 +191,10 @@ def restore_backup(
     data_dir = Path(data_dir)
     fileobj.seek(0)
     meta = read_backup_meta(fileobj)
+    fileobj.seek(0)
+
+    with zipfile.ZipFile(fileobj, "r") as zf:
+        _validated_members(zf)
     fileobj.seek(0)
 
     uploads = user_root / "uploads"
@@ -174,11 +226,7 @@ def restore_backup(
         return True
 
     with zipfile.ZipFile(fileobj, "r") as zf:
-        members = [
-            info
-            for info in zf.infolist()
-            if not info.is_dir() and not info.filename.replace("\\", "/").endswith("/")
-        ]
+        members = _validated_members(zf)
 
         # —— รอบ 1: library/library.json เท่านั้น ——
         for info in members:
