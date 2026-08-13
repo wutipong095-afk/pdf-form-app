@@ -60,7 +60,8 @@ Result: `dist\PDFFormMarker\PDFFormMarker.exe` and (with Inno) `dist\installer\P
 2. Install (no admin required — `PrivilegesRequired=lowest`)
 3. Pick wizard language (English / Thai) if prompted
 4. Launch from Desktop / Start Menu
-5. Copy the machine ID from the app → request a key from the vendor
+5. Copy the machine ID from the license bar (Copy button) → email it to fromdd@xambrain.com for a key  
+   Policy: [SUPPORT.en.md](SUPPORT.en.md)
 
 If an older copy is still running, Setup **closes it automatically** before overwriting (also on uninstall).
 

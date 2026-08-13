@@ -366,3 +366,4 @@ frontend/
 | 2026-07-20 | CP3 Backup/Restore + Form pack v1 + docs/BACKUP.md (วิดีโอยังค้าง) |
 | 2026-07-20 | CP4 Windows installer: PyInstaller + Inno Setup + docs/INSTALLER.md |
 | 2026-08-13 | แผนขายชุดเดียวทั้งไทย/ต่างประเทศ: docs/SALES_LICENSE_PLAN.md (ทดลอง→Activate, รายเครื่อง, ส่วนลดปริมาณ) |
+| 2026-08-13 | เฟส 2: เว็บดาวน์โหลด + ราคาไทย/USD คนละหน้า + docs/SUPPORT.md |

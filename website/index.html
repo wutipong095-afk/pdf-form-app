@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FromDD — กรอกฟอร์ม PDF ออฟไลน์</title>
+  <meta name="description" content="FromDD โปรแกรมกรอกฟอร์ม PDF สำหรับโรงเรียน ดาวน์โหลดตัวทดลองชุดเดียวกับตัวจริง ใช้ออฟไลน์ได้">
+  <link rel="canonical" href="https://fromdd.xambrain.com/">
+  <link rel="alternate" hreflang="th" href="https://fromdd.xambrain.com/">
+  <link rel="alternate" hreflang="en" href="https://fromdd.xambrain.com/en.html">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="index.html">📄 FromDD</a>
+      <nav class="nav">
+        <a href="#howto">คลิปสอน</a>
+        <a href="app.html">ทดลองใช้</a>
+        <a href="pricing.html">ราคา</a>
+        <a class="lang" href="en.html" lang="en">English</a>
+        <a class="btn" data-setup href="releases/PDFFormMarker-Setup-0.2.0.exe" style="padding:6px 12px;font-size:14px">ดาวน์โหลด</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <h1>กรอกฟอร์ม PDF โรงเรียน มาร์คจุดแล้วทับข้อความไทย</h1>
+        <p class="lede">ดาวน์โหลดโปรแกรมชุดเดียว ทั้งทดลองและตัวจริง ลองฟอร์มตัวอย่างได้ทันที ไม่ต้องสมัคร ใช้ออฟไลน์บนเครื่องโรงเรียน</p>
+        <div class="cta-row">
+          <a class="btn" data-setup href="releases/PDFFormMarker-Setup-0.2.0.exe">ดาวน์โหลด Setup (Windows)</a>
+          <a class="btn ghost" href="app.html">ทดลองกรอกใบลาบนเว็บ</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <div class="howto">
+        <article class="step">
+          <b>① ดาวน์โหลด</b>
+          <p>ติดตั้ง Setup ชุดเดียว ไม่มีตัวทดลองแยกไฟล์</p>
+        </article>
+        <article class="step">
+          <b>② ทดลอง</b>
+          <p>ใช้ฟอร์มตัวอย่างในโปรแกรมได้เลย ยังไม่ต้องมีคีย์</p>
+        </article>
+        <article class="step">
+          <b>③ คัดลอกรหัสเครื่อง</b>
+          <p>รหัส 16 ตัวอยู่แถบไลเซนต์ มีปุ่มคัดลอก</p>
+        </article>
+        <article class="step">
+          <b>④ ส่งรหัสมา</b>
+          <p>หลังชำระเงิน ส่งรหัสทางอีเมล จะได้คีย์กลับ</p>
+        </article>
+        <article class="step">
+          <b>⑤ วางคีย์</b>
+          <p>เปิดใช้ในแอป ใช้ฟอร์มของโรงเรียนได้ ไม่ต้องติดตั้งใหม่</p>
+        </article>
+      </div>
+    </div>
+
+    <section class="yt-block" id="howto">
+      <div class="wrap">
+        <h2>คลิปสอนการใช้งาน</h2>
+        <p class="yt-url">
+          youtube.com/watch?v=<span id="yt-id-label">FromDD-howto</span>
+          <span class="mock-tag" id="yt-mock-tag">คลิปตัวอย่าง</span>
+        </p>
+
+        <div class="yt-player" id="yt-player">
+          <div class="yt-frame" id="yt-embed" hidden></div>
+          <div class="yt-screen" id="yt-screen">
+            <img id="yt-img" src="pages/yt-thumb.png" alt="ตัวอย่างคลิปสอนใช้ PDF Form Marker">
+            <div class="yt-caption" id="yt-caption">เปิดโปรแกรม แล้วเลือกใบลา.pdf</div>
+            <button type="button" class="yt-bigplay" id="yt-bigplay" aria-label="เล่นคลิป">▶</button>
+          </div>
+          <div class="yt-bar" id="yt-bar">
+            <div class="yt-progress" id="yt-progress" title="ข้ามไปช่วงอื่น">
+              <div class="yt-played" id="yt-played"></div>
+            </div>
+            <div class="yt-controls">
+              <button type="button" id="yt-toggle" aria-label="เล่นหรือหยุด">▶</button>
+              <span id="yt-time">0:00 / 3:18</span>
+              <span class="yt-logo">You<span>Tube</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="yt-meta">
+          <h3>สอนใช้ PDF Form Marker (FromDD) ใน 3 นาที</h3>
+          <p>FromDD · มาร์คจุด · กรอกแชท · สร้าง PDF — คลิปนี้เป็นตัวอย่างบนหน้าเว็บ เมื่อมีคลิปจริงจะเล่นจาก YouTube โดยตรง</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <div class="steps">
+        <article class="step">
+          <b>① มาร์คจุด</b>
+          <p>คลิกบนเส้นปะของฟอร์ม จุดแดงคือตำแหน่งที่ข้อความจะทับ</p>
+        </article>
+        <article class="step">
+          <b>② กรอกข้อมูล</b>
+          <p>พิมพ์ในตาราง คลิกจุดบนเอกสาร หรือตอบแชททีละช่อง</p>
+        </article>
+        <article class="step">
+          <b>③ สร้าง PDF</b>
+          <p>ได้ไฟล์พร้อมใช้ ข้อมูลอยู่เครื่องคุณ ไม่ถูกส่งไปเซิร์ฟเวอร์</p>
+        </article>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap foot">
+      <span>FromDD · PDF Form Marker</span>
+      <span><a href="pricing.html">ราคา</a> · <a href="app.html">ทดลองบนเว็บ</a> · <a href="en.html" lang="en">English</a> · <a href="https://shed.xambrain.com">ตารางสอน Shed</a></span>
+    </div>
+  </footer>
+  <script src="js/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Caddy example — fromdd.xambrain.com
+# วางเป็นไซต์แยก อย่าทับ config ของ shed.xambrain.com
+
+fromdd.xambrain.com {
+	root * /var/www/fromdd
+	file_server
+	encode gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
