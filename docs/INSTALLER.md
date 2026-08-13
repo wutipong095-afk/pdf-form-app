@@ -1,6 +1,10 @@
 # Windows installer (CP4)
 
+**English:** [INSTALLER.en.md](INSTALLER.en.md)
+
 สร้างตัวติดตั้งสำหรับโรงเรียน: ติดตั้ง → ไอคอน → เปิดเบราว์เซอร์ โดยไม่ต้องรู้ Python
+
+ตัว Setup: English เสมอ · Thai ถ้าเครื่องแพ็กมี `Languages\Thai.isl` (สคริปต์ส่ง `/DENABLE_THAI=1` อัตโนมัติ)
 
 ## สิ่งที่ได้
 

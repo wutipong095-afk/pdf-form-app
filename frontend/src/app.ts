@@ -1,5 +1,5 @@
 /**
- * PDF Form Marker — TypeScript UI entry (เต็มหน้า)
+ * PDF Form Marker — TypeScript UI entry
  */
 import { $ } from "./dom";
 import { api } from "./api";
@@ -13,15 +13,15 @@ import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import { bindBackupUi } from "./backup";
+import { bindLangToggle, t } from "./i18n";
 import type { FillResponse } from "./types";
 
-function setTab(t: "edit" | "fill"): void {
+function setTab(tab: "edit" | "fill"): void {
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
-  $("tab-" + t).classList.add("active");
-  $("panel-" + t).classList.add("active");
-  // crosshair เฉพาะแท็บมาร์ค — โหมดกรอกใช้ลูกศรปกติ (กันเคอร์เซอร์ขาวบน PDF)
-  $("pagewrap").classList.toggle("marking", t === "edit");
+  $("tab-" + tab).classList.add("active");
+  $("panel-" + tab).classList.add("active");
+  $("pagewrap").classList.toggle("marking", tab === "edit");
   paintMarkers();
 }
 
@@ -39,14 +39,14 @@ function selField(i: number): void {
 }
 
 function delField(i: number): void {
-  if (!confirm(`ลบจุด "${state.fields[i].name}" ทิ้ง?`)) return;
+  if (!confirm(t("app.deleteConfirm", { name: state.fields[i].name }))) return;
   state.fields.splice(i, 1);
   state.selIdx = -1;
   renderAll();
 }
 
 function renameField(i: number): void {
-  const n = prompt("ชื่อใหม่ของฟิลด์:", state.fields[i].name);
+  const n = prompt(t("app.renamePrompt"), state.fields[i].name);
   if (n) {
     state.fields[i].name = n.trim();
     renderAll();
@@ -85,7 +85,7 @@ function bindTemplateSave(): void {
   $("savetpl").onclick = async () => {
     const name = ($("tplname") as HTMLInputElement).value.trim();
     if (!state.doc || !name) {
-      alert("เลือก PDF และตั้งชื่อเทมเพลตก่อน");
+      alert(t("app.needPdfAndName"));
       return;
     }
     const res = await api("/api/template/" + encodeURIComponent(name), {
@@ -95,23 +95,22 @@ function bindTemplateSave(): void {
     });
     const body = (await res.json().catch(() => ({}))) as { error?: string; library?: boolean };
     if (!res.ok) {
-      alert(body.error || "บันทึกเทมเพลตไม่สำเร็จ");
+      alert(body.error || t("app.saveFail"));
       return;
     }
     if (isLibDoc(state.doc)) {
-      // เทมเพลตคลังไม่อยู่ใน #tplsel — รีเฟรชรายการคลังให้โชว์ "มีเทมเพลต"
       await refreshLibrary().catch(() => undefined);
     } else {
       await refreshDocs(paintMarkers, renderAll);
       ($("tplsel") as HTMLSelectElement).value = name;
     }
-    alert(`บันทึกเทมเพลต "${name}" แล้ว (${state.fields.length} จุด)`);
+    alert(t("app.saveOk", { name, count: state.fields.length }));
   };
 }
 
 function bindClearAndFill(): void {
   $("clearvals").onclick = () => {
-    if (!confirm("ล้างค่าที่กรอกไว้ทั้งหมด เพื่อเริ่มกรอกรอบใหม่? (จุดที่มาร์คไว้ยังอยู่ครบ)")) return;
+    if (!confirm(t("app.clearConfirm"))) return;
     state.fields.forEach((f) => {
       f.value = "";
     });
@@ -129,8 +128,7 @@ function bindClearAndFill(): void {
       !state.lic.licensed &&
       String(state.doc).toLowerCase() !== String(demoDoc).toLowerCase()
     ) {
-      $("result").textContent =
-        "❌ ยังไม่มีไลเซนต์ — ส่งรหัสเครื่องด้านบนให้ผู้ขาย หรือทดลองกับ " + demoDoc;
+      $("result").textContent = t("app.needLicense", { demo: demoDoc });
       return;
     }
     const outname =
@@ -148,14 +146,14 @@ function bindClearAndFill(): void {
       return;
     }
     const result = $("result");
-    result.replaceChildren("Done: ");
+    result.replaceChildren(t("app.donePrefix"));
     const link = document.createElement("a");
     link.href = "/download/" + encodeURIComponent(r.file!);
     link.target = "_blank";
     link.rel = "noopener";
-    link.textContent = "Open " + r.file;
+    link.textContent = t("app.openFile", { file: r.file! });
     result.appendChild(link);
-    bub("สร้างไฟล์ " + r.file + " เรียบร้อย 🎉", "bot");
+    bub(t("app.created", { file: r.file! }), "bot");
   };
 }
 
@@ -187,7 +185,7 @@ function bindMarking(): void {
       state.fields[state.selIdx].page = state.cur;
       state.selIdx = -1;
     } else {
-      const name = prompt("ชื่อข้อมูลของจุดนี้ (เช่น ชื่อผู้เบิก):");
+      const name = prompt(t("app.markNamePrompt"));
       if (!name) return;
       const size = parseFloat(($("fsize") as HTMLInputElement).value) || 14;
       state.fields.push({ name, page: state.cur, x, y, size, value: "" });
@@ -197,6 +195,7 @@ function bindMarking(): void {
 }
 
 function init(): void {
+  bindLangToggle();
   bindClientLog();
   bindSchoolUi();
   bindLicenseUi();

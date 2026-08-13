@@ -3,6 +3,7 @@ import { api } from "./api";
 import { state } from "./state";
 import { renderLicense } from "./license";
 import { loadDoc } from "./viewer";
+import { t } from "./i18n";
 import type { DocsResponse, TemplatePayload } from "./types";
 
 export async function refreshDocs(onMarkers: () => void, onRender: () => void): Promise<void> {
@@ -13,15 +14,17 @@ export async function refreshDocs(onMarkers: () => void, onRender: () => void): 
   const demoDoc = r.license?.demo_doc || "demo-form.pdf";
   const docsel = $("docsel") as HTMLSelectElement;
   const tplsel = $("tplsel") as HTMLSelectElement;
-  docsel.replaceChildren(new Option("Select PDF", ""));
+  docsel.replaceChildren(new Option(t("header.selectPdf"), ""));
   for (const name of r.pdfs) docsel.add(new Option(name, name));
-  tplsel.replaceChildren(new Option("New template", ""));
+  tplsel.replaceChildren(new Option(t("header.newTemplate"), ""));
   for (const name of r.templates) tplsel.add(new Option(name, name));
 
   const fontName = (r.font || "").split(/[/\\]/).pop();
-  $("fonthint").textContent = r.font ? "ฟอนต์ทับ: " + fontName : "⚠️ ไม่พบฟอนต์ไทย";
+  $("fonthint").textContent = r.font
+    ? t("docs.fontOk", { name: fontName || "" })
+    : t("docs.fontMissing");
   if (r.user) {
-    $("who").textContent = r.auth_required === false ? "เครื่องนี้" : r.user;
+    $("who").textContent = r.auth_required === false ? t("header.thisMachine") : r.user;
   }
 
   if (!state.doc && r.pdfs.includes(demoDoc)) {
@@ -30,9 +33,9 @@ export async function refreshDocs(onMarkers: () => void, onRender: () => void): 
     if (r.templates.includes("demo-ใบเบิก")) {
       tplsel.value = "demo-ใบเบิก";
       const tres = await api("/api/template/" + encodeURIComponent("demo-ใบเบิก"));
-      const t = (await tres.json()) as TemplatePayload;
+      const tpl = (await tres.json()) as TemplatePayload;
       ($("tplname") as HTMLInputElement).value = "demo-ใบเบิก";
-      state.fields = t.fields || [];
+      state.fields = tpl.fields || [];
       onRender();
     }
   }
@@ -71,12 +74,12 @@ export function bindDocs(
       return;
     }
     const res = await api("/api/template/" + encodeURIComponent(v));
-    const t = (await res.json()) as TemplatePayload;
+    const tpl = (await res.json()) as TemplatePayload;
     ($("tplname") as HTMLInputElement).value = v;
-    state.fields = t.fields || [];
-    if (t.doc && t.doc !== state.doc) {
-      await loadDoc(t.doc, onMarkers);
-      ($("docsel") as HTMLSelectElement).value = t.doc;
+    state.fields = tpl.fields || [];
+    if (tpl.doc && tpl.doc !== state.doc) {
+      await loadDoc(tpl.doc, onMarkers);
+      ($("docsel") as HTMLSelectElement).value = tpl.doc;
     }
     onRender();
   };

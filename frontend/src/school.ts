@@ -1,6 +1,7 @@
-/** ปุ่มโหมดโรงเรียน: เปิดโฟลเดอร์ / สร้างรายงานปัญหา */
+/** School-mode buttons: open folders / support report */
 import { api, apiJson } from "./api";
 import { bindUpdateCheck } from "./update";
+import { t } from "./i18n";
 
 type MeResponse = {
   auth_required?: boolean;
@@ -17,7 +18,7 @@ async function openFolder(which: string): Promise<void> {
       body: JSON.stringify({ which }),
     });
   } catch (e) {
-    alert(e instanceof Error ? e.message : "เปิดโฟลเดอร์ไม่สำเร็จ");
+    alert(e instanceof Error ? e.message : t("school.openFolderFail"));
   }
 }
 
@@ -25,7 +26,7 @@ async function downloadSupportReport(): Promise<void> {
   const res = await api("/api/support-report", { method: "POST" });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    alert(data.error || "สร้างรายงานไม่สำเร็จ");
+    alert(data.error || t("school.reportFail"));
     return;
   }
   const blob = await res.blob();
@@ -41,7 +42,6 @@ async function downloadSupportReport(): Promise<void> {
 }
 
 export function bindSchoolUi(): void {
-  // ไม่โชว์ปุ่มเปิด DATA_DIR (มี machine_id/secret_key) — ใช้สำรอง/กู้คืนแทน
   const outBtn = document.getElementById("btn-open-output");
   const reportBtn = document.getElementById("btn-support-report");
   if (outBtn) outBtn.addEventListener("click", () => void openFolder("output"));
@@ -58,7 +58,7 @@ export function bindSchoolUi(): void {
         outBtn.style.display = "none";
       }
       if (who && me.user) {
-        who.textContent = me.auth_required ? me.user : "เครื่องนี้";
+        who.textContent = me.auth_required ? me.user : t("header.thisMachine");
       }
       const ver = document.getElementById("appver");
       if (ver && me.version) ver.textContent = "v" + me.version;

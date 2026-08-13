@@ -1,12 +1,13 @@
-/** สำรอง / กู้คืน / เทมเพลตเดี่ยว / แพ็กฟอร์ม */
+/** Backup / restore / single template / form pack */
 import { $ } from "./dom";
 import { api, apiJson } from "./api";
 import { refreshDocs } from "./docs";
+import { t } from "./i18n";
 
 async function downloadBlob(res: Response, fallbackName: string): Promise<void> {
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error || "ดาวน์โหลดไม่สำเร็จ");
+    throw new Error(data.error || t("bak.downloadFail"));
   }
   const blob = await res.blob();
   const cd = res.headers.get("Content-Disposition") || "";
@@ -37,6 +38,7 @@ async function doRestore(
   const data = await apiJson<{
     written?: number;
     skipped?: number;
+    note?: string;
     note_th?: string;
   }>("/api/restore?mode=" + encodeURIComponent(mode), {
     method: "POST",
@@ -44,15 +46,19 @@ async function doRestore(
   });
   await refreshDocs(onMarkers, onRender);
   alert(
-    `กู้คืนแล้ว (${mode})\nเขียน ${data.written ?? 0} ไฟล์ · ข้าม ${data.skipped ?? 0}\n` +
-      (data.note_th || ""),
+    t("bak.restoreOk", {
+      mode,
+      written: data.written ?? 0,
+      skipped: data.skipped ?? 0,
+      note: data.note || data.note_th || "",
+    }),
   );
 }
 
 async function exportTemplate(): Promise<void> {
   const name = ($("tplname") as HTMLInputElement).value.trim() || ($("tplsel") as HTMLSelectElement).value;
   if (!name) {
-    alert("เลือกหรือตั้งชื่อเทมเพลตก่อน");
+    alert(t("bak.needTplName"));
     return;
   }
   const res = await api("/api/template-export/" + encodeURIComponent(name));
@@ -78,8 +84,9 @@ async function importTemplate(
   try {
     data = await tryImport(false);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "นำเข้าไม่สำเร็จ";
-    if (msg.includes("อยู่แล้ว") && confirm(msg + "\nทับไฟล์เดิมหรือไม่?")) {
+    const msg = e instanceof Error ? e.message : t("bak.importFail");
+    const conflict = /อยู่แล้ว|already exists/i.test(msg);
+    if (conflict && confirm(t("bak.importOverwriteAsk", { msg }))) {
       data = await tryImport(true);
     } else {
       throw e;
@@ -87,7 +94,7 @@ async function importTemplate(
   }
   await refreshDocs(onMarkers, onRender);
   if (data.name) ($("tplsel") as HTMLSelectElement).value = data.name;
-  alert(`นำเข้าเทมเพลต "${data.name}" แล้ว`);
+  alert(t("bak.importOk", { name: data.name || "" }));
 }
 
 async function installFormpack(onMarkers: () => void, onRender: () => void): Promise<void> {
@@ -98,7 +105,10 @@ async function installFormpack(onMarkers: () => void, onRender: () => void): Pro
   });
   await refreshDocs(onMarkers, onRender);
   alert(
-    `ติดตั้งแพ็กฟอร์ม v1\nติดตั้ง: ${(data.installed || []).join(", ") || "—"}\nข้าม: ${(data.skipped || []).join(", ") || "—"}`,
+    t("bak.formpackOk", {
+      installed: (data.installed || []).join(", ") || "—",
+      skipped: (data.skipped || []).join(", ") || "—",
+    }),
   );
 }
 
@@ -113,7 +123,7 @@ export function bindBackupUi(onMarkers: () => void, onRender: () => void): void 
 
   if (backupBtn) {
     backupBtn.addEventListener("click", () => {
-      void doBackup().catch((e) => alert(e instanceof Error ? e.message : "สำรองไม่สำเร็จ"));
+      void doBackup().catch((e) => alert(e instanceof Error ? e.message : t("bak.backupFail")));
     });
   }
 
@@ -123,25 +133,23 @@ export function bindBackupUi(onMarkers: () => void, onRender: () => void): void 
       const file = restoreFile.files?.[0];
       restoreFile.value = "";
       if (!file) return;
-      const merge = confirm(
-        "กู้คืนจาก ZIP แบบรวมกับของเดิม?\n\nตกลง = รวม (ไม่ทับไฟล์ที่มี)\nยกเลิก = เลือกโหมดอื่น",
-      );
+      const merge = confirm(t("bak.restoreMergeAsk"));
       let mode: "merge" | "replace" = "merge";
       if (!merge) {
-        if (!confirm("ใช้โหมดแทนที่?\nจะล้าง uploads / templates / output ของผู้ใช้แล้วแตกจาก ZIP")) {
+        if (!confirm(t("bak.restoreReplaceAsk"))) {
           return;
         }
         mode = "replace";
       }
       void doRestore(file, mode, onMarkers, onRender).catch((e) =>
-        alert(e instanceof Error ? e.message : "กู้คืนไม่สำเร็จ"),
+        alert(e instanceof Error ? e.message : t("bak.restoreFail")),
       );
     });
   }
 
   if (exportBtn) {
     exportBtn.addEventListener("click", () => {
-      void exportTemplate().catch((e) => alert(e instanceof Error ? e.message : "ส่งออกไม่สำเร็จ"));
+      void exportTemplate().catch((e) => alert(e instanceof Error ? e.message : t("bak.exportFail")));
     });
   }
 
@@ -152,16 +160,16 @@ export function bindBackupUi(onMarkers: () => void, onRender: () => void): void 
       importFile.value = "";
       if (!file) return;
       void importTemplate(file, onMarkers, onRender).catch((e) =>
-        alert(e instanceof Error ? e.message : "นำเข้าไม่สำเร็จ"),
+        alert(e instanceof Error ? e.message : t("bak.importFail")),
       );
     });
   }
 
   if (packBtn) {
     packBtn.addEventListener("click", () => {
-      if (!confirm("ติดตั้งแพ็กฟอร์มโรงเรียน v1 (ใบเบิก / จัดซื้อ / เดินทาง)?")) return;
+      if (!confirm(t("bak.formpackAsk"))) return;
       void installFormpack(onMarkers, onRender).catch((e) =>
-        alert(e instanceof Error ? e.message : "ติดตั้งแพ็กไม่สำเร็จ"),
+        alert(e instanceof Error ? e.message : t("bak.formpackFail")),
       );
     });
   }

@@ -1,5 +1,7 @@
 # สำรองและกู้คืนข้อมูล
 
+**English:** [BACKUP.en.md](BACKUP.en.md)
+
 ## สำรอง
 
 ในแอปกด **สำรองข้อมูล** จะได้ไฟล์ `pdfmarker-backup-….zip` ประกอบด้วย:

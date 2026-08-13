@@ -15,6 +15,9 @@ from typing import NoReturn, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from envutil import resolve_data_dir
+from i18n_core import init_i18n, t
+
 # ค่าเริ่มต้นโหมดโรงเรียน ก่อน import app
 # The packaged desktop build must never inherit a network-facing HOST value.
 os.environ["HOST"] = "127.0.0.1"
@@ -56,11 +59,10 @@ def _resolve_port() -> int:
         port = int(str(raw).strip())
     except ValueError:
         _fatal(
-            f"ค่า PORT ไม่ถูกต้อง: {raw!r}\n"
-            f"ต้องเป็นตัวเลข 1–65535 (ค่าเริ่มต้น {_DEFAULT_PORT})"
+            t("launcher.badPort", raw=repr(raw), default=_DEFAULT_PORT)
         )
     if not (1 <= port <= 65535):
-        _fatal(f"ค่า PORT นอกช่วง: {port}\nต้องอยู่ระหว่าง 1–65535")
+        _fatal(t("launcher.portRange", port=port))
     return port
 
 
@@ -127,10 +129,9 @@ def _serve(host: str, port: int) -> None:
 def _format_server_error(exc: BaseException) -> str:
     if isinstance(exc, OSError):
         return (
-            f"เปิดเซิร์ฟเวอร์ไม่สำเร็จ\n\n{exc}\n\n"
-            "พอร์ตอาจถูกใช้งาน หรือสิทธิ์เครื่องไม่อนุญาต"
+            t("launcher.serverFail", exc=exc)
         )
-    return f"เซิร์ฟเวอร์หยุดทำงาน\n\n{type(exc).__name__}: {exc}"
+    return t("launcher.serverStoppedDetail", exc=f"{type(exc).__name__}: {exc}")
 
 
 def _run_status_ui(
@@ -152,7 +153,7 @@ def _run_status_ui(
     frame.grid(row=0, column=0)
 
     title_var = tk.StringVar(
-        value="กำลังทำงานอยู่แล้ว" if already_running else "PDF Form Marker กำลังทำงาน"
+        value=t("launcher.alreadyRunning") if already_running else t("launcher.running")
     )
     detail_var = tk.StringVar(value=url)
 
@@ -170,15 +171,15 @@ def _run_status_ui(
         root.destroy()
         os._exit(0)
 
-    btn_open = ttk.Button(frame, text="เปิดเบราว์เซอร์", command=open_browser)
+    btn_open = ttk.Button(frame, text=t("launcher.openBrowser"), command=open_browser)
     btn_open.grid(row=2, column=0, padx=(0, 8), sticky="ew")
 
     if already_running:
-        ttk.Button(frame, text="ปิดหน้าต่างนี้", command=root.destroy).grid(
+        ttk.Button(frame, text=t("launcher.closeWindow"), command=root.destroy).grid(
             row=2, column=1, sticky="ew"
         )
     else:
-        btn_stop = ttk.Button(frame, text="หยุดโปรแกรม", command=stop_app)
+        btn_stop = ttk.Button(frame, text=t("launcher.stop"), command=stop_app)
         btn_stop.grid(row=2, column=1, sticky="ew")
         root.protocol("WM_DELETE_WINDOW", stop_app)
 
@@ -193,16 +194,13 @@ def _run_status_ui(
                 root.after(500, watch_server)
                 return
             dead["shown"] = True
-            title_var.set("เซิร์ฟเวอร์หยุดทำงาน")
+            title_var.set(t("launcher.serverStopped"))
             if exc is not None:
                 detail_var.set(_format_server_error(exc))
             else:
-                detail_var.set(
-                    "เซิร์ฟเวอร์ปิดตัวโดยไม่ทราบสาเหตุ\n"
-                    "ดู log ที่ %LOCALAPPDATA%\\PDFFormMarker\\logs\\"
-                )
+                detail_var.set(t("launcher.serverUnknownStop"))
             btn_open.state(["disabled"])
-            btn_stop.configure(text="ปิด")
+            btn_stop.configure(text=t("launcher.close"))
 
         root.after(500, watch_server)
 
@@ -210,6 +208,7 @@ def _run_status_ui(
 
 
 def main() -> None:
+    init_i18n(resolve_data_dir())
     host = os.environ.get("HOST", "127.0.0.1").strip() or "127.0.0.1"
     port = _resolve_port()
     url = f"http://{host}:{port}/"
@@ -228,22 +227,19 @@ def main() -> None:
         return
     if probe == "foreign":
         _fatal(
-            f"พอร์ต {port} ถูกใช้โดยโปรแกรมอื่นอยู่แล้ว\n\n"
-            f"ปิดโปรแกรมนั้น หรือตั้ง PORT เป็นพอร์ตว่างแล้วเปิดใหม่\n"
-            f"(ตอนนี้ไม่เปิดเบราว์เซอร์ไปที่บริการอื่น)"
+            t("launcher.portForeign", port=port)
         )
     if probe == "unknown":
         # TCP เปิดแต่ไม่ตอบเป็นแอปเราภายในเวลา — อย่า bind ทับ
         _fatal(
-            f"พอร์ต {port} มีโปรแกรมอื่นเปิดอยู่ แต่ตอบไม่ทันหรือไม่ใช่ PDF Form Marker\n\n"
-            "ปิดโปรแกรมนั้น หรือเปลี่ยน PORT แล้วเปิดใหม่"
+            t("launcher.portUnknown", port=port)
         )
 
     # import app → create_app() สร้าง DATA_DIR / SECRET_KEY / seed demo
     try:
         import app as _app  # noqa: F401
     except BaseException as exc:  # noqa: BLE001
-        _fatal(f"เริ่มแอปไม่สำเร็จ\n\n{type(exc).__name__}: {exc}")
+        _fatal(t("launcher.appStartFail", exc=f"{type(exc).__name__}: {exc}"))
 
     server = threading.Thread(target=_serve, args=(host, port), daemon=True)
     server.start()
@@ -258,15 +254,11 @@ def main() -> None:
             ready = True
             break
         if status == "foreign":
-            _fatal(
-                f"พอร์ต {port} ถูกโปรแกรมอื่นใช้งานระหว่างเริ่มต้น\n\n"
-                "ปิดโปรแกรมนั้น หรือเปลี่ยน PORT แล้วเปิดใหม่"
-            )
+            _fatal(t("launcher.portTakenDuringStart", port=port))
         # closed / unknown → รอต่อ (unknown = อุ่นเครื่อง / timeout)
         if not server.is_alive() and not _server_error:
             _fatal(
-                "เซิร์ฟเวอร์ปิดตัวก่อนพร้อมใช้งาน\n"
-                "ดู log ที่ %LOCALAPPDATA%\\PDFFormMarker\\logs\\"
+                t("launcher.diedBeforeReady")
             )
         time.sleep(0.1)
 
@@ -274,8 +266,7 @@ def main() -> None:
         if _server_error:
             _fatal(_format_server_error(_server_error[0]))
         _fatal(
-            f"เซิร์ฟเวอร์ไม่พร้อมภายในเวลาที่กำหนด\n"
-            f"ลองเปิดใหม่ หรือเปลี่ยน PORT (ปัจจุบัน {port})"
+            t("launcher.notReady", port=port)
         )
 
     webbrowser.open(url)

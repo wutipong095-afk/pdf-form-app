@@ -5,6 +5,7 @@ PDF Form Marker — โปรแกรมกรอกฟอร์ม PDF สำ�
   • ดูเลขเวอร์ชันมุมขวาบนในแอป (ควรตรงกับ Setup ที่ติดตั้ง)
   • ข้อมูลและไลเซนต์เก็บที่ %LOCALAPPDATA%\PDFFormMarker\
   • ไม่ต้องติดตั้ง Python
+  • ในแอปเลือกภาษาได้ที่มุมขวาบน (ไทย / English)
 
 อัปเกรดจากเวอร์ชันเก่า:
   • Setup จะปิดโปรแกรมที่เปิดอยู่ให้อัตโนมัติก่อนแทนที่ไฟล์
@@ -12,3 +13,21 @@ PDF Form Marker — โปรแกรมกรอกฟอร์ม PDF สำ�
     (ไฟล์บางตัวอาจถูกสลับหลังรีบูต — ตรวจเวอร์ชันในแอปอีกครั้ง)
 
 หมายเหตุ: เครื่องใหม่ต้องขอคีย์ไลเซนต์ใหม่ (รหัสเครื่องผูกกับเครื่องนี้)
+
+--------------------------------------------------
+
+PDF Form Marker — PDF form filler for schools
+
+After install:
+  • Launch from the Desktop or Start Menu icon
+  • Check the version in the top-right of the app (should match this Setup)
+  • Data and license live under %LOCALAPPDATA%\PDFFormMarker\
+  • No Python install required
+  • Switch UI language in the app header (Thai / English)
+
+Upgrading from an older version:
+  • Setup closes a running app automatically before replacing files
+  • If Windows asks you to restart, restart and open the app again
+    (some files may swap after reboot — re-check the in-app version)
+
+Note: a new PC needs a new license key (machine ID is bound to this computer)

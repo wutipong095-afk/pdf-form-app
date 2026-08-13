@@ -1,6 +1,6 @@
-; Inno Setup 6 — แพ็กโฟลเดอร์จาก PyInstaller เป็น Setup.exe
-; ต้องมี dist\PDFFormMarker\ ก่อน (scripts\build_windows.ps1)
-; คอมไพล์: ISCC.exe installer\PDFFormMarker.iss
+; Inno Setup 6 — pack PyInstaller folder into Setup.exe
+; Requires dist\PDFFormMarker\ first (scripts\build_windows.ps1)
+; Compile: ISCC.exe installer\PDFFormMarker.iss
 
 #define MyAppName "PDF Form Marker"
 #define MyAppVersion "0.1.9"
@@ -26,28 +26,55 @@ ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
 InfoBeforeFile=info-before.txt
 LicenseFile=
-; ปิดโปรแกรมที่ล็อกไฟล์ในโฟลเดอร์ติดตั้งอัตโนมัติ (ไม่ถาม)
 CloseApplications=force
 CloseApplicationsFilter=*.exe,*.dll
 RestartApplications=no
+; When Thai.isl is present, build_windows.ps1 passes /DENABLE_THAI=1
+#ifndef ENABLE_THAI
+  #define ENABLE_THAI 0
+#endif
+#if ENABLE_THAI
+ShowLanguageDialog=yes
+#else
+ShowLanguageDialog=no
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+#if ENABLE_THAI
+Name: "thai"; MessagesFile: "compiler:Languages\Thai.isl"
+#endif
+
+[CustomMessages]
+english.CreateDesktopIcon=Create a desktop icon
+english.AdditionalIcons=Additional icons:
+english.UninstallShortcut=Uninstall {#MyAppName}
+english.LaunchApp=Launch {#MyAppName}
+english.CannotCloseApp=Could not close a running PDF Form Marker.%n%nPlease close the app window and the "PDF Form Marker" status window, then click OK to try again.
+english.UninstallNote=Form data and license remain in %LOCALAPPDATA%\PDFFormMarker%nUninstall does not delete this folder — back up first if you are moving to another PC.
+#if ENABLE_THAI
+thai.CreateDesktopIcon=สร้างไอคอนบนเดสก์ท็อป
+thai.AdditionalIcons=ไอคอนเพิ่มเติม:
+thai.UninstallShortcut=ถอนการติดตั้ง {#MyAppName}
+thai.LaunchApp=เปิด {#MyAppName}
+thai.CannotCloseApp=ไม่สามารถปิด PDF Form Marker ที่กำลังทำงานอยู่ได้%n%nกรุณาปิดหน้าต่างโปรแกรมและหน้าต่างสถานะ "PDF Form Marker" แล้วกด OK เพื่อลองอีกครั้ง
+thai.UninstallNote=ข้อมูลฟอร์มและไลเซนต์อยู่ที่ %LOCALAPPDATA%\PDFFormMarker%nถอนการติดตั้งจะไม่ลบโฟลเดอร์นี้ — สำรองข้อมูลก่อนถ้าต้องการย้ายเครื่อง
+#endif
 
 [Tasks]
-Name: "desktopicon"; Description: "สร้างไอคอนบนเดสก์ท็อป"; GroupDescription: "ไอคอนเพิ่มเติม:"; Flags: checkedonce
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
 
 [Files]
-; restartreplace = ถ้ายังถูกล็อก ให้สลับไฟล์ตอนรีสตาร์ท แทน Error code 5
+; restartreplace = if still locked, swap on reboot instead of Error code 5
 Source: "..\dist\PDFFormMarker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs restartreplace
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{group}\ถอนการติดตั้ง {#MyAppName}"; Filename: "{uninstallexe}"
+Name: "{group}\{cm:UninstallShortcut}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "เปิด {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 const
@@ -58,7 +85,7 @@ function IsAppRunning(): Boolean;
 var
   ResultCode: Integer;
 begin
-  { find คืน 0 เมื่อเจอชื่อโปรเซสใน tasklist }
+  { find returns 0 when the process name appears in tasklist }
   Result :=
     Exec(
       ExpandConstant('{cmd}'),
@@ -76,13 +103,13 @@ begin
     if not IsAppRunning() then
       Exit;
 
-    { 1) taskkill บังคับทั้งต้นไม้โปรเซส }
+    { 1) taskkill whole process tree }
     Exec(
       ExpandConstant('{cmd}'),
       '/C taskkill /F /IM ' + AppExeName + ' /T',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-    { 2) PowerShell สำรอง — บางเครื่อง taskkill ไม่พอ }
+    { 2) PowerShell fallback }
     Exec(
       ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
       '-NoProfile -ExecutionPolicy Bypass -Command ' +
@@ -105,12 +132,10 @@ begin
   NeedsRestart := False;
   if IsAppRunning() then
   begin
-    Result :=
-      'ไม่สามารถปิด PDF Form Marker ที่กำลังทำงานอยู่ได้' + #13#10 + #13#10 +
-      'กรุณาปิดหน้าต่างโปรแกรมและหน้าต่างสถานะ "PDF Form Marker" แล้วกด OK เพื่อลองอีกครั้ง';
+    Result := CustomMessage('CannotCloseApp');
     Exit;
   end;
-  { รอปล่อยไฟล์หลังโปรเซสตาย — กัน DeleteFile code 5 }
+  { wait for file handles after process exit }
   Sleep(1500);
   Result := '';
 end;
@@ -129,8 +154,5 @@ begin
   KillRunningApp();
   Sleep(1000);
   Result := True;
-  MsgBox(
-    'ข้อมูลฟอร์มและไลเซนต์อยู่ที่ %LOCALAPPDATA%\PDFFormMarker' + #13#10 +
-    'ถอนการติดตั้งจะไม่ลบโฟลเดอร์นี้ — สำรองข้อมูลก่อนถ้าต้องการย้ายเครื่อง',
-    mbInformation, MB_OK);
+  MsgBox(CustomMessage('UninstallNote'), mbInformation, MB_OK);
 end;

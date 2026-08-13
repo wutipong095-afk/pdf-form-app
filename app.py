@@ -54,6 +54,7 @@ from envutil import (
     resolve_data_dir,
     resolve_log_dir,
 )
+from i18n_core import COOKIE_NAME, get_locale, init_i18n, set_persisted_locale, t
 from license_core import (
     DEMO_DOC_NAME,
     activate_license,
@@ -90,6 +91,7 @@ LOG_DIR = resolve_log_dir(DATA_DIR)
 USERS_DIR = DATA_DIR / "users"
 FONTS_DIR = BASE / "fonts"
 DEMO_DIR = BASE / "demo"
+init_i18n(DATA_DIR)
 
 # โหมดโรงเรียน: ไม่บังคับ login (ค่าเริ่มต้น) — เปิด AUTH_REQUIRED=true สำหรับหลายผู้ใช้
 AUTH_REQUIRED = env_bool("AUTH_REQUIRED", False)
@@ -353,6 +355,31 @@ if os.environ.get("SESSION_COOKIE_SECURE", "").lower() in ("1", "true", "yes"):
     app.config["SESSION_COOKIE_SECURE"] = True
 
 
+@app.context_processor
+def inject_i18n():
+    loc = get_locale()
+
+    def _t(key: str, **kwargs: Any) -> str:
+        return t(key, locale=loc, **kwargs)
+
+    return {"t": _t, "ui_lang": loc}
+
+
+@app.post("/api/ui-lang")
+def api_ui_lang():
+    data = request.get_json(force=True, silent=True) or {}
+    loc = set_persisted_locale(data.get("lang") or request.args.get("lang") or get_locale())
+    resp = jsonify({"ok": True, "lang": loc})
+    resp.set_cookie(
+        COOKIE_NAME,
+        loc,
+        max_age=365 * 24 * 3600,
+        samesite="Lax",
+        httponly=False,
+    )
+    return resp
+
+
 def current_user() -> Optional[str]:
     return session.get("user")
 
@@ -544,7 +571,7 @@ def login():
         if not _login_attempt_allowed(client_key):
             return render_template(
                 "login.html",
-                error="Too many login attempts. Please wait and try again.",
+                error=t("login.tooMany"),
                 csrf_token=_csrf_token(),
             ), 429
         username = (request.form.get("username") or "").strip()
@@ -562,7 +589,7 @@ def login():
                 nxt = url_for("index")
             return redirect(nxt)
         log.warning("login failed user=%s", username or "(empty)")
-        error = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
+        error = t("login.badCredentials")
     return render_template("login.html", error=error, csrf_token=_csrf_token())
 
 
@@ -640,7 +667,7 @@ def post_license():
     data = request.get_json(force=True, silent=True) or {}
     key = (data.get("key") or "").strip()
     if not key:
-        return jsonify({"error": "กรุณาใส่คีย์ไลเซนต์"}), 400
+        return jsonify({"error": t("api.needLicenseKey")}), 400
     try:
         st = activate_license(DATA_DIR, key)
         log.info(
@@ -678,15 +705,15 @@ def list_docs():
 @login_required
 def upload():
     if "file" not in request.files:
-        return jsonify({"error": "ไม่มีไฟล์"}), 400
+        return jsonify({"error": t("api.noFile")}), 400
     f = request.files["file"]
     if not f.filename:
-        return jsonify({"error": "ไม่มีชื่อไฟล์"}), 400
+        return jsonify({"error": t("api.noFilename")}), 400
     name = safe_name(os.path.splitext(f.filename)[0]) + ".pdf"
     # กันเขียนทับ demo ทางการด้วยเอกสารอื่น (bypass ไลเซนต์)
     if name.lower() == DEMO_DOC_NAME:
         return jsonify({
-            "error": f"ชื่อ {DEMO_DOC_NAME} สงวนไว้สำหรับแบบตัวอย่าง — เปลี่ยนชื่อไฟล์ก่อนอัปโหลด",
+            "error": t("api.demoNameReserved", name=DEMO_DOC_NAME),
         }), 400
     raw = f.read()
     if not raw.startswith(b"%PDF-"):
@@ -704,7 +731,7 @@ def upload():
         (paths["uploads"] / name).write_bytes(raw)
     except OSError:
         log.exception("upload failed name=%s", name)
-        return jsonify({"error": "บันทึกไฟล์ไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.saveUploadFail")}), 500
     log.info("upload ok name=%s", name)
     return jsonify({"ok": True, "name": name})
 
@@ -713,7 +740,7 @@ def _pdf_path(username: str, doc: str) -> Path:
     if is_lib_doc(doc):
         root = get_library_root(DATA_DIR)
         if root is None:
-            raise FileNotFoundError("ยังไม่ได้ตั้งโฟลเดอร์รากคลังเอกสาร")
+            raise FileNotFoundError(t("api.libRootNotSet"))
         return resolve_under_root(root, lib_rel_from_doc(doc))
     name = safe_name(doc[:-4] if doc.lower().endswith(".pdf") else doc) + ".pdf"
     return user_paths(username)["uploads"] / name
@@ -722,7 +749,7 @@ def _pdf_path(username: str, doc: str) -> Path:
 def _require_library_root() -> Path:
     root = get_library_root(DATA_DIR)
     if root is None:
-        raise ValueError("ยังไม่ได้ตั้งโฟลเดอร์รากคลังเอกสาร")
+        raise ValueError(t("api.libRootNotSet"))
     return root
 
 
@@ -788,7 +815,7 @@ def save_template(name):
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
         if not pdf.is_file():
-            return jsonify({"error": "ไม่พบ PDF ในคลัง"}), 404
+            return jsonify({"error": t("api.libPdfMissing")}), 404
         path = tpl_beside_pdf(pdf)
         fields = data.get("fields") or []
         path.write_text(
@@ -873,7 +900,7 @@ def library_browse():
     """เริ่มเลือกโฟลเดอร์แบบ async — คืน job_id แล้ว poll ที่ GET .../browse/<id>"""
     if not _open_folder_allowed():
         return jsonify({
-            "error": "เลือกโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost)",
+            "error": t("api.browseLocalOnly"),
         }), 403
     data = request.get_json(force=True, silent=True) or {}
     initial = (data.get("initial") or "").strip()
@@ -885,7 +912,7 @@ def library_browse():
     with _BROWSE_LOCK:
         _browse_job_cleanup()
         if _BROWSE_ACTIVE:
-            return jsonify({"error": "กำลังเลือกโฟลเดอร์อยู่แล้ว — รอให้จบก่อน"}), 409
+            return jsonify({"error": t("api.browseBusy")}), 409
         job_id = uuid.uuid4().hex
         _BROWSE_ACTIVE = True
         _BROWSE_JOBS[job_id] = {
@@ -912,7 +939,7 @@ def library_browse():
                 job = _BROWSE_JOBS.get(jid)
                 if job is not None:
                     job["done"] = True
-                    job["error"] = "เปิดหน้าต่างเลือกโฟลเดอร์ไม่สำเร็จ"
+                    job["error"] = t("api.browseDialogFail")
                     job["detail"] = str(exc)
         finally:
             with _BROWSE_LOCK:
@@ -926,11 +953,11 @@ def library_browse():
 @machine_admin_required
 def library_browse_status(job_id: str):
     if not _open_folder_allowed():
-        return jsonify({"error": "เลือกโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost)"}), 403
+        return jsonify({"error": t("api.browseLocalOnly")}), 403
     with _BROWSE_LOCK:
         job = _BROWSE_JOBS.get(job_id)
         if job is None:
-            return jsonify({"error": "ไม่พบงานเลือกโฟลเดอร์ (หมดอายุหรือรหัสผิด)"}), 404
+            return jsonify({"error": t("api.browseJobMissing")}), 404
         if not job.get("done"):
             return jsonify({"ok": True, "pending": True, "job_id": job_id})
         payload = {
@@ -966,12 +993,12 @@ def library_set_root():
         return jsonify({"error": str(e)}), 400
     except OSError:
         log.exception("library set root failed")
-        return jsonify({"error": "ตั้งโฟลเดอร์รากไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.setRootFail")}), 500
     count = int(idx.get("count") or 0)
     log.info("library root=%s docs=%s scaffold=%s seed=%s", root, count, created, allow_seed)
     warn = None
     if count >= 500:
-        warn = f"พบ PDF {count} ไฟล์ — คลังใหญ่อาจสแกนช้า ควรเลือกโฟลเดอร์ย่อยที่ใช้งานจริง"
+        warn = t("api.largeLibWarn", count=count)
     return jsonify({
         "ok": True,
         "root": str(root),
@@ -994,12 +1021,12 @@ def library_scan():
         return jsonify({"error": str(e)}), 400
     except OSError:
         log.exception("library scan failed")
-        return jsonify({"error": "สแกนคลังไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.scanFail")}), 500
     count = int(idx.get("count") or 0)
     log.info("library scan docs=%s", count)
     warn = None
     if count >= 500:
-        warn = f"พบ PDF {count} ไฟล์ — คลังใหญ่อาจสแกนช้า"
+        warn = t("api.largeLibWarnShort", count=count)
     return jsonify({
         "ok": True,
         "count": count,
@@ -1028,7 +1055,7 @@ def library_search():
 def library_open_explorer():
     if not _open_folder_allowed():
         return jsonify({
-            "error": "เปิดโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost) — หรือตั้ง ENABLE_OPEN_FOLDER=true",
+            "error": t("api.openFolderLocalOnly"),
         }), 403
     data = request.get_json(force=True, silent=True) or {}
     try:
@@ -1050,13 +1077,13 @@ def library_open_explorer():
                 _open_in_explorer(folder)
         except OSError:
             log.exception("library open file failed")
-            return jsonify({"error": "เปิดใน Explorer ไม่สำเร็จ"}), 500
+            return jsonify({"error": t("api.openExplorerFail")}), 500
     else:
         try:
             _open_in_explorer(target if target.is_dir() else root)
         except OSError:
             log.exception("library open folder failed")
-            return jsonify({"error": "เปิดโฟลเดอร์ไม่สำเร็จ"}), 500
+            return jsonify({"error": t("api.openFolderFail")}), 500
     return jsonify({"ok": True, "path": str(target)})
 
 
@@ -1065,7 +1092,7 @@ def library_open_explorer():
 def library_get_template():
     doc = request.args.get("doc") or ""
     if not is_lib_doc(doc):
-        return jsonify({"error": "doc ต้องเป็นเอกสารในคลัง (@lib|...)"}), 400
+        return jsonify({"error": t("api.needLibDoc")}), 400
     try:
         root = _require_library_root()
         pdf = resolve_under_root(root, lib_rel_from_doc(doc))
@@ -1090,14 +1117,14 @@ def fill():
     font = thai_font()
     if not font:
         log.error("fill aborted: Thai font missing")
-        return jsonify({"error": "ไม่พบฟอนต์ไทย — ตรวจโฟลเดอร์ fonts/"}), 500
+        return jsonify({"error": t("api.thaiFontMissing")}), 500
 
     try:
         src = _pdf_path(current_user(), doc_name)
     except (ValueError, FileNotFoundError) as e:
         return jsonify({"error": str(e)}), 404
     if not src.exists():
-        return jsonify({"error": "ไม่พบ PDF"}), 404
+        return jsonify({"error": t("api.pdfMissing")}), 404
     # ตรวจไลเซนต์ด้วยชื่อไฟล์จริง (ไม่ใช้ @lib/... ทั้งก้อน)
     lic_doc = src.name if is_lib_doc(doc_name) else doc_name
     ok, lic_err = can_fill_document(DATA_DIR, lic_doc, src)
@@ -1137,7 +1164,7 @@ def fill():
         eid = getattr(g, "event_id", new_event_id())
         log.exception("fill failed event=%s doc=%s", eid, safe_name(doc_name))
         return jsonify({
-            "error": f"สร้าง PDF ไม่สำเร็จ (รหัส {eid})",
+            "error": t("api.fillFail", eid=eid),
             "event_id": eid,
         }), 500
 
@@ -1161,7 +1188,7 @@ def download(name):
 def open_folder():
     if not _open_folder_allowed():
         return jsonify({
-            "error": "เปิดโฟลเดอร์ใช้ได้เฉพาะโหมดเครื่องเดียว (localhost) — หรือตั้ง ENABLE_OPEN_FOLDER=true",
+            "error": t("api.openFolderLocalOnly"),
         }), 403
     data = request.get_json(force=True, silent=True) or {}
     which = (data.get("which") or "").strip().lower()
@@ -1175,12 +1202,12 @@ def open_folder():
     }
     target = mapping.get(which)
     if target is None:
-        return jsonify({"error": "which ต้องเป็น data / output / logs / uploads"}), 400
+        return jsonify({"error": t("api.badWhich")}), 400
     try:
         _open_in_explorer(target)
     except OSError:
         log.exception("open-folder failed which=%s", which)
-        return jsonify({"error": "เปิดโฟลเดอร์ไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.openFolderFail")}), 500
     log.info("open-folder which=%s", which)
     return jsonify({"ok": True, "path": str(target)})
 
@@ -1266,7 +1293,7 @@ def support_report():
                 zf.write(fpath, arcname=fpath.name)
     except OSError:
         log.exception("support-report zip failed")
-        return jsonify({"error": "สร้างไฟล์รายงานไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.reportFail")}), 500
 
     buf.seek(0)
     log.info("support-report created %s", download_name)
@@ -1293,7 +1320,7 @@ def api_backup():
         )
     except OSError:
         log.exception("backup failed")
-        return jsonify({"error": "สร้างไฟล์สำรองไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.backupFail")}), 500
     log.info(
         "backup created user=%s uploads=%s templates=%s output=%s",
         user,
@@ -1315,12 +1342,12 @@ def api_restore():
     """กู้จาก ZIP — mode=merge|replace; ไม่เขียน machine_id/license"""
     mode = (request.form.get("mode") or request.args.get("mode") or "merge").strip().lower()
     if mode not in ("merge", "replace"):
-        return jsonify({"error": "mode ต้องเป็น merge หรือ replace"}), 400
+        return jsonify({"error": t("api.badRestoreMode")}), 400
     if "file" not in request.files:
-        return jsonify({"error": "ไม่มีไฟล์ ZIP"}), 400
+        return jsonify({"error": t("api.noZip")}), 400
     f = request.files["file"]
     if not f.filename:
-        return jsonify({"error": "ไม่มีชื่อไฟล์"}), 400
+        return jsonify({"error": t("api.noFilename")}), 400
     raw = io.BytesIO(f.read())
     user = current_user()
     paths = user_paths(user)
@@ -1335,7 +1362,7 @@ def api_restore():
         return jsonify({"error": str(e)}), 400
     except OSError:
         log.exception("restore failed")
-        return jsonify({"error": "กู้คืนไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.restoreFail")}), 500
     log.info(
         "restore mode=%s written=%s skipped=%s user=%s",
         mode,
@@ -1351,7 +1378,7 @@ def api_restore():
 def api_template_export(name):
     path = user_paths(current_user())["templates"] / (safe_name(name) + ".json")
     if not path.is_file():
-        return jsonify({"error": "ไม่พบเทมเพลต"}), 404
+        return jsonify({"error": t("api.tplMissing")}), 404
     data, filename = export_template_bytes(path, safe_name(name))
     return send_file(
         io.BytesIO(data),
@@ -1366,27 +1393,27 @@ def api_template_export(name):
 def api_template_import():
     """นำเข้าเทมเพลตเดี่ยว (.json / .tpl.json)"""
     if "file" not in request.files:
-        return jsonify({"error": "ไม่มีไฟล์"}), 400
+        return jsonify({"error": t("api.noFile")}), 400
     f = request.files["file"]
     if not f.filename:
-        return jsonify({"error": "ไม่มีชื่อไฟล์"}), 400
+        return jsonify({"error": t("api.noFilename")}), 400
     raw_name = f.filename
     stem = os.path.splitext(raw_name)[0]
     if stem.lower().endswith(".tpl"):
         stem = stem[:-4]
     name = safe_name(stem)
     if not name:
-        return jsonify({"error": "ชื่อเทมเพลตไม่ถูกต้อง"}), 400
+        return jsonify({"error": t("api.badTplName")}), 400
     try:
         payload = json.loads(f.read().decode("utf-8"))
     except (UnicodeDecodeError, ValueError):
-        return jsonify({"error": "ไฟล์ต้องเป็น JSON"}), 400
+        return jsonify({"error": t("api.needJson")}), 400
     if not isinstance(payload, dict):
-        return jsonify({"error": "รูปแบบเทมเพลตไม่ถูกต้อง"}), 400
+        return jsonify({"error": t("api.badTplFormat")}), 400
     overwrite = (request.form.get("overwrite") or "").lower() in ("1", "true", "yes")
     path = user_paths(current_user())["templates"] / (name + ".json")
     if path.exists() and not overwrite:
-        return jsonify({"error": f"มีเทมเพลต \"{name}\" อยู่แล้ว — ระบุ overwrite=true เพื่อทับ", "name": name}), 409
+        return jsonify({"error": t("api.tplExists", name=name), "name": name}), 409
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     log.info("template imported name=%s", name)
     return jsonify({"ok": True, "name": name})
@@ -1398,9 +1425,18 @@ def api_formpack_list():
     pack = BASE / "formpacks" / "v1"
     return jsonify({
         "id": "v1",
-        "title": "แพ็กฟอร์มโรงเรียน v1",
+        "title": "School form pack v1" if get_locale() == "en" else "แพ็กฟอร์มโรงเรียน v1",
         "templates": list_formpack_templates(pack),
-        "note_th": "เทมเพลตตัวอย่างตำแหน่งฟิลด์ — ต้องจับคู่กับ PDF จริงของโรงเรียนหลังติดตั้ง",
+        "note_th": (
+            "Sample field positions — match them to your school's real PDF after install"
+            if get_locale() == "en"
+            else "เทมเพลตตัวอย่างตำแหน่งฟิลด์ — ต้องจับคู่กับ PDF จริงของโรงเรียนหลังติดตั้ง"
+        ),
+        "note": (
+            "Sample field positions — match them to your school's real PDF after install"
+            if get_locale() == "en"
+            else "เทมเพลตตัวอย่างตำแหน่งฟิลด์ — ต้องจับคู่กับ PDF จริงของโรงเรียนหลังติดตั้ง"
+        ),
     })
 
 
@@ -1421,7 +1457,7 @@ def api_formpack_install():
         return jsonify({"error": str(e)}), 404
     except OSError:
         log.exception("formpack install failed")
-        return jsonify({"error": "ติดตั้งแพ็กไม่สำเร็จ"}), 500
+        return jsonify({"error": t("api.formpackFail")}), 500
     log.info(
         "formpack %s installed=%s skipped=%s",
         pack_id,
@@ -1443,12 +1479,15 @@ def handle_unexpected(exc):
     log.exception("Unhandled exception event=%s path=%s", eid, request.path)
     if request.path.startswith("/api/") or request.path.startswith("/page/"):
         return jsonify({
-            "error": f"เกิดข้อผิดพลาดภายใน (รหัส {eid})",
+            "error": t("api.internalError", eid=eid),
             "event_id": eid,
         }), 500
     return (
-        f"<h1>เกิดข้อผิดพลาด</h1><p>รหัสเหตุการณ์: <code>{html.escape(eid)}</code></p>"
-        "<p>ลองสร้างไฟล์รายงานปัญหาจากเมนูในแอป แล้วส่งให้ผู้ขาย</p>",
+        (
+            f"<h1>{html.escape(t('api.errorPageTitle'))}</h1>"
+            f"<p>{html.escape(t('api.eventId'))} <code>{html.escape(eid)}</code></p>"
+            f"<p>{html.escape(t('api.errorPageBody'))}</p>"
+        ),
         500,
     )
 
