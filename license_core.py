@@ -27,8 +27,15 @@ from i18n_core import t
 
 DEFAULT_SUPPORT_DAYS = 1825
 KEY_PREFIX = "PFM2"
+# แพ็กทดลองทางการ — ตรวจด้วย hash เนื้อไฟล์ ไม่ใช่แค่ชื่อ
 DEMO_DOC_NAME = "demo-form.pdf"
-CANONICAL_DEMO_PATH = BASE / "demo" / "uploads" / DEMO_DOC_NAME
+TRIAL_DOC_NAMES: tuple[str, ...] = (
+    "demo-form.pdf",
+    "demo-leave.pdf",
+    "demo-request.pdf",
+)
+TRIAL_DIR = BASE / "demo" / "uploads"
+CANONICAL_DEMO_PATH = TRIAL_DIR / DEMO_DOC_NAME
 DEFAULT_PUBLIC_KEY_PATH = BASE / "license_public.pem"
 DEFAULT_PRIVATE_KEY_PATH = BASE / "keys" / "ed25519_private.pem"
 # ยอมให้นาฬิกาย้อนได้ไม่เกินนี้ (วินาที) ก่อนถือว่าน่าสงสัย
@@ -69,22 +76,54 @@ def file_sha256(path: Path) -> str:
     return digest
 
 
+def trial_pdf_path(name: str) -> Path:
+    return TRIAL_DIR / Path(name).name
+
+
+def trial_docs_label() -> str:
+    return ", ".join(TRIAL_DOC_NAMES)
+
+
+def is_trial_filename(name: str) -> bool:
+    return Path(name or "").name.lower() in {n.lower() for n in TRIAL_DOC_NAMES}
+
+
+def canonical_trial_sha256(name: str) -> str:
+    path = trial_pdf_path(name)
+    if not path.is_file():
+        raise RuntimeError(t("license.demoMissing", path=path))
+    return file_sha256(path)
+
+
+def canonical_trial_hashes() -> dict[str, str]:
+    """hash ของไฟล์ในแพ็กทดลองที่ ship มากับแอป — ข้ามไฟล์ที่ขาดรายไฟล์"""
+    out: dict[str, str] = {}
+    for name in TRIAL_DOC_NAMES:
+        path = trial_pdf_path(name)
+        if path.is_file():
+            out[name] = file_sha256(path)
+    if not out:
+        raise RuntimeError(t("license.demoMissing", path=TRIAL_DIR))
+    return out
+
+
 def canonical_demo_sha256() -> str:
-    """hash ของ demo ที่ ship มากับแอป — ไม่ cache แยกจาก file_sha256 (mtime)"""
-    if not CANONICAL_DEMO_PATH.is_file():
-        raise RuntimeError(
-            t("license.demoMissing", path=CANONICAL_DEMO_PATH)
-        )
-    return file_sha256(CANONICAL_DEMO_PATH)
+    """hash ของ demo-form.pdf — คงไว้ให้โค้ดเก่า"""
+    return canonical_trial_sha256(DEMO_DOC_NAME)
+
+
+def is_canonical_trial_pdf(path: Path) -> bool:
+    """True ถ้าเนื้อหาตรงไฟล์ใดในแพ็กทดลอง; RuntimeError ถ้าต้นฉบับในแอปหาย"""
+    hashes = set(canonical_trial_hashes().values())
+    try:
+        return path.is_file() and file_sha256(path) in hashes
+    except OSError:
+        return False
 
 
 def is_canonical_demo_pdf(path: Path) -> bool:
-    """True ถ้าเนื้อหาตรง demo ทางการ; RuntimeError ถ้าต้นฉบับในแอปหาย"""
-    canon = canonical_demo_sha256()
-    try:
-        return path.is_file() and file_sha256(path) == canon
-    except OSError:
-        return False
+    """True ถ้าเนื้อหาตรงแพ็กทดลอง (ไม่จำกัดชื่อไฟล์)"""
+    return is_canonical_trial_pdf(path)
 
 
 @lru_cache(maxsize=1)
@@ -335,6 +374,7 @@ def _make_status(
         "message": message,
         "demo_only": not licensed,
         "demo_doc": DEMO_DOC_NAME,
+        "demo_docs": list(TRIAL_DOC_NAMES),
     }
 
 
@@ -371,7 +411,7 @@ def license_status(data_dir: Path) -> dict[str, Any]:
             machine_id=mid,
             expires=None,
             days_left=None,
-            message=t("license.unlicensed", demo=DEMO_DOC_NAME),
+            message=t("license.unlicensed", docs=trial_docs_label()),
         )
 
     try:
@@ -398,24 +438,28 @@ def license_status(data_dir: Path) -> dict[str, Any]:
 
 
 def can_fill_document(data_dir: Path, doc_name: str, pdf_path: Path) -> tuple[bool, str]:
+    """สร้าง PDF ได้ถ้ามีไลเซนต์ หรือเนื้อไฟล์ตรงแพ็กทดลองทางการ"""
     st = license_status(data_dir)
     if st["licensed"]:
         return True, ""
-    name = Path(doc_name or "").name.lower()
-    if name == DEMO_DOC_NAME:
-        try:
-            if is_canonical_demo_pdf(pdf_path):
-                return True, ""
-        except RuntimeError as e:
-            return False, str(e)
-        return (
-            False,
-            t("license.demoTampered", demo=DEMO_DOC_NAME),
-        )
+    label = trial_docs_label()
+    try:
+        if is_canonical_trial_pdf(pdf_path):
+            return True, ""
+    except RuntimeError as e:
+        return False, str(e)
+    name = Path(doc_name or "").name
+    if is_trial_filename(name):
+        return False, t("license.demoTampered", demo=name)
     return (
         False,
-        t("license.needLicense", mid=st["machine_id"], demo=DEMO_DOC_NAME),
+        t("license.needLicense", mid=st["machine_id"], docs=label),
     )
+
+
+def can_open_document(data_dir: Path, doc_name: str, pdf_path: Path) -> tuple[bool, str]:
+    """โหมดทดลองห้ามเปิด PDF นอกแพ็ก — กติกาเดียวกับสร้าง PDF"""
+    return can_fill_document(data_dir, doc_name, pdf_path)
 
 
 def save_license_file(data_dir: Path, key: str) -> None:

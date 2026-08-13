@@ -9,6 +9,7 @@ export type LicenseStatus = {
   message: string;
   demo_only: boolean;
   demo_doc: string;
+  demo_docs?: string[];
 };
 
 export type Field = {

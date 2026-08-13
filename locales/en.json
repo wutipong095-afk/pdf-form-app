@@ -33,6 +33,10 @@
   "lic": {
     "checking": "Checking license…",
     "machineId": "Machine ID:",
+    "copyId": "Copy",
+    "copied": "Copied",
+    "copyFail": "Could not copy — select the ID above and copy it yourself",
+    "trialHint": "Try the sample forms — load your own PDF after you activate a license",
     "keyPlaceholder": "Paste the license key you received after payment",
     "activate": "Activate license",
     "needKey": "Please enter a license key",
@@ -85,6 +89,7 @@
     "scanFail": "Scan failed",
     "openExplorerFail": "Could not open Explorer",
     "pickFileFirst": "Select a file from the library first",
+    "needsLicense": "The document library requires a license",
     "openFileFail": "Could not open file"
   },
   "bak": {
@@ -155,7 +160,7 @@
     "saveFail": "Could not save template",
     "saveOk": "Saved template \"{name}\" ({count} pins)",
     "clearConfirm": "Clear all filled values and start a new round? (marked pins stay)",
-    "needLicense": "❌ No license — send the machine ID above to the vendor, or try with {demo}",
+    "needLicense": "❌ No license — try a sample form, or activate with the machine ID above",
     "created": "Created {file} 🎉",
     "donePrefix": "Done: ",
     "openFile": "Open {file}",
@@ -174,6 +179,9 @@
     "noFile": "No file",
     "noFilename": "Missing file name",
     "demoNameReserved": "Name {name} is reserved for the sample form — rename the file before upload",
+    "uploadNeedsLicense": "Trial mode cannot upload your own PDF — use a sample form or activate a license",
+    "libraryNeedsLicense": "The document library requires a license — trial mode is limited to sample forms",
+    "formpackNeedsLicense": "Installing the school form pack requires a license",
     "saveUploadFail": "Could not save file",
     "libRootNotSet": "Document library root is not set",
     "libPdfMissing": "PDF not found in library",
@@ -227,10 +235,10 @@
     "expired": "License has expired",
     "clockSkew": "System clock appears to have gone backwards — fix the PC clock or request a new key and activate again",
     "bypass": "Development mode (LICENSE_BYPASS)",
-    "unlicensed": "License not activated — trial PDF creation is limited to the official {demo}",
+    "unlicensed": "License not activated — trial is limited to the official sample forms ({docs})",
     "ok": "License valid until {expires} (~{days} days left)",
     "demoTampered": "File {demo} is not the official sample (contents changed) — a license is required",
-    "needLicense": "A license is required to create a PDF for this document (machine ID: {mid}) — trial is limited to {demo}",
+    "needLicense": "A license is required to use this document (machine ID: {mid}) — trial is limited to {docs}",
     "activateFail": "Could not activate license"
   },
   "library": {
