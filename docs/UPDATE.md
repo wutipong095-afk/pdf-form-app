@@ -31,8 +31,8 @@ https://your-site.com/releases/latest.json
 
 ```json
 {
-  "version": "0.2.0",
-  "setup_url": "https://your-site.com/releases/PDFFormMarker-Setup-0.2.0.exe",
+  "version": "0.3.0",
+  "setup_url": "https://your-site.com/releases/PDFFormMarker-Setup-0.3.0.exe",
   "notes": "ข้อความสั้นอธิบาย",
   "published_at": "2026-07-26"
 }

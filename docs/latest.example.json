@@ -1,6 +1,6 @@
 {
-  "version": "0.2.0",
-  "setup_url": "https://example.com/releases/PDFFormMarker-Setup-0.2.0.exe",
+  "version": "0.3.0",
+  "setup_url": "https://example.com/releases/PDFFormMarker-Setup-0.3.0.exe",
   "notes": "แก้บั๊กและปรับปรุงคลังเอกสาร",
   "published_at": "2026-07-26"
 }

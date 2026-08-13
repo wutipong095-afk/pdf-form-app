@@ -9,7 +9,7 @@ Thai: [INSTALLER.md](INSTALLER.md)
 | Artifact | Meaning |
 |----------|---------|
 | `dist/PDFFormMarker/` | Runnable PyInstaller one-folder build |
-| `dist/installer/PDFFormMarker-Setup-0.2.0.exe` | Inno Setup installer (if ISCC is available) |
+| `dist/installer/PDFFormMarker-Setup-0.3.0.exe` | Inno Setup installer (if ISCC is available) |
 
 Bundled: civil-service fonts, demo, `formpacks/`, `locales/`, `license_public.pem`, UI from `static/`
 
@@ -37,7 +37,7 @@ Options:
 .\scripts\build_windows.ps1 -SkipFrontend   # reuse existing static/
 ```
 
-Result: `dist\PDFFormMarker\PDFFormMarker.exe` and (with Inno) `dist\installer\PDFFormMarker-Setup-0.2.0.exe`
+Result: `dist\PDFFormMarker\PDFFormMarker.exe` and (with Inno) `dist\installer\PDFFormMarker-Setup-0.3.0.exe`
 
 ## Test on the build PC
 

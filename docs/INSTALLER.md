@@ -12,7 +12,7 @@
 | ผลลัพธ์ | ความหมาย |
 |---------|----------|
 | `dist/PDFFormMarker/` | โฟลเดอร์รันได้จาก PyInstaller (one-folder) |
-| `dist/installer/PDFFormMarker-Setup-0.2.0.exe` | ตัวติดตั้ง Inno Setup (ถ้ามี ISCC) |
+| `dist/installer/PDFFormMarker-Setup-0.3.0.exe` | ตัวติดตั้ง Inno Setup (ถ้ามี ISCC) |
 
 รวมในแพ็ก: ฟอนต์สารบรรณ, demo, `formpacks/`, `license_public.pem`, UI จาก `static/`
 
@@ -39,7 +39,7 @@
 .\scripts\build_windows.ps1 -SkipFrontend   # ใช้ static/ ที่มีอยู่แล้ว
 ```
 
-ผลลัพธ์: `dist\PDFFormMarker\PDFFormMarker.exe` และ (ถ้ามี Inno) `dist\installer\PDFFormMarker-Setup-0.2.0.exe`
+ผลลัพธ์: `dist\PDFFormMarker\PDFFormMarker.exe` และ (ถ้ามี Inno) `dist\installer\PDFFormMarker-Setup-0.3.0.exe`
 ## ทดสอบบนเครื่องแพ็ก
 
 1. รัน `dist\PDFFormMarker\PDFFormMarker.exe`
