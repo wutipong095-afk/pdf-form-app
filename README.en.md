@@ -39,6 +39,7 @@ UI language: choose **Thai / English** in the header (remembered via cookie + lo
 Backup/restore: [docs/BACKUP.en.md](docs/BACKUP.en.md) — ZIP has no `machine_id`/license (a new PC needs a new key)
 
 Windows installer: [docs/INSTALLER.en.md](docs/INSTALLER.en.md) — `.\scripts\build_windows.ps1`  
+Linux / macOS packages: [docs/PACKAGING.en.md](docs/PACKAGING.en.md) — `./scripts/build_linux.sh` · `./scripts/build_macos.sh`  
 Update notices (`latest.json`): [docs/UPDATE.en.md](docs/UPDATE.en.md)
 
 If you already have project `./data`, the app **keeps using that folder**  

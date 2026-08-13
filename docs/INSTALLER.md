@@ -1,6 +1,7 @@
 # Windows installer (CP4)
 
-**English:** [INSTALLER.en.md](INSTALLER.en.md)
+**English:** [INSTALLER.en.md](INSTALLER.en.md)  
+แพ็กเกจ Linux / macOS: [PACKAGING.md](PACKAGING.md)
 
 สร้างตัวติดตั้งสำหรับโรงเรียน: ติดตั้ง → ไอคอน → เปิดเบราว์เซอร์ โดยไม่ต้องรู้ Python
 

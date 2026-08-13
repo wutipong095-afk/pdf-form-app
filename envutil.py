@@ -50,11 +50,25 @@ def env_bool(name: str, default: bool = False) -> bool:
 
 
 def app_root_dir() -> Path:
-    """รากข้อมูลระบบ: %LOCALAPPDATA%\\PDFFormMarker บน Windows, ไม่เช่นนั้น BASE/.pdfmarker"""
+    """รากข้อมูลระบบต่อแพลตฟอร์ม (เขียนได้ — ไม่เก็บในโฟลเดอร์ติดตั้งที่อาจอ่านอย่างเดียว)
+
+    - Windows: %LOCALAPPDATA%\\PDFFormMarker
+    - macOS: ~/Library/Application Support/PDFFormMarker
+    - Linux: $XDG_DATA_HOME/PDFFormMarker หรือ ~/.local/share/PDFFormMarker
+    - พัฒนา non-frozen อื่นๆ: BASE/.pdfmarker
+    """
     if os.name == "nt":
         local = os.environ.get("LOCALAPPDATA", "").strip()
         if local:
             return Path(local) / APP_NAME
+    # Frozen desktop builds (and opt-in via PDFMARKER_USER_DATA) use OS user data dirs
+    if is_frozen() or os.environ.get("PDFMARKER_USER_DATA", "").strip():
+        if sys.platform == "darwin":
+            return Path.home() / "Library" / "Application Support" / APP_NAME
+        xdg = os.environ.get("XDG_DATA_HOME", "").strip()
+        if xdg:
+            return Path(xdg) / APP_NAME
+        return Path.home() / ".local" / "share" / APP_NAME
     return BASE / ".pdfmarker"
 
 
