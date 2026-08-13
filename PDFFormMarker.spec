@@ -1,14 +1,25 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller one-folder — รันจากรากโปรเจกต์:
+# PyInstaller one-folder (Windows / Linux) + .app bundle (macOS)
+# Run from repo root:
 #   pyinstaller PDFFormMarker.spec --noconfirm
 #
-# แนะนำ: build ใน venv ที่ติดตั้งแค่ requirements-build.txt
-# (site-packages ใหญ่ เช่น torch จะถูก exclude ด้านล่าง)
+# Build in a clean venv with requirements-build.txt only.
+import sys
+
 from PyInstaller.building.api import COLLECT, EXE, PYZ
 from PyInstaller.building.build_main import Analysis
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
+try:
+    from PyInstaller.building.osx import BUNDLE
+except ImportError:  # pragma: no cover - non-mac PyInstaller
+    BUNDLE = None  # type: ignore[misc, assignment]
+
+from envutil import APP_VERSION
+
 block_cipher = None
+IS_DARWIN = sys.platform == "darwin"
+IS_WIN = sys.platform == "win32"
 
 datas = [
     ("templates", "templates"),
@@ -20,7 +31,6 @@ datas = [
     ("license_public.pem", "."),
 ]
 
-# ตรวจว่า PyMuPDF ใช้ได้ตอน build — ไม่ให้ผ่านแล้วไปพังตอนเปิด exe
 try:
     import fitz  # noqa: F401
 except ImportError as e:
@@ -28,7 +38,6 @@ except ImportError as e:
         f"PDFFormMarker.spec: cannot import fitz (install PyMuPDF in the build venv): {e}"
     ) from e
 
-# native libs + package data ของ PyMuPDF — ห้ามกลืน exception ทั้งคู่
 binaries = []
 pymupdf_ok = False
 for pkg in ("pymupdf", "fitz"):
@@ -73,8 +82,6 @@ hiddenimports = [
     "pymupdf",
 ]
 
-# แพ็กเกจที่มักมีในเครื่องนักพัฒนา แต่ไม่เกี่ยวกับแอปนี้
-# อย่า exclude unittest (stdlib) — dependency อาจ lazy-import unittest.mock
 excludes = [
     "torch",
     "torchvision",
@@ -130,7 +137,7 @@ exe = EXE(
     upx=False,
     console=False,
     disable_windowed_traceback=False,
-    argv_emulation=False,
+    argv_emulation=IS_DARWIN,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
@@ -146,3 +153,21 @@ coll = COLLECT(
     upx_exclude=[],
     name="PDFFormMarker",
 )
+
+# macOS .app (build on a Mac only)
+if IS_DARWIN and BUNDLE is not None:
+    app = BUNDLE(
+        coll,
+        name="PDFFormMarker.app",
+        icon=None,
+        bundle_identifier="app.pdfformmarker.desktop",
+        version=APP_VERSION,
+        info_plist={
+            "CFBundleName": "PDF Form Marker",
+            "CFBundleDisplayName": "PDF Form Marker",
+            "CFBundleShortVersionString": APP_VERSION,
+            "CFBundleVersion": APP_VERSION,
+            "NSHighResolutionCapable": True,
+            "LSBackgroundOnly": False,
+        },
+    )

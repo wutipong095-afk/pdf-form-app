@@ -1,4 +1,4 @@
-# ใช้ตอนแพ็ก Windows installer เท่านั้น — ไม่ใส่ใน Docker / runtime ลูกค้า
+# ใช้ตอนแพ็ก desktop (Windows / Linux / macOS) — ไม่ใส่ใน Docker / runtime ลูกค้า
 -r requirements.txt
 pyinstaller>=6.3
 waitress>=3.0

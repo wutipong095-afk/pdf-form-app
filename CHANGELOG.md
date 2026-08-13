@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- แพ็กเกจ desktop แยก Linux (`.tar.gz`) / macOS (`.app` + `.dmg`) — `scripts/build_linux.sh` · `scripts/build_macos.sh`
+- ข้อมูล frozen บน macOS/Linux เก็บใต้ Application Support / XDG ไม่ใช่ในโฟลเดอร์ติดตั้ง
 
 ## 0.2.0
 - UI สลับภาษาไทย / English ในแอปเดียว (ค่าเริ่มต้นไทย)

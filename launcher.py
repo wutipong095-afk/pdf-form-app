@@ -1,4 +1,4 @@
-"""จุดเข้า Windows desktop — Waitress + หน้าต่างสถานะ + เปิดเบราว์เซอร์
+"""จุดเข้า desktop (Windows / macOS / Linux) — Waitress + หน้าต่างสถานะ + เปิดเบราว์เซอร์
 
 ปิดหน้าต่างสถานะ = หยุดเซิร์ฟเวอร์
 ไม่รวมใน Docker / พัฒนาปกติ (ใช้ python app.py)
