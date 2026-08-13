@@ -16,6 +16,7 @@ datas = [
     ("fonts", "fonts"),
     ("demo", "demo"),
     ("formpacks", "formpacks"),
+    ("locales", "locales"),
     ("license_public.pem", "."),
 ]
 
@@ -65,6 +66,7 @@ hiddenimports = [
     "library_core",
     "backup_core",
     "update_core",
+    "i18n_core",
     "cryptography",
     "cryptography.hazmat.primitives.asymmetric.ed25519",
     "fitz",

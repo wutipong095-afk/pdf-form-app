@@ -86,7 +86,7 @@ if ($Leaks.Count -gt 0) {
 
 # Sanity: bundled assets (PyInstaller 6 onedir puts datas under _internal)
 # อัปเดต: ผู้ขายวาง update_feed.url เองหลัง build (ดู docs/UPDATE.md)
-foreach ($rel in @("license_public.pem", "fonts", "demo", "templates", "static", "formpacks")) {
+foreach ($rel in @("license_public.pem", "fonts", "demo", "templates", "static", "formpacks", "locales")) {
     $p = Join-Path $BundleRoot $rel
     $pInternal = Join-Path $BundleRoot "_internal\$rel"
     if (-not (Test-Path $p) -and -not (Test-Path $pInternal)) {
@@ -125,7 +125,20 @@ if ($IsccCandidates.Count -eq 0) {
 $Iscc = $IsccCandidates | Select-Object -First 1
 Write-Host "Using ISCC: $Iscc"
 New-Item -ItemType Directory -Force -Path (Join-Path $Root "dist\installer") | Out-Null
-& $Iscc (Join-Path $Root "installer\PDFFormMarker.iss")
+
+# Thai wizard language only if Inno shipped Thai.isl (else English-only Setup still builds)
+$IsccDir = Split-Path -Parent $Iscc
+$ThaiIsl = Join-Path $IsccDir "Languages\Thai.isl"
+$InnoArgs = @()
+if (Test-Path $ThaiIsl) {
+    Write-Host "Inno Thai.isl found — enabling Thai wizard language"
+    $InnoArgs += "/DENABLE_THAI=1"
+} else {
+    Write-Host "Inno Thai.isl not found — Setup wizard English only" -ForegroundColor DarkYellow
+    $InnoArgs += "/DENABLE_THAI=0"
+}
+$InnoArgs += (Join-Path $Root "installer\PDFFormMarker.iss")
+& $Iscc @InnoArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup failed (exit $LASTEXITCODE)"
 }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="{{ ui_lang }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>เข้าสู่ระบบ — PDF Form Marker</title>
+<title>{{ t('meta.loginTitle') }}</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -34,20 +34,30 @@
     font-size: 14px; margin-bottom: 12px;
   }
   .hint { margin-top: 16px; font-size: 12px; color: #888; line-height: 1.45; }
+  .langrow { display:flex; justify-content:flex-end; margin-bottom: 8px; font-size: 13px; gap: 6px; align-items:center; color:#555; }
+  .langrow select { font: inherit; padding: 2px 6px; border-radius: 6px; border: 1px solid #ccc; }
 </style>
 </head>
 <body>
   <form class="card" method="post" action="{{ url_for('login', next=request.args.get('next', '')) }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+    <div class="langrow">
+      <label for="ui-lang">{{ t('header.langLabel') }}</label>
+      <select id="ui-lang" aria-label="{{ t('header.langLabel') }}"
+        onchange="document.cookie='ui_lang='+this.value+';path=/;max-age=31536000;SameSite=Lax';location.reload()">
+        <option value="th" {% if ui_lang == 'th' %}selected{% endif %}>{{ t('header.langTh') }}</option>
+        <option value="en" {% if ui_lang == 'en' %}selected{% endif %}>{{ t('header.langEn') }}</option>
+      </select>
+    </div>
     <h1>PDF Form Marker</h1>
-    <p class="sub">เข้าสู่ระบบเพื่อมาร์คจุดและกรอกฟอร์ม PDF</p>
+    <p class="sub">{{ t('login.subtitle') }}</p>
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
-    <label for="username">ชื่อผู้ใช้</label>
+    <label for="username">{{ t('login.username') }}</label>
     <input id="username" name="username" autocomplete="username" required autofocus>
-    <label for="password">รหัสผ่าน</label>
+    <label for="password">{{ t('login.password') }}</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
-    <button type="submit">เข้าสู่ระบบ</button>
-    <p class="hint">หลังล็อกอินจะมีแบบฟอร์มตัวอย่าง (demo) ให้ลองใช้ทันที</p>
+    <button type="submit">{{ t('login.submit') }}</button>
+    <p class="hint">{{ t('login.hint') }}</p>
   </form>
 </body>
 </html>

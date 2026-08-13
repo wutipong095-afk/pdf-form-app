@@ -1,6 +1,7 @@
 import { $ } from "./dom";
 import { api } from "./api";
 import { state } from "./state";
+import { t } from "./i18n";
 import type { LicenseActivateResponse, LicenseStatus } from "./types";
 
 export function renderLicense(st: LicenseStatus | null | undefined): void {
@@ -27,7 +28,7 @@ export async function activateLicense(key: string): Promise<LicenseActivateRespo
   });
   const data = (await res.json()) as LicenseActivateResponse;
   if (!res.ok || !data.licensed) {
-    throw new Error(data.error || data.message || "เปิดใช้ไม่สำเร็จ");
+    throw new Error(data.error || data.message || t("lic.activateFail"));
   }
   return data;
 }
@@ -36,15 +37,15 @@ export function bindLicenseUi(): void {
   $("licactivate").onclick = async () => {
     const key = ($("lickey") as HTMLInputElement).value.trim();
     if (!key) {
-      alert("กรุณาใส่คีย์ไลเซนต์");
+      alert(t("lic.needKey"));
       return;
     }
     try {
       const r = await activateLicense(key);
       renderLicense(r);
-      alert("เปิดใช้ไลเซนต์สำเร็จ");
+      alert(t("lic.activateOk"));
     } catch (e) {
-      alert(e instanceof Error ? e.message : "เปิดใช้ไม่สำเร็จ");
+      alert(e instanceof Error ? e.message : t("lic.activateFail"));
     }
   };
 }

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Literal, Optional
 
 from library_core import config_path, get_library_root, index_path, settings_path
+from i18n_core import t
 
 BACKUP_FORMAT = 1
 # ไฟล์/ชื่อที่ห้ามนำเข้าจาก ZIP แม้มีในไฟล์เก่า
@@ -47,7 +48,7 @@ def build_meta(
         "data_dir": str(data_dir),
         "library_root": str(library_root) if library_root else None,
         "excludes": sorted(FORBIDDEN_NAMES) + ["logs/", "*.log"],
-        "note_th": "ไฟล์นี้ไม่มี machine_id/license — เครื่องใหม่ต้องขอคีย์ไลเซนต์ใหม่",
+        "note_th": t("backup.noteExport"), "note": t("backup.noteExport"),
     }
 
 
@@ -163,13 +164,13 @@ def _validated_members(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
 def read_backup_meta(fileobj: BinaryIO) -> dict[str, Any]:
     with zipfile.ZipFile(fileobj, "r") as zf:
         if "meta.json" not in zf.namelist():
-            raise ValueError("ไม่ใช่ไฟล์สำรองของ PDF Form Marker (ไม่มี meta.json)")
+            raise ValueError(t("backup.notBackup"))
         info = zf.getinfo("meta.json")
         if info.file_size > MAX_META_BYTES:
             raise ValueError("meta.json is too large")
         meta = json.loads(zf.read(info).decode("utf-8"))
         if meta.get("kind") != "pdf-form-marker-backup":
-            raise ValueError("ชนิดไฟล์สำรองไม่ถูกต้อง")
+            raise ValueError(t("backup.badKind"))
         return meta
 
 
@@ -294,7 +295,7 @@ def restore_backup(
             "user": meta.get("user"),
             "library_root": meta.get("library_root"),
         },
-        "note_th": "ไม่ได้กู้ machine_id/license — ถ้าเครื่องใหม่ต้องเปิดใช้คีย์ใหม่",
+        "note_th": t("backup.noteRestore"), "note": t("backup.noteRestore"),
     }
 
 
@@ -323,7 +324,7 @@ def install_formpack(
     installed: list[str] = []
     skipped: list[str] = []
     if not pack_dir.is_dir():
-        raise ValueError("ไม่พบแพ็กฟอร์ม")
+        raise ValueError(t("backup.packMissing"))
     for src in sorted(pack_dir.glob("*.json")):
         dest = templates_dir / src.name
         if dest.exists() and not overwrite:

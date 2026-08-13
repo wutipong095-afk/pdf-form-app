@@ -1,8 +1,9 @@
-/** คลังเอกสาร CP2 — เลือกโฟลเดอร์ราก, สแกน, ค้นหา, เปิดจากคลัง */
+/** Document library — root folder, scan, search, open */
 import { $ } from "./dom";
 import { apiJson } from "./api";
 import { state } from "./state";
 import { loadDoc } from "./viewer";
+import { t } from "./i18n";
 import type { LibraryDoc, LibraryStatus, TemplatePayload } from "./types";
 
 let selectedRel = "";
@@ -14,7 +15,6 @@ export function isLibDoc(doc: string | null | undefined): boolean {
   return d.startsWith("@lib.") || d.startsWith("@lib|") || d.startsWith("@lib/");
 }
 
-/** แสดง/ซ่อนแถบคลัง — โหลดรายการเมื่อเปิดเท่านั้น */
 export function setLibraryOpen(open: boolean): void {
   libraryOpen = open;
   const bar = $("libbar");
@@ -23,10 +23,10 @@ export function setLibraryOpen(open: boolean): void {
   const btn = $("btn-lib-toggle");
   btn.classList.toggle("active", open);
   btn.setAttribute("aria-expanded", open ? "true" : "false");
-  btn.textContent = open ? "ซ่อนคลัง" : "คลังเอกสาร";
+  btn.textContent = open ? t("header.hideLibrary") : t("header.library");
   if (open) {
-    setStatus("กำลังโหลดคลัง…");
-    void refreshLibrary().catch(() => setStatus("โหลดคลังไม่สำเร็จ"));
+    setStatus(t("lib.loading"));
+    void refreshLibrary().catch(() => setStatus(t("lib.loadFail")));
   }
 }
 
@@ -51,14 +51,13 @@ function setBrowseBusy(busy: boolean): void {
   browseBusy = busy;
   const btn = $("libbrowse") as HTMLButtonElement;
   btn.disabled = busy;
-  btn.textContent = busy ? "กำลังเลือก…" : "เลือกโฟลเดอร์…";
+  btn.textContent = busy ? t("lib.browsing") : t("lib.browse");
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** เริ่ม browse แบบ async แล้ว poll — ไม่บล็อก worker ของเซิร์ฟเวอร์ค้าง request */
 async function browseFolderAsync(initial: string): Promise<string | null> {
   const started = await apiJson<{ job_id?: string; error?: string }>("/api/library/browse", {
     method: "POST",
@@ -66,7 +65,7 @@ async function browseFolderAsync(initial: string): Promise<string | null> {
     body: JSON.stringify({ initial }),
   });
   const jobId = started.job_id;
-  if (!jobId) throw new Error(started.error || "เริ่มเลือกโฟลเดอร์ไม่สำเร็จ");
+  if (!jobId) throw new Error(started.error || t("lib.browseStartFail"));
 
   const deadline = Date.now() + 10 * 60 * 1000;
   while (Date.now() < deadline) {
@@ -82,20 +81,18 @@ async function browseFolderAsync(initial: string): Promise<string | null> {
     if (st.cancelled || !st.path) return null;
     return st.path;
   }
-  throw new Error("หมดเวลารอเลือกโฟลเดอร์");
+  throw new Error(t("lib.browseTimeout"));
 }
 
 function fillResults(docs: LibraryDoc[]): void {
   const sel = $("libresults") as HTMLSelectElement;
   const prev = sel.value;
   sel.innerHTML =
-    '<option value="">— เลือกจากคลัง (' +
-    docs.length +
-    ") —</option>" +
+    `<option value="">${escapeHtml(t("lib.selectFromCount", { count: docs.length }))}</option>` +
     docs
       .map((d) => {
         const label =
-          (d.folder ? d.folder + " / " : "") + d.filename + (d.has_template ? " · มีเทมเพลต" : "");
+          (d.folder ? d.folder + " / " : "") + d.filename + (d.has_template ? t("lib.hasTemplate") : "");
         return (
           `<option value="${encodeURIComponent(d.doc_id)}"` +
           ` data-rel="${encodeURIComponent(d.rel)}"` +
@@ -131,7 +128,7 @@ export async function refreshLibrary(q?: string): Promise<void> {
   }
 
   if (!st.configured) {
-    setStatus("ยังไม่ได้ตั้งโฟลเดอร์ราก — ใส่ path แล้วกดตั้งราก หรือใช้ค่าแนะนำ");
+    setStatus(t("lib.notConfigured"));
     fillResults([]);
     return;
   }
@@ -141,36 +138,39 @@ export async function refreshLibrary(q?: string): Promise<void> {
       "/api/library/search?q=" + encodeURIComponent(q.trim()),
     );
     fillResults(res.docs || []);
-    setStatus(`ค้นหา “${q.trim()}” — ${res.docs?.length || 0} รายการ (คลังมี ${st.count} ไฟล์)`);
+    setStatus(
+      t("lib.searchStatus", {
+        q: q.trim(),
+        n: res.docs?.length || 0,
+        total: st.count,
+      }),
+    );
     return;
   }
 
   fillResults(st.docs || []);
   if (!st.count) {
-    setStatus(
-      "คลังยังว่าง — กดเปิดรากใน Explorer แล้วใส่ไฟล์ .pdf จากนั้นกดสแกนใหม่ หรือกดเลือกโฟลเดอร์… ที่มี PDF อยู่แล้ว",
-    );
+    setStatus(t("lib.empty"));
     return;
   }
   setStatus(
-    `คลัง: ${st.count} ไฟล์` +
-      (st.scanned_at ? ` · สแกนล่าสุด ${new Date(st.scanned_at * 1000).toLocaleString()}` : ""),
+    t("lib.statusCount", { count: st.count }) +
+      (st.scanned_at
+        ? t("lib.lastScan", { when: new Date(st.scanned_at * 1000).toLocaleString() })
+        : ""),
   );
 }
 
 function statusAfterScan(count: number, extra = "", seeded?: string | null): void {
   if (seeded) {
-    setStatus(`ใส่ตัวอย่าง ${seeded} ให้แล้ว · ${count} ไฟล์ — เลือกจากรายการด้านขวาได้เลย${extra}`);
+    setStatus(t("lib.seeded", { seeded, count, extra }));
     return;
   }
   if (!count) {
-    setStatus(
-      "ยังไม่มีไฟล์ PDF ในโฟลเดอร์นี้ — กดเปิดรากใน Explorer คัดลอก .pdf เข้าไป แล้วกดสแกนใหม่" +
-        extra,
-    );
+    setStatus(t("lib.noPdf", { extra }));
     return;
   }
-  setStatus(`${count} ไฟล์ในคลัง — เลือกจากรายการเพื่อเปิด` + extra);
+  setStatus(t("lib.ready", { count, extra }));
 }
 
 async function openLibraryDoc(
@@ -183,11 +183,11 @@ async function openLibraryDoc(
   ($("docsel") as HTMLSelectElement).value = "";
   ($("tplsel") as HTMLSelectElement).value = "";
   try {
-    const t = await apiJson<TemplatePayload & { has_template?: boolean }>(
+    const tpl = await apiJson<TemplatePayload & { has_template?: boolean }>(
       "/api/library/template?doc=" + encodeURIComponent(docId),
     );
     ($("tplname") as HTMLInputElement).value = stemHint || "template";
-    state.fields = t.fields || [];
+    state.fields = tpl.fields || [];
   } catch {
     ($("tplname") as HTMLInputElement).value = stemHint || "";
     state.fields = [];
@@ -206,17 +206,17 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
     if (browseBusy) return;
     const cur = ($("libroot") as HTMLInputElement).value.trim();
     setBrowseBusy(true);
-    setStatus("เปิดหน้าต่างเลือกโฟลเดอร์… (แอปยังใช้ได้อย่างอื่นได้)");
+    setStatus(t("lib.browseOpen"));
     try {
       const path = await browseFolderAsync(cur);
       if (!path) {
-        setStatus("ยกเลิกเลือกโฟลเดอร์");
+        setStatus(t("lib.browseCancel"));
         return;
       }
       ($("libroot") as HTMLInputElement).value = path;
       $("libset").click();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "เลือกโฟลเดอร์ไม่สำเร็จ");
+      alert(e instanceof Error ? e.message : t("lib.browseFail"));
     } finally {
       setBrowseBusy(false);
     }
@@ -241,12 +241,12 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
       fillResults(res.docs || []);
       const extra =
         res.scaffold_created && res.scaffold_created.length
-          ? ` · สร้างโฟลเดอร์: ${res.scaffold_created.join(", ")}`
+          ? t("lib.scaffold", { folders: res.scaffold_created.join(", ") })
           : "";
       statusAfterScan(res.count, extra, res.seeded_demo);
       if (res.warning) alert(res.warning);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "ตั้งรากไม่สำเร็จ");
+      alert(e instanceof Error ? e.message : t("lib.setRootFail"));
     }
   };
 
@@ -268,7 +268,7 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
       search.value = "";
       if (res.warning) alert(res.warning);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "สแกนไม่สำเร็จ");
+      alert(e instanceof Error ? e.message : t("lib.scanFail"));
     }
   };
 
@@ -280,13 +280,13 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
         body: JSON.stringify({ rel: "" }),
       });
     } catch (e) {
-      alert(e instanceof Error ? e.message : "เปิด Explorer ไม่สำเร็จ");
+      alert(e instanceof Error ? e.message : t("lib.openExplorerFail"));
     }
   };
 
   $("libopenfile").onclick = async () => {
     if (!selectedRel) {
-      alert("เลือกไฟล์จากคลังก่อน");
+      alert(t("lib.pickFileFirst"));
       return;
     }
     try {
@@ -296,7 +296,7 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
         body: JSON.stringify({ rel: selectedRel }),
       });
     } catch (e) {
-      alert(e instanceof Error ? e.message : "เปิดไฟล์ไม่สำเร็จ");
+      alert(e instanceof Error ? e.message : t("lib.openFileFail"));
     }
   };
 
@@ -319,6 +319,4 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
     const stem = decodeURIComponent(opt.dataset.name || "");
     void openLibraryDoc(docId, stem, onMarkers, onRender);
   };
-
-  // ไม่โหลดคลังตอนเปิดแอป — รอจนผู้ใช้กดปุ่มคลังเอกสาร
 }

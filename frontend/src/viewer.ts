@@ -1,6 +1,7 @@
 import { $ } from "./dom";
 import { api } from "./api";
 import { state } from "./state";
+import { t } from "./i18n";
 import type { Field } from "./types";
 
 function img(): HTMLImageElement {
@@ -20,7 +21,7 @@ export function showPage(onMarkers: () => void): void {
   if (!state.doc) return;
   const el = img();
   el.src = `/page/${encodeURIComponent(state.doc)}/${state.cur}.png?${Date.now()}`;
-  $("pglabel").textContent = `หน้า ${state.cur + 1} / ${state.pages}`;
+  $("pglabel").textContent = t("viewer.page", { cur: state.cur + 1, pages: state.pages });
   el.onload = onMarkers;
 }
 
@@ -55,7 +56,7 @@ export function renderMarkers(
     m.onclick = (ev) => {
       ev.stopPropagation();
       if (fillActive) {
-        const nv = prompt(`ค่าของ "${f.name}":`, f.value || "");
+        const nv = prompt(t("viewer.valuePrompt", { name: f.name }), f.value || "");
         if (nv !== null) onEditValue(i, nv.trim());
         return;
       }

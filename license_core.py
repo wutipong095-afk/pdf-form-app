@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from envutil import BASE, env_bool, is_frozen
+from i18n_core import t
 
 DEFAULT_SUPPORT_DAYS = 1825
 KEY_PREFIX = "PFM2"
@@ -72,7 +73,7 @@ def canonical_demo_sha256() -> str:
     """hash ของ demo ที่ ship มากับแอป — ไม่ cache แยกจาก file_sha256 (mtime)"""
     if not CANONICAL_DEMO_PATH.is_file():
         raise RuntimeError(
-            f"ไม่พบไฟล์ demo ต้นฉบับในแอป: {CANONICAL_DEMO_PATH} — ติดตั้ง/แพ็กเกจไม่ครบ"
+            t("license.demoMissing", path=CANONICAL_DEMO_PATH)
         )
     return file_sha256(CANONICAL_DEMO_PATH)
 
@@ -90,13 +91,13 @@ def is_canonical_demo_pdf(path: Path) -> bool:
 def load_public_key() -> Ed25519PublicKey:
     pem_path = Path(os.environ.get("LICENSE_PUBLIC_KEY_PATH", DEFAULT_PUBLIC_KEY_PATH))
     if not pem_path.is_file():
-        raise RuntimeError(f"ไม่พบ public key ไลเซนต์: {pem_path}")
+        raise RuntimeError(t("license.pubkeyMissing", path=pem_path))
     try:
         key = serialization.load_pem_public_key(pem_path.read_bytes())
     except (ValueError, OSError) as e:
-        raise RuntimeError(f"public key ไลเซนต์เสียหายหรืออ่านไม่ได้: {pem_path}") from e
+        raise RuntimeError(t("license.pubkeyBad", path=pem_path)) from e
     if not isinstance(key, Ed25519PublicKey):
-        raise RuntimeError("LICENSE public key ต้องเป็น Ed25519")
+        raise RuntimeError(t("license.pubkeyType"))
     return key
 
 
@@ -167,10 +168,9 @@ def get_machine_id(data_dir: str) -> str:
         except OSError:
             size = -1
         if size == 0:
-            raise RuntimeError(f"อ่านไฟล์รหัสเครื่อง {path} ไม่สำเร็จ (ไฟล์ว่างระหว่างเริ่มระบบ)")
+            raise RuntimeError(t("license.machineEmpty", path=path))
         raise RuntimeError(
-            f"ไฟล์รหัสเครื่อง {path} เสียหาย — กู้จากสำรอง หรือลบไฟล์เพื่อออกรหัสใหม่ "
-            "(รหัสใหม่ต้องขอคีย์ใหม่จากผู้ขาย)"
+            t("license.machineCorrupt", path=path)
         )
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -181,7 +181,7 @@ def get_machine_id(data_dir: str) -> str:
         existing = _wait_machine_id(path)
         if existing:
             return existing
-        raise RuntimeError(f"อ่านไฟล์รหัสเครื่อง {path} ไม่สำเร็จ")
+        raise RuntimeError(t("license.machineReadFail", path=path))
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(mid + "\n")
     return mid
@@ -207,7 +207,7 @@ def issue_license_key(
 ) -> str:
     mid = machine_id.strip().upper()
     if not re.fullmatch(r"[0-9A-F]{16}", mid):
-        raise ValueError("รหัสเครื่องต้องเป็น 16 ตัวอักษรเลขฐานสิบหก")
+        raise ValueError(t("license.machineHex"))
     exp_dt = datetime.now(timezone.utc) + timedelta(days=days)
     exp = exp_dt.strftime("%Y%m%d")
     priv = private_key or load_private_key()
@@ -220,31 +220,31 @@ def parse_and_verify_key(
 ) -> dict[str, Any]:
     cleaned = re.sub(r"\s+", "", (key or "").strip())
     if cleaned.upper().startswith("PFM1-") or cleaned.upper().startswith("PFM1."):
-        raise ValueError("คีย์รุ่นเก่า (PFM1) ใช้กับเวอร์ชันนี้ไม่ได้ — ติดต่อผู้ขายเพื่อออกคีย์ใหม่")
+        raise ValueError(t("license.oldKey"))
     parts = cleaned.split(".")
     if len(parts) != 4 or parts[0].upper() != KEY_PREFIX:
-        raise ValueError("รูปแบบคีย์ไม่ถูกต้อง (ต้องการ PFM2.<machine>.<exp>.<sig>)")
+        raise ValueError(t("license.badFormat"))
     mid, exp, sig = parts[1].upper(), parts[2], parts[3]
     if not re.fullmatch(r"[0-9A-F]{16}", mid):
-        raise ValueError("รหัสเครื่องในคีย์ไม่ถูกต้อง")
+        raise ValueError(t("license.badMachineInKey"))
     if not re.fullmatch(r"\d{8}", exp):
-        raise ValueError("วันหมดอายุในคีย์ไม่ถูกต้อง")
+        raise ValueError(t("license.badExpiry"))
 
     public_key = load_public_key()
     try:
         public_key.verify(_b64url_decode(sig), _payload(mid, exp))
     except (InvalidSignature, ValueError) as e:
-        raise ValueError("คีย์ไม่ถูกต้องหรือไม่ได้ลงลายเซ็นด้วยกุญแจของผู้ขาย") from e
+        raise ValueError(t("license.badSig")) from e
 
     if mid != machine_id.upper():
-        raise ValueError("คีย์นี้ผูกกับเครื่องอื่น ไม่ใช้กับเครื่องนี้ได้")
+        raise ValueError(t("license.wrongMachine"))
 
     exp_end = datetime.strptime(exp, "%Y%m%d").replace(
         hour=23, minute=59, second=59, tzinfo=timezone.utc
     )
     now = now or datetime.now(timezone.utc)
     if now > exp_end:
-        raise ValueError("ไลเซนต์หมดอายุแล้ว")
+        raise ValueError(t("license.expired"))
 
     days_left = max(0, (exp_end.date() - now.date()).days)
     return {
@@ -287,8 +287,7 @@ def _check_clock(data_dir: Path) -> None:
         return
     if max_seen and now + CLOCK_ROLLBACK_GRACE < max_seen:
         raise ValueError(
-            "ตรวจพบนาฬิกาย้อนหลัง — ปรับเวลาเครื่องให้ถูกต้อง "
-            "หรือขอคีย์ใหม่จากผู้ขายแล้วเปิดใช้อีกครั้ง"
+            t("license.clockSkew")
         )
     if now - max_seen > CLOCK_WRITE_INTERVAL:
         _atomic_write_json(path, {"max_seen_utc": now})
@@ -361,7 +360,7 @@ def license_status(data_dir: Path) -> dict[str, Any]:
             machine_id=mid,
             expires=None,
             days_left=None,
-            message="โหมดพัฒนา (LICENSE_BYPASS)",
+            message=t("license.bypass"),
         )
 
     stored = _load_json(license_path(data_dir))
@@ -372,7 +371,7 @@ def license_status(data_dir: Path) -> dict[str, Any]:
             machine_id=mid,
             expires=None,
             days_left=None,
-            message=f"ยังไม่ได้เปิดใช้ไลเซนต์ — ทดลองสร้าง PDF ได้เฉพาะ {DEMO_DOC_NAME} ทางการ",
+            message=t("license.unlicensed", demo=DEMO_DOC_NAME),
         )
 
     try:
@@ -394,7 +393,7 @@ def license_status(data_dir: Path) -> dict[str, Any]:
         machine_id=mid,
         expires=info["expires"],
         days_left=info["days_left"],
-        message=f"ไลเซนต์ใช้งานได้ถึง {info['expires']} (เหลือ ~{info['days_left']} วัน)",
+        message=t("license.ok", expires=info["expires"], days=info["days_left"]),
     )
 
 
@@ -411,12 +410,11 @@ def can_fill_document(data_dir: Path, doc_name: str, pdf_path: Path) -> tuple[bo
             return False, str(e)
         return (
             False,
-            f"ไฟล์ {DEMO_DOC_NAME} ไม่ใช่แบบตัวอย่างทางการ (เนื้อหาถูกเปลี่ยน) — ต้องมีไลเซนต์",
+            t("license.demoTampered", demo=DEMO_DOC_NAME),
         )
     return (
         False,
-        "ต้องมีไลเซนต์ถึงจะสร้าง PDF ของเอกสารนี้ได้ "
-        f"(รหัสเครื่อง: {st['machine_id']}) — ทดลองได้เฉพาะ {DEMO_DOC_NAME}",
+        t("license.needLicense", mid=st["machine_id"], demo=DEMO_DOC_NAME),
     )
 
 
@@ -445,5 +443,5 @@ def activate_license(data_dir: Path, key: str) -> dict[str, Any]:
     save_license_file(data_dir, info["key"])
     st = license_status(data_dir)
     if not st["licensed"]:
-        raise ValueError(st["message"] or "เปิดใช้ไลเซนต์ไม่สำเร็จ")
+        raise ValueError(st["message"] or t("license.activateFail"))
     return st

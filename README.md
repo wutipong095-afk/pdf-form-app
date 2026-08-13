@@ -1,11 +1,15 @@
 # PDF Form Marker
 
+**English:** [README.en.md](README.en.md)
+
 โปรแกรมมาร์คจุดบน PDF แล้วเติมข้อความไทยทับเป็นเลเยอร์ (PyMuPDF + Flask)  
 เจาะตลาด**โรงเรียน** — ติดตั้งใช้ในเครื่อง ออฟไลน์ได้ ไลเซนต์ผูกเครื่อง
 
 แยกจาก vault `school-reports` — เป็นเครื่องมือกรอกฟอร์มราชการทั่วไป
 
 แผนพัฒนา: [ROADMAP.md](ROADMAP.md) · งานค้าง: [docs/BACKLOG.md](docs/BACKLOG.md)
+
+ในแอปสลับภาษา UI ได้ที่มุมขวาบน (**ไทย / English**)
 
 ---
 

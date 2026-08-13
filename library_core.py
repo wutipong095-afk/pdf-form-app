@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import unquote
 
+from i18n_core import t
+
 # doc id: @lib. + base64url(rel) — ทน | / ช่องว่าง ในชื่อไฟล์
 LIB_DOC_PREFIX = "@lib."
 # รูปแบบเก่า (อ่านได้เพื่อไม่พัง session ค้าง)
@@ -85,7 +87,7 @@ def lib_rel_from_doc(doc: str) -> str:
         try:
             return base64.urlsafe_b64decode(body + pad).decode("utf-8").replace("\\", "/").lstrip("/")
         except (ValueError, UnicodeDecodeError) as e:
-            raise ValueError("doc id คลังไม่ถูกต้อง") from e
+            raise ValueError(t("library.badDocId")) from e
     if d.startswith(_LEGACY_PIPE_PREFIX):
         return d[len(_LEGACY_PIPE_PREFIX) :].replace("|", "/").replace("\\", "/").lstrip("/")
     if d.startswith(_LEGACY_SLASH_PREFIX):
@@ -117,12 +119,12 @@ def get_library_root(data_dir: Path) -> Optional[Path]:
 def set_library_root(data_dir: Path, root_str: str) -> Path:
     raw = (root_str or "").strip()
     if not raw:
-        raise ValueError("กรุณาระบุโฟลเดอร์รากคลังเอกสาร")
+        raise ValueError(t("library.needRoot"))
     root = Path(raw).expanduser().resolve()
     if not root.exists():
         root.mkdir(parents=True, exist_ok=True)
     if not root.is_dir():
-        raise ValueError("path ที่ระบุไม่ใช่โฟลเดอร์")
+        raise ValueError(t("library.notDir"))
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     _atomic_write_json(
@@ -182,12 +184,12 @@ def resolve_under_root(root: Path, rel: str) -> Path:
     root = root.resolve()
     rel_norm = rel.replace("\\", "/").lstrip("/")
     if not rel_norm or ".." in rel_norm.split("/"):
-        raise ValueError("path ไม่ถูกต้อง")
+        raise ValueError(t("library.badPath"))
     target = (root / rel_norm).resolve()
     try:
         target.relative_to(root)
     except ValueError as e:
-        raise ValueError("path อยู่นอกคลังเอกสาร") from e
+        raise ValueError(t("library.outsideRoot")) from e
     return target
 
 

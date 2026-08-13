@@ -1,5 +1,6 @@
-/** แจ้งอัปเดตจาก latest.json — ไม่บังคับออนไลน์ */
+/** Update notice from latest.json — offline-safe */
 import { apiJson } from "./api";
+import { t } from "./i18n";
 
 type UpdateCheck = {
   current?: string;
@@ -46,14 +47,18 @@ function showBar(info: UpdateCheck): void {
   if (!bar || !msg || !info.latest) return;
 
   const notes = info.notes ? ` — ${info.notes}` : "";
-  msg.textContent = `มีเวอร์ชันใหม่ v${info.latest} (ตอนนี้ v${info.current || "?"})${notes}`;
+  msg.textContent = t("upd.msg", {
+    latest: info.latest,
+    current: info.current || "?",
+    notes,
+  });
 
   const url = (info.setup_url || "").trim();
   if (link) {
     if (url) {
       link.href = url;
       link.style.display = "";
-      link.textContent = "ดาวน์โหลด Setup v" + info.latest;
+      link.textContent = t("upd.downloadVer", { latest: info.latest });
     } else {
       link.style.display = "none";
     }
@@ -84,6 +89,6 @@ export function bindUpdateCheck(): void {
       showBar(info);
     })
     .catch(() => {
-      /* เน็ตไม่ได้ / ยังไม่ตั้ง feed — เงียบ */
+      /* offline / no feed — silent */
     });
 }

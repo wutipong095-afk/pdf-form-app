@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="{{ ui_lang }}">
 <head>
 <meta charset="utf-8">
 <meta name="csrf-token" content="{{ csrf_token }}">
-<title>PDF Form Marker — มาร์คจุด กรอกข้อมูล ออก PDF</title>
+<title>{{ t('meta.title') }}</title>
 <style>
   * { box-sizing: border-box; }
   body { margin:0; font-family:'Leelawadee UI',Tahoma,sans-serif; background:#f0f2f5; height:100vh; display:flex; flex-direction:column; }
@@ -80,94 +80,99 @@
 <header>
   <h1>📄 PDF Form Marker</h1>
   <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
-  <select id="docsel"><option>— เลือก PDF —</option></select>
-  <select id="tplsel"><option value="">— เทมเพลตใหม่ —</option></select>
-  <input id="tplname" placeholder="ชื่อเทมเพลต" style="width:140px">
-  <button id="savetpl">💾 บันทึกเทมเพลต</button>
+  <select id="docsel"><option>{{ t('header.selectPdf') }}</option></select>
+  <select id="tplsel"><option value="">{{ t('header.newTemplate') }}</option></select>
+  <input id="tplname" placeholder="{{ t('header.templateName') }}" style="width:140px">
+  <button id="savetpl">{{ t('header.saveTemplate') }}</button>
   <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
-    <button type="button" id="btn-lib-toggle" title="เปิด/ปิดแถบคลังเอกสาร" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">คลังเอกสาร</button>
-    <button type="button" id="btn-open-output" title="เปิดโฟลเดอร์ผลลัพธ์" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">ผลลัพธ์ PDF</button>
-    <button type="button" id="btn-support-report" title="แพ็ก log ส่งผู้ขาย (ไม่มีเนื้อหา PDF)" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">รายงานปัญหา</button>
+    <label for="ui-lang" style="opacity:.85">{{ t('header.langLabel') }}</label>
+    <select id="ui-lang" aria-label="{{ t('header.langLabel') }}" style="min-width:auto">
+      <option value="th" {% if ui_lang == 'th' %}selected{% endif %}>{{ t('header.langTh') }}</option>
+      <option value="en" {% if ui_lang == 'en' %}selected{% endif %}>{{ t('header.langEn') }}</option>
+    </select>
+    <button type="button" id="btn-lib-toggle" title="{{ t('header.libraryTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.library') }}</button>
+    <button type="button" id="btn-open-output" title="{{ t('header.outputTitle') }}" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.output') }}</button>
+    <button type="button" id="btn-support-report" title="{{ t('header.supportTitle') }}" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.support') }}</button>
     <span id="appver" style="opacity:.75;font-size:12px"></span>
     <span id="who">{{ user }}</span>
     <form id="logout-form" method="post" action="/logout" style="margin:0{% if not auth_required %};display:none{% endif %}">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-      <button type="submit" style="background:#e8eaf0;color:#1a3c6e">ออกจากระบบ</button>
+      <button type="submit" style="background:#e8eaf0;color:#1a3c6e">{{ t('header.logout') }}</button>
     </form>
   </span>
 </header>
 <div id="licbar" class="warn">
-  <span id="licmsg">กำลังตรวจไลเซนต์…</span>
-  <span>รหัสเครื่อง: <code id="licmid">—</code></span>
+  <span id="licmsg">{{ t('lic.checking') }}</span>
+  <span>{{ t('lic.machineId') }} <code id="licmid">—</code></span>
   <span id="licform" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;flex:1">
-    <input type="text" id="lickey" placeholder="วางคีย์ไลเซนต์ที่ได้รับหลังชำระเงิน">
-    <button type="button" id="licactivate">เปิดใช้ไลเซนต์</button>
+    <input type="text" id="lickey" placeholder="{{ t('lic.keyPlaceholder') }}">
+    <button type="button" id="licactivate">{{ t('lic.activate') }}</button>
   </span>
 </div>
 <div id="updbar" role="status" aria-live="polite">
-  <span id="updmsg">มีเวอร์ชันใหม่</span>
-  <a id="updlink" href="#" target="_blank" rel="noopener">ดาวน์โหลด Setup</a>
-  <button type="button" id="updopen">เปิดลิงก์อัปเดต</button>
-  <button type="button" id="upddismiss" class="secondary">ปิด</button>
+  <span id="updmsg">{{ t('upd.available') }}</span>
+  <a id="updlink" href="#" target="_blank" rel="noopener">{{ t('upd.download') }}</a>
+  <button type="button" id="updopen">{{ t('upd.open') }}</button>
+  <button type="button" id="upddismiss" class="secondary">{{ t('upd.dismiss') }}</button>
 </div>
 <div id="libbar" aria-hidden="true">
-  <strong>คลังเอกสาร</strong>
-  <input type="text" id="libroot" placeholder="path โฟลเดอร์ที่มีไฟล์ .pdf" style="flex:1;min-width:220px">
-  <button type="button" id="libbrowse" class="secondary" title="เปิดหน้าต่างเลือกโฟลเดอร์">เลือกโฟลเดอร์…</button>
-  <button type="button" id="libset">ตั้งราก</button>
-  <button type="button" id="libdefault" class="secondary">ใช้ค่าแนะนำ</button>
-  <button type="button" id="libscan" class="secondary">สแกนใหม่</button>
-  <button type="button" id="libopenroot" class="secondary">เปิดรากใน Explorer</button>
-  <input type="text" id="libsearch" placeholder="ค้นหาชื่อ / โฟลเดอร์ / แท็ก" style="min-width:160px">
-  <select id="libresults"><option value="">— เลือกจากคลัง —</option></select>
-  <button type="button" id="libopenfile" class="secondary">เปิดไฟล์ใน Explorer</button>
-  <span id="libstatus">กดปุ่มคลังเอกสารเพื่อโหลด</span>
-  <button type="button" id="libhide" class="secondary" title="ซ่อนแถบคลัง">ซ่อน</button>
+  <strong>{{ t('lib.title') }}</strong>
+  <input type="text" id="libroot" placeholder="{{ t('lib.rootPlaceholder') }}" style="flex:1;min-width:220px">
+  <button type="button" id="libbrowse" class="secondary" title="{{ t('lib.browseTitle') }}">{{ t('lib.browse') }}</button>
+  <button type="button" id="libset">{{ t('lib.setRoot') }}</button>
+  <button type="button" id="libdefault" class="secondary">{{ t('lib.useDefault') }}</button>
+  <button type="button" id="libscan" class="secondary">{{ t('lib.rescan') }}</button>
+  <button type="button" id="libopenroot" class="secondary">{{ t('lib.openRoot') }}</button>
+  <input type="text" id="libsearch" placeholder="{{ t('lib.searchPlaceholder') }}" style="min-width:160px">
+  <select id="libresults"><option value="">{{ t('lib.selectFrom') }}</option></select>
+  <button type="button" id="libopenfile" class="secondary">{{ t('lib.openFile') }}</button>
+  <span id="libstatus">{{ t('lib.idle') }}</span>
+  <button type="button" id="libhide" class="secondary" title="{{ t('lib.hideTitle') }}">{{ t('lib.hide') }}</button>
 </div>
 <div id="bakbar">
-  <strong>สำรอง / เทมเพลต</strong>
-  <button type="button" id="btn-backup">สำรองข้อมูล</button>
-  <button type="button" id="btn-restore" class="secondary">กู้คืน…</button>
+  <strong>{{ t('bak.title') }}</strong>
+  <button type="button" id="btn-backup">{{ t('bak.backup') }}</button>
+  <button type="button" id="btn-restore" class="secondary">{{ t('bak.restore') }}</button>
   <input type="file" id="restore-file" accept=".zip,application/zip" hidden>
-  <button type="button" id="btn-tpl-export" class="secondary">ส่งออกเทมเพลต</button>
-  <button type="button" id="btn-tpl-import" class="secondary">นำเข้าเทมเพลต…</button>
+  <button type="button" id="btn-tpl-export" class="secondary">{{ t('bak.exportTpl') }}</button>
+  <button type="button" id="btn-tpl-import" class="secondary">{{ t('bak.importTpl') }}</button>
   <input type="file" id="tpl-import-file" accept=".json,.tpl.json,application/json" hidden>
-  <button type="button" id="btn-formpack" class="secondary">ติดตั้งแพ็กฟอร์ม v1</button>
-  <span class="hint" style="margin:0">ดูคู่มือ: docs/BACKUP.md — ย้ายเครื่องต้องขอคีย์ใหม่</span>
+  <button type="button" id="btn-formpack" class="secondary">{{ t('bak.formpack') }}</button>
+  <span class="hint" style="margin:0">{{ t('bak.hint') }}</span>
 </div>
 <main>
   <div id="viewer">
     <div class="pgnav">
-      <button id="prev">◀</button> <span id="pglabel">หน้า - / -</span> <button id="next">▶</button>
+      <button id="prev">◀</button> <span id="pglabel">{{ t('viewer.page', cur='-', pages='-') }}</span> <button id="next">▶</button>
       <span class="hint" id="fonthint"></span>
     </div>
     <div id="pagewrap" class="marking">
-      <img id="pageimg" alt="เลือก PDF ก่อน">
+      <img id="pageimg" alt="{{ t('fill.pageAlt') }}">
     </div>
   </div>
   <div id="side">
     <div id="tabs">
-      <button id="tab-edit" class="active">① มาร์คจุด</button>
-      <button id="tab-fill">② กรอกข้อมูล (แชท)</button>
+      <button id="tab-edit" class="active">{{ t('tabs.edit') }}</button>
+      <button id="tab-fill">{{ t('tabs.fill') }}</button>
     </div>
     <div id="panel-edit" class="panel active">
-      <p class="hint">คลิก<b>บนเส้นปะพอดี</b>ตรงจุดเริ่มต้นของช่องว่าง → ตัวอักษรจะ "นั่งทับ" บนจุดที่ปัก (จุด = เส้นฐานตัวอักษร)</p>
-      <p class="hint">🎯 จูนละเอียด: คลิกเลือกจุด (เป็นสีน้ำเงิน) แล้วกดลูกศร ↑↓←→ ขยับทีละ 0.5pt · Shift+ลูกศร = 5pt · Esc = เลิกเลือก</p>
-      <label>ขนาดตัวอักษร (pt): <input type="number" id="fsize" value="14" style="width:60px"></label>
+      <p class="hint">{{ t('edit.hint1')|safe }}</p>
+      <p class="hint">{{ t('edit.hint2') }}</p>
+      <label>{{ t('edit.fontSize') }} <input type="number" id="fsize" value="14" style="width:60px"></label>
       <ul id="fieldlist"></ul>
-      <p class="hint">คลิกชื่อฟิลด์เพื่อเลือก แล้วคลิกตำแหน่งใหม่บนเอกสารเพื่อย้ายจุด · ✕ = ลบ</p>
+      <p class="hint">{{ t('edit.hint3') }}</p>
     </div>
     <div id="panel-fill" class="panel">
-      <p class="hint">✏️ แก้ค่าได้ 3 ทาง: พิมพ์ในตารางนี้ · <b>คลิกจุดสีแดงบนเอกสาร</b> · หรือตอบแชทด้านล่าง · ✕ = ล้างค่าช่องนั้น</p>
+      <p class="hint">{{ t('fill.hint1')|safe }}</p>
       <div id="valuelist"></div>
-      <button class="btn" id="clearvals" style="background:#888; margin-bottom:8px">🧹 ล้างค่าทั้งหมด (เริ่มรอบใหม่)</button>
+      <button class="btn" id="clearvals" style="background:#888; margin-bottom:8px">{{ t('fill.clearAll') }}</button>
       <div id="chatlog"></div>
       <div id="chatrow">
-        <input id="chatinput" placeholder="พิมพ์คำตอบแล้วกด Enter…">
-        <button class="btn" id="chatsend">ส่ง</button>
+        <input id="chatinput" placeholder="{{ t('fill.chatPlaceholder') }}">
+        <button class="btn" id="chatsend">{{ t('fill.send') }}</button>
       </div>
-      <p class="hint">พิมพ์ <b>-</b> เพื่อเว้นว่าง · <b>แก้ [ชื่อฟิลด์]</b> เพื่อแก้ค่า</p>
-      <button class="btn orange" id="makepdf">🖨️ สร้าง PDF</button>
+      <p class="hint">{{ t('fill.hint2')|safe }}</p>
+      <button class="btn orange" id="makepdf">{{ t('fill.makePdf') }}</button>
       <div id="result"></div>
     </div>
   </div>
