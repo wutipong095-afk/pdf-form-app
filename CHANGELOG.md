@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.2.0
+- UI สลับภาษาไทย / English ในแอปเดียว (ค่าเริ่มต้นไทย)
+- Catalog รวมศูนย์ `locales/th.json` + `locales/en.json` · `i18n_core` · frontend `t()`
+- จำภาษาด้วย cookie + `%LOCALAPPDATA%\PDFFormMarker\data\ui_lang.txt` (launcher ตามด้วย)
+- แปลข้อความ API / license / launcher ที่ผู้ใช้เห็น
+- คู่มืออังกฤษ: `README.en.md`, `docs/BACKUP.en.md`, `docs/INSTALLER.en.md`, `docs/UPDATE.en.md`
+- Installer: wizard English เสมอ · Thai เมื่อมี `Languages\Thai.isl`
+
 ## 0.1.9
 - Hardening ความปลอดภัย: CSRF, Host check บน loopback, security headers, rate-limit login
 - ตรวจ PDF อัปโหลด (magic/%PDF, หน้าสูงสุด, ไม่รองรับรหัสผ่าน)
