@@ -65,6 +65,13 @@ from license_core import (
     is_trial_filename,
     license_status,
 )
+from history_core import (
+    archive_filled_beside,
+    is_out_doc,
+    list_history,
+    out_filename_from_doc,
+    unique_output_name,
+)
 from library_core import (
     MAX_SCAN_DEPTH,
     browse_folder_dialog,
@@ -803,6 +810,8 @@ def upload():
 
 
 def _pdf_path(username: str, doc: str) -> Path:
+    if is_out_doc(doc):
+        return user_paths(username)["output"] / out_filename_from_doc(doc)
     if is_lib_doc(doc):
         root = get_library_root(DATA_DIR)
         if root is None:
@@ -1211,6 +1220,8 @@ def fill():
         log.error("fill aborted: Thai font missing")
         return jsonify({"error": t("api.thaiFontMissing")}), 500
 
+    if is_out_doc(doc_name):
+        return jsonify({"error": t("api.fillFromHistory")}), 400
     try:
         src = _pdf_path(current_user(), doc_name)
     except (ValueError, FileNotFoundError) as e:
@@ -1224,11 +1235,14 @@ def fill():
         log.warning("fill blocked by license doc=%s", src.name)
         return jsonify({"error": lic_err, "license_required": True}), 402
 
-    out_base = data.get("outname") or src.stem + f"-{int(time.time())}"
-    out_name = safe_name(out_base) + ".pdf"
-    out_path = user_paths(current_user())["output"] / out_name
+    paths = user_paths(current_user())
+    out_base = data.get("outname") or src.stem
+    out_path: Optional[Path] = None
+    out_name = ""
 
     try:
+        out_name = unique_output_name(paths["output"], out_base)
+        out_path = paths["output"] / out_name
         with fitz.open(src) as d:
             used = 0
             for fld in fields:
@@ -1253,6 +1267,11 @@ def fill():
             # garbage=4 รวมฟอนต์ที่ฝังซ้ำกันหลายชุดให้เหลือชุดเดียว (ไฟล์เล็กลงมาก)
             d.save(out_path, garbage=4, deflate=True)
     except Exception:
+        if out_path is not None:
+            try:
+                out_path.unlink(missing_ok=True)
+            except OSError:
+                pass
         eid = getattr(g, "event_id", new_event_id())
         log.exception("fill failed event=%s doc=%s", eid, safe_name(doc_name))
         return jsonify({
@@ -1260,8 +1279,14 @@ def fill():
             "event_id": eid,
         }), 500
 
-    log.info("fill ok fields=%s out=%s", used, out_name)
-    return jsonify({"ok": True, "file": out_name})
+    archived = None
+    if is_lib_doc(doc_name):
+        try:
+            archived = archive_filled_beside(src, out_path)
+        except OSError:
+            log.exception("archive filled copy failed")
+    log.info("fill ok fields=%s out=%s archived=%s", used, out_name, archived or "-")
+    return jsonify({"ok": True, "file": out_name, "archived": archived})
 
 
 @app.get("/download/<name>")
@@ -1273,6 +1298,46 @@ def download(name):
     if not path.exists():
         return jsonify({"error": "not found"}), 404
     return send_file(path, as_attachment=False, download_name=path.name)
+
+
+@app.get("/api/history")
+@login_required
+def history_list():
+    q = request.args.get("q") or ""
+    payload = list_history(user_paths(current_user())["output"], q)
+    payload["open_folder_enabled"] = _open_folder_allowed()
+    return jsonify(payload)
+
+
+@app.post("/api/history/open")
+@machine_admin_required
+def history_open():
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.openFolderLocalOnly")}), 403
+    data = request.get_json(force=True, silent=True) or {}
+    name = (data.get("name") or "").strip()
+    output = user_paths(current_user())["output"]
+    if not name:
+        target = output
+    else:
+        try:
+            fname = out_filename_from_doc(name) if is_out_doc(name) else (
+                safe_name(name[:-4] if name.lower().endswith(".pdf") else name) + ".pdf"
+            )
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        target = output / fname
+        if not target.is_file():
+            return jsonify({"error": t("api.historyMissing")}), 404
+    try:
+        if target.is_file() and sys.platform == "win32":
+            subprocess.Popen(["explorer", "/select,", str(target)])
+        else:
+            _open_in_explorer(target if target.is_dir() else target.parent)
+    except OSError:
+        log.exception("history open failed")
+        return jsonify({"error": t("api.openExplorerFail")}), 500
+    return jsonify({"ok": True, "path": str(target)})
 
 
 @app.post("/api/open-folder")

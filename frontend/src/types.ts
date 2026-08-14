@@ -38,6 +38,7 @@ export type DocsResponse = {
 export type FillResponse = {
   ok?: boolean;
   file?: string;
+  archived?: string | null;
   error?: string;
   license_required?: boolean;
 };
@@ -72,5 +73,21 @@ export type LibraryStatus = {
   scanned_at?: number;
   max_depth?: number;
   docs: LibraryDoc[];
+  open_folder_enabled?: boolean;
+};
+
+export type HistoryFile = {
+  name: string;
+  stem: string;
+  group: string;
+  mtime: number;
+  size: number;
+  doc_id: string;
+};
+
+export type HistoryStatus = {
+  count: number;
+  truncated?: boolean;
+  files: HistoryFile[];
   open_folder_enabled?: boolean;
 };

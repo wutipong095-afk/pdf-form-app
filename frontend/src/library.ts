@@ -30,15 +30,6 @@ export function setLibraryOpen(open: boolean): void {
   }
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function statusEl(): HTMLElement {
   return $("libstatus");
 }
@@ -85,31 +76,39 @@ async function browseFolderAsync(initial: string): Promise<string | null> {
 }
 
 function fillResults(docs: LibraryDoc[]): void {
-  const sel = $("libresults") as HTMLSelectElement;
-  const prev = sel.value;
-  sel.innerHTML =
-    `<option value="">${escapeHtml(t("lib.selectFromCount", { count: docs.length }))}</option>` +
-    docs
-      .map((d) => {
-        const label =
-          (d.folder ? d.folder + " / " : "") + d.filename + (d.has_template ? t("lib.hasTemplate") : "");
-        return (
-          `<option value="${encodeURIComponent(d.doc_id)}"` +
-          ` data-rel="${encodeURIComponent(d.rel)}"` +
-          ` data-name="${encodeURIComponent(d.name)}">` +
-          escapeHtml(label) +
-          "</option>"
-        );
-      })
-      .join("");
-  if (prev) {
-    for (const opt of Array.from(sel.options)) {
-      if (opt.value === prev) {
-        sel.value = prev;
-        break;
-      }
+  const box = $("libresults");
+  if (!docs.length) {
+    const empty = document.createElement("div");
+    empty.className = "pick-empty";
+    empty.textContent = t("lib.selectFrom");
+    box.replaceChildren(empty);
+    return;
+  }
+  const groups = new Map<string, LibraryDoc[]>();
+  for (const d of docs) {
+    const key = d.folder || t("lib.rootFolder");
+    const arr = groups.get(key) || [];
+    arr.push(d);
+    groups.set(key, arr);
+  }
+  const frag = document.createDocumentFragment();
+  for (const [folder, items] of groups) {
+    const h = document.createElement("div");
+    h.className = "pick-group";
+    h.textContent = `${folder} (${items.length})`;
+    frag.appendChild(h);
+    for (const d of items) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "pick-item" + (d.rel === selectedRel ? " sel" : "");
+      btn.dataset.docId = d.doc_id;
+      btn.dataset.rel = d.rel;
+      btn.dataset.name = d.name;
+      btn.textContent = d.filename + (d.has_template ? t("lib.hasTemplate") : "");
+      frag.appendChild(btn);
     }
   }
+  box.replaceChildren(frag);
 }
 
 export async function refreshLibrary(q?: string): Promise<void> {
@@ -179,7 +178,12 @@ async function openLibraryDoc(
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<void> {
-  await loadDoc(docId, onMarkers);
+  try {
+    await loadDoc(docId, onMarkers);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : t("lib.loadFail"));
+    return;
+  }
   ($("docsel") as HTMLSelectElement).value = "";
   ($("tplsel") as HTMLSelectElement).value = "";
   try {
@@ -313,16 +317,15 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
     }, 250);
   };
 
-  ($("libresults") as HTMLSelectElement).onchange = (e) => {
-    const sel = e.target as HTMLSelectElement;
-    const opt = sel.selectedOptions[0];
-    if (!sel.value || !opt) {
-      selectedRel = "";
+  $("libresults").onclick = (e) => {
+    const btn = (e.target as HTMLElement).closest("button.pick-item") as HTMLButtonElement | null;
+    if (!btn?.dataset.docId) {
       return;
     }
-    selectedRel = decodeURIComponent(opt.dataset.rel || "");
-    const docId = decodeURIComponent(sel.value);
-    const stem = decodeURIComponent(opt.dataset.name || "");
-    void openLibraryDoc(docId, stem, onMarkers, onRender);
+    selectedRel = btn.dataset.rel || "";
+    $("libresults").querySelectorAll(".pick-item").forEach((el) => el.classList.remove("sel"));
+    btn.classList.add("sel");
+    const stem = btn.dataset.name || "";
+    void openLibraryDoc(btn.dataset.docId, stem, onMarkers, onRender);
   };
 }

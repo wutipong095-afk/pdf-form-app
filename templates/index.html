@@ -67,7 +67,21 @@
   #libbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
   #libbar select { min-width:220px; max-width:360px; padding:4px 6px; border-radius:6px; border:1px solid #ccc; font:inherit; }
   #libstatus { color:#555; font-size:12px; flex:1 1 180px; }
-  #btn-lib-toggle.active { background:#ffb84d !important; color:#222 !important; font-weight:bold; }
+  #btn-lib-toggle.active, #btn-hist-toggle.active { background:#ffb84d !important; color:#222 !important; font-weight:bold; }
+  #histbar { padding:8px 16px; font-size:13px; display:none; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f6f4ef; }
+  #histbar.open { display:flex; }
+  #histbar input[type=text] { padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
+  #histbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
+  #histbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
+  #histstatus { color:#555; font-size:12px; flex:1 1 180px; }
+  .picklist { flex:1 1 100%; max-height:220px; overflow:auto; background:#fff; border:1px solid #d5dbe3; border-radius:8px; }
+  .pick-group { font-size:12px; font-weight:bold; color:#1a3c6e; background:#eef2f7; padding:5px 10px; position:sticky; top:0; }
+  .pick-item { display:block; width:100%; text-align:left; padding:7px 12px; border:none; background:none; cursor:pointer; font:inherit; font-size:13px; border-bottom:1px solid #f3f3f3; }
+  .pick-item:hover, .pick-item.sel { background:#e7f1ff; }
+  .pick-item .meta { color:#777; font-size:12px; margin-left:8px; }
+  .pick-empty { padding:10px 12px; color:#777; font-size:13px; }
+  #histnotice { margin:0 0 8px; padding:6px 10px; background:#fff8e1; color:#6d4c00; border-radius:6px; font-size:12px; }
+  #histnotice[hidden] { display:none; }
   #bakbar { padding:6px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f3f6f3; }
   #bakbar button { background:#2e7d32; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
   #bakbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
@@ -93,7 +107,7 @@
       <option value="en" {% if ui_lang == 'en' %}selected{% endif %}>{{ t('header.langEn') }}</option>
     </select>
     <button type="button" id="btn-lib-toggle" title="{{ t('header.libraryTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.library') }}</button>
-    <button type="button" id="btn-open-output" title="{{ t('header.outputTitle') }}" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.output') }}</button>
+    <button type="button" id="btn-hist-toggle" title="{{ t('header.historyTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.history') }}</button>
     <button type="button" id="btn-support-report" title="{{ t('header.supportTitle') }}" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.support') }}</button>
     <span id="appver" style="opacity:.75;font-size:12px"></span>
     <span id="who">{{ user }}</span>
@@ -129,10 +143,19 @@
   <button type="button" id="libscan" class="secondary">{{ t('lib.rescan') }}</button>
   <button type="button" id="libopenroot" class="secondary">{{ t('lib.openRoot') }}</button>
   <input type="text" id="libsearch" placeholder="{{ t('lib.searchPlaceholder') }}" style="min-width:160px">
-  <select id="libresults"><option value="">{{ t('lib.selectFrom') }}</option></select>
   <button type="button" id="libopenfile" class="secondary">{{ t('lib.openFile') }}</button>
   <span id="libstatus">{{ t('lib.idle') }}</span>
   <button type="button" id="libhide" class="secondary" title="{{ t('lib.hideTitle') }}">{{ t('lib.hide') }}</button>
+  <div id="libresults" class="picklist" role="listbox" aria-label="{{ t('lib.title') }}"></div>
+</div>
+<div id="histbar" aria-hidden="true">
+  <strong>{{ t('hist.title') }}</strong>
+  <input type="text" id="histsearch" placeholder="{{ t('hist.searchPlaceholder') }}" style="flex:1;min-width:200px">
+  <button type="button" id="histopen" class="secondary" title="{{ t('header.outputTitle') }}">{{ t('hist.openFolder') }}</button>
+  <button type="button" id="histopenfile" class="secondary">{{ t('hist.openFile') }}</button>
+  <span id="histstatus">{{ t('hist.idle') }}</span>
+  <button type="button" id="histhide" class="secondary" title="{{ t('hist.hideTitle') }}">{{ t('hist.hide') }}</button>
+  <div id="histlist" class="picklist" role="listbox" aria-label="{{ t('hist.title') }}"></div>
 </div>
 <div id="bakbar">
   <strong>{{ t('bak.title') }}</strong>
@@ -151,6 +174,7 @@
       <button id="prev">◀</button> <span id="pglabel">{{ t('viewer.page', cur='-', pages='-') }}</span> <button id="next">▶</button>
       <span class="hint" id="fonthint"></span>
     </div>
+    <p id="histnotice" hidden>{{ t('hist.notice') }}</p>
     <div id="pagewrap" class="marking">
       <img id="pageimg" alt="{{ t('fill.pageAlt') }}">
     </div>

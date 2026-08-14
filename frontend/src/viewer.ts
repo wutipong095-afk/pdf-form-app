@@ -1,6 +1,6 @@
 import { $ } from "./dom";
-import { api } from "./api";
-import { state } from "./state";
+import { ApiError, api } from "./api";
+import { isOutDoc, state } from "./state";
 import { t } from "./i18n";
 import type { Field } from "./types";
 
@@ -26,13 +26,36 @@ export function showPage(onMarkers: () => void): void {
 }
 
 export async function loadDoc(name: string, onMarkers: () => void): Promise<void> {
-  state.doc = name;
   const res = await api(`/api/pageinfo/${encodeURIComponent(name)}`);
-  const info = (await res.json()) as { pages: number; zoom: number };
+  const info = (await res.json().catch(() => ({}))) as {
+    pages?: number;
+    zoom?: number;
+    error?: string;
+  };
+  if (!res.ok || info.pages == null) {
+    throw new ApiError(info.error || t("app.loadDocFail"), res.status);
+  }
+  state.doc = name;
   state.pages = info.pages;
-  state.zoom = info.zoom;
+  state.zoom = info.zoom ?? 2;
   state.cur = 0;
+  syncHistoryChrome();
   showPage(onMarkers);
+}
+
+function syncHistoryChrome(): void {
+  const hist = isOutDoc(state.doc);
+  const notice = document.getElementById("histnotice");
+  if (notice) notice.hidden = !hist;
+  const make = document.getElementById("makepdf") as HTMLButtonElement | null;
+  if (make) make.disabled = hist;
+  const save = document.getElementById("savetpl") as HTMLButtonElement | null;
+  if (save) save.disabled = hist;
+  const wrapEl = document.getElementById("pagewrap");
+  if (wrapEl) {
+    const editActive = document.getElementById("panel-edit")?.classList.contains("active");
+    wrapEl.classList.toggle("marking", !!editActive && !hist);
+  }
 }
 
 export function renderMarkers(
@@ -99,7 +122,7 @@ export function bindViewer(
     }
   };
   img().onclick = (e) => {
-    if (!state.doc || !$("panel-edit").classList.contains("active")) return;
+    if (!state.doc || isOutDoc(state.doc) || !$("panel-edit").classList.contains("active")) return;
     const rect = img().getBoundingClientRect();
     const x = ((e.clientX - rect.left) * scale()) / state.zoom;
     const y = ((e.clientY - rect.top) * scale()) / state.zoom;

@@ -23,6 +23,7 @@ from typing import Any, Optional
 from urllib.parse import unquote
 
 from i18n_core import t
+from history_core import FILLED_FOLDER_NAMES
 
 # doc id: @lib. + base64url(rel) — ทน | / ช่องว่าง ในชื่อไฟล์
 LIB_DOC_PREFIX = "@lib."
@@ -32,7 +33,8 @@ _LEGACY_SLASH_PREFIX = "@lib/"
 
 MAX_SCAN_DEPTH = 3
 STARTER_FOLDERS = ("01-การเงิน", "02-พัสดุ", "03-บุคคล")
-_SKIP_DIR_NAMES = {".pdfmarker", ".git", "__pycache__", "node_modules"}
+# งานที่กรอกแล้วเก็บคู่ฟอร์ม — ไม่นับเป็นฟอร์มว่างในคลัง
+_SKIP_DIR_NAMES = {".pdfmarker", ".git", "__pycache__", "node_modules"} | FILLED_FOLDER_NAMES
 _TOUCH_MIN_INTERVAL = 60.0
 _touch_cache: dict[str, float] = {}
 

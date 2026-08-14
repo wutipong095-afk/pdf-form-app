@@ -11,6 +11,10 @@ export function bub(text: string, who: "bot" | "user"): void {
   log.scrollTop = 1e9;
 }
 
+export function clearChat(): void {
+  $("chatlog").innerHTML = "";
+}
+
 export function ask(): void {
   while (state.chatIdx < state.fields.length && state.fields[state.chatIdx].value) {
     state.chatIdx++;
