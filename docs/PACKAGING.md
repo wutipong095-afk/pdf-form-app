@@ -5,7 +5,7 @@ Linux และ macOS มีแพ็กเกจแยกสำหรับผ�
 
 | แพลตฟอร์ม | สคริปต์ | ผลลัพธ์หลัก |
 |-----------|---------|-------------|
-| Windows | `scripts/build_windows.ps1` | `dist/installer/PDFFormMarker-Setup-<ver>.exe` |
+| Windows | `scripts/build_windows.ps1` | `dist/installer/FromDD-Setup-<ver>.exe` |
 | Linux | `scripts/build_linux.sh` | `dist/installer/PDFFormMarker-<ver>-linux-<arch>.tar.gz` |
 | macOS | `scripts/build_macos.sh` | `dist/PDFFormMarker.app` + `dist/installer/PDFFormMarker-<ver>-macos.dmg` |
 

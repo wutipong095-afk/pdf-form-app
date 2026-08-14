@@ -199,7 +199,13 @@ export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
   const search = $("libsearch") as HTMLInputElement;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-  $("btn-lib-toggle").onclick = () => setLibraryOpen(!libraryOpen);
+  $("btn-lib-toggle").onclick = () => {
+    if (state.lic && !state.lic.licensed) {
+      alert(t("lib.needsLicense"));
+      return;
+    }
+    setLibraryOpen(!libraryOpen);
+  };
   $("libhide").onclick = () => setLibraryOpen(false);
 
   $("libbrowse").onclick = async () => {

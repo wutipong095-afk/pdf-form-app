@@ -59,7 +59,10 @@ from license_core import (
     DEMO_DOC_NAME,
     activate_license,
     can_fill_document,
+    can_open_document,
     file_sha256,
+    is_canonical_trial_pdf,
+    is_trial_filename,
     license_status,
 )
 from library_core import (
@@ -82,7 +85,7 @@ from library_core import (
     tpl_beside_pdf,
 )
 from logging_setup import get_logger, init_logging
-from update_core import check_for_update
+from update_core import UpdateInstallError, check_for_update, download_and_verify_setup
 
 load_dotenv()
 
@@ -650,9 +653,49 @@ def update_check():
             "offline": True,
             "latest": None,
             "setup_url": None,
+            "sha256": None,
+            "size": None,
             "notes": None,
         })
     return jsonify(info)
+
+
+_UPDATE_INSTALL_ERRORS = {
+    "no_feed": "api.updateNoFeed",
+    "offline": "api.updateOffline",
+    "no_update": "api.updateNoUpdate",
+    "no_setup_url": "api.updateNoUrl",
+    "no_sha256": "api.updateNoHash",
+    "bad_filename": "api.updateBadFile",
+    "download_fail": "api.updateDownloadFail",
+    "hash_mismatch": "api.updateHashMismatch",
+    "size_mismatch": "api.updateSizeMismatch",
+    "too_large": "api.updateTooLarge",
+}
+
+
+@app.post("/api/update-install")
+@login_required
+def update_install():
+    """ดาวน์โหลด Setup แล้วตรวจ SHA-256 ก่อนเปิด — เฉพาะเครื่อง local หลังผู้ใช้กดปุ่ม"""
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.updateLocalOnly")}), 403
+    try:
+        result = download_and_verify_setup(DATA_DIR / "updates")
+        path = Path(result["path"])
+        if sys.platform == "win32":
+            os.startfile(str(path))  # type: ignore[attr-defined]
+            result["launched"] = True
+        else:
+            result["launched"] = False
+        log.info("update-install version=%s sha256=%s…", result.get("version"), (result.get("sha256") or "")[:12])
+        return jsonify(result)
+    except UpdateInstallError as exc:
+        key = _UPDATE_INSTALL_ERRORS.get(exc.code, "api.updateDownloadFail")
+        return jsonify({"ok": False, "error": t(key), "code": exc.code}), 400
+    except OSError:
+        log.exception("update-install failed")
+        return jsonify({"ok": False, "error": t("api.updateDownloadFail")}), 500
 
 
 @app.get("/api/license")
@@ -685,35 +728,58 @@ def post_license():
         return jsonify({"error": str(e)}), 500
 
 
+def _license_required_response(message: str):
+    return jsonify({"error": message, "license_required": True}), 402
+
+
+def _paid_license() -> bool:
+    return bool(license_status(DATA_DIR).get("licensed"))
+
+
 @app.get("/api/docs")
 @login_required
 def list_docs():
     paths = user_paths(current_user())
     pdfs = sorted(f.name for f in paths["uploads"].glob("*.pdf"))
     tpls = sorted(f.stem for f in paths["templates"].glob("*.json"))
+    st = license_status(DATA_DIR)
+    if not st.get("licensed"):
+        allowed = []
+        for name in pdfs:
+            path = paths["uploads"] / name
+            try:
+                if is_canonical_trial_pdf(path):
+                    allowed.append(name)
+            except (RuntimeError, OSError):
+                continue
+        pdfs = allowed
+        trial_tpls = {p.stem for p in (DEMO_DIR / "templates_json").glob("*.json")}
+        tpls = [name for name in tpls if name in trial_tpls]
     return jsonify({
         "pdfs": pdfs,
         "templates": tpls,
         "font": thai_font(),
         "user": current_user(),
         "auth_required": AUTH_REQUIRED,
-        "license": license_status(DATA_DIR),
+        "license": st,
     })
 
 
 @app.post("/api/upload")
 @login_required
 def upload():
+    if not _paid_license():
+        return _license_required_response(t("api.uploadNeedsLicense"))
     if "file" not in request.files:
         return jsonify({"error": t("api.noFile")}), 400
     f = request.files["file"]
     if not f.filename:
         return jsonify({"error": t("api.noFilename")}), 400
     name = safe_name(os.path.splitext(f.filename)[0]) + ".pdf"
-    # กันเขียนทับ demo ทางการด้วยเอกสารอื่น (bypass ไลเซนต์)
-    if name.lower() == DEMO_DOC_NAME:
+    # กันเขียนทับแพ็กทดลองทางการด้วยเอกสารอื่น
+    if is_trial_filename(name):
         return jsonify({
-            "error": t("api.demoNameReserved", name=DEMO_DOC_NAME),
+            "error": t("api.demoNameReserved", name=name),
         }), 400
     raw = f.read()
     if not raw.startswith(b"%PDF-"):
@@ -763,6 +829,10 @@ def pageinfo(doc):
         return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
+    lic_doc = path.name if is_lib_doc(doc) else doc
+    ok, lic_err = can_open_document(DATA_DIR, lic_doc, path)
+    if not ok:
+        return _license_required_response(lic_err)
     if is_lib_doc(doc):
         root = get_library_root(DATA_DIR)
         if root is not None:
@@ -784,6 +854,10 @@ def page_png(doc, pno):
         return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
+    lic_doc = path.name if is_lib_doc(doc) else doc
+    ok, lic_err = can_open_document(DATA_DIR, lic_doc, path)
+    if not ok:
+        return _license_required_response(lic_err)
     with fitz.open(path) as d:
         if pno < 0 or pno >= len(d):
             return jsonify({"error": "bad page"}), 404
@@ -809,6 +883,8 @@ def save_template(name):
     # ถ้ากำลังแก้เอกสารในคลัง — บันทึกเป็นชื่อ.tpl.json คู่กับ PDF
     doc = data.get("doc") or ""
     if is_lib_doc(doc):
+        if not _paid_license():
+            return _license_required_response(t("api.libraryNeedsLicense"))
         try:
             root = _require_library_root()
             pdf = resolve_under_root(root, lib_rel_from_doc(doc))
@@ -841,6 +917,8 @@ def save_template(name):
 @app.get("/api/library")
 @login_required
 def library_status():
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     root = get_library_root(DATA_DIR)
     suggested = str(suggest_default_root())
     if root is None:
@@ -866,7 +944,7 @@ def library_status():
 
 
 def _library_demo_pdf() -> Path:
-    return DEMO_DIR / "uploads" / "demo-form.pdf"
+    return DEMO_DIR / "uploads" / DEMO_DOC_NAME
 
 
 def _scan_library_with_demo(root: Path, *, allow_seed: bool = False) -> tuple[dict, Optional[str]]:
@@ -898,6 +976,8 @@ def _browse_job_cleanup(max_age_s: float = 600.0) -> None:
 @machine_admin_required
 def library_browse():
     """เริ่มเลือกโฟลเดอร์แบบ async — คืน job_id แล้ว poll ที่ GET .../browse/<id>"""
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     if not _open_folder_allowed():
         return jsonify({
             "error": t("api.browseLocalOnly"),
@@ -952,6 +1032,8 @@ def library_browse():
 @app.get("/api/library/browse/<job_id>")
 @machine_admin_required
 def library_browse_status(job_id: str):
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     if not _open_folder_allowed():
         return jsonify({"error": t("api.browseLocalOnly")}), 403
     with _BROWSE_LOCK:
@@ -978,6 +1060,8 @@ def library_browse_status(job_id: str):
 @app.post("/api/library/root")
 @machine_admin_required
 def library_set_root():
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     data = request.get_json(force=True, silent=True) or {}
     raw = (data.get("root") or "").strip()
     used_default = raw.lower() in ("default", "auto", "")
@@ -1013,6 +1097,8 @@ def library_set_root():
 @app.post("/api/library/scan")
 @machine_admin_required
 def library_scan():
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     try:
         root = _require_library_root()
         # สแกนอย่างเดียว — ไม่ seed ทับโฟลเดอร์ที่ผู้ใช้ตั้งใจให้ว่าง
@@ -1040,6 +1126,8 @@ def library_scan():
 @app.get("/api/library/search")
 @login_required
 def library_search():
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     try:
         root = _require_library_root()
     except ValueError as e:
@@ -1053,6 +1141,8 @@ def library_search():
 @app.post("/api/library/open")
 @machine_admin_required
 def library_open_explorer():
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     if not _open_folder_allowed():
         return jsonify({
             "error": t("api.openFolderLocalOnly"),
@@ -1090,6 +1180,8 @@ def library_open_explorer():
 @app.get("/api/library/template")
 @login_required
 def library_get_template():
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
     doc = request.args.get("doc") or ""
     if not is_lib_doc(doc):
         return jsonify({"error": t("api.needLibDoc")}), 400
@@ -1443,6 +1535,8 @@ def api_formpack_list():
 @app.post("/api/formpack/install")
 @login_required
 def api_formpack_install():
+    if not _paid_license():
+        return _license_required_response(t("api.formpackNeedsLicense"))
     data = request.get_json(force=True, silent=True) or {}
     pack_id = data.get("id") or "v1"
     pack = BASE / "formpacks" / str(pack_id)

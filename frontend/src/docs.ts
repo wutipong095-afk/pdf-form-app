@@ -3,15 +3,35 @@ import { api } from "./api";
 import { state } from "./state";
 import { renderLicense } from "./license";
 import { loadDoc } from "./viewer";
-import { t } from "./i18n";
+import { getLocale, t } from "./i18n";
 import type { DocsResponse, TemplatePayload } from "./types";
+
+const TPL_FOR_DOC: Record<string, string> = {
+  "demo-leave.pdf": "demo-ใบลา",
+  "demo-form.pdf": "demo-ใบเบิก",
+  "demo-request.pdf": "demo-request",
+};
+
+function preferredTrialDocs(): string[] {
+  if (getLocale() === "en") {
+    return ["demo-request.pdf", "demo-form.pdf", "demo-leave.pdf"];
+  }
+  return ["demo-leave.pdf", "demo-form.pdf", "demo-request.pdf"];
+}
+
+function pickTrialDoc(pdfs: string[], lic: DocsResponse["license"]): string | null {
+  const listed = lic?.demo_docs?.length ? lic.demo_docs : [lic?.demo_doc || "demo-form.pdf"];
+  for (const name of [...preferredTrialDocs(), ...listed]) {
+    if (pdfs.includes(name)) return name;
+  }
+  return pdfs[0] || null;
+}
 
 export async function refreshDocs(onMarkers: () => void, onRender: () => void): Promise<void> {
   const res = await api("/api/docs");
   const r = (await res.json()) as DocsResponse;
   if (r.license) renderLicense(r.license);
 
-  const demoDoc = r.license?.demo_doc || "demo-form.pdf";
   const docsel = $("docsel") as HTMLSelectElement;
   const tplsel = $("tplsel") as HTMLSelectElement;
   docsel.replaceChildren(new Option(t("header.selectPdf"), ""));
@@ -27,14 +47,16 @@ export async function refreshDocs(onMarkers: () => void, onRender: () => void): 
     $("who").textContent = r.auth_required === false ? t("header.thisMachine") : r.user;
   }
 
-  if (!state.doc && r.pdfs.includes(demoDoc)) {
+  const demoDoc = pickTrialDoc(r.pdfs, r.license);
+  if (!state.doc && demoDoc) {
     docsel.value = demoDoc;
     await loadDoc(demoDoc, onMarkers);
-    if (r.templates.includes("demo-ใบเบิก")) {
-      tplsel.value = "demo-ใบเบิก";
-      const tres = await api("/api/template/" + encodeURIComponent("demo-ใบเบิก"));
+    const tplName = TPL_FOR_DOC[demoDoc];
+    if (tplName && r.templates.includes(tplName)) {
+      tplsel.value = tplName;
+      const tres = await api("/api/template/" + encodeURIComponent(tplName));
       const tpl = (await tres.json()) as TemplatePayload;
-      ($("tplname") as HTMLInputElement).value = "demo-ใบเบิก";
+      ($("tplname") as HTMLInputElement).value = tplName;
       state.fields = tpl.fields || [];
       onRender();
     }
@@ -51,7 +73,7 @@ export function bindDocs(
     const fd = new FormData();
     fd.append("file", file);
     const res = await api("/api/upload", { method: "POST", body: fd });
-    const r = (await res.json()) as { name: string; error?: string };
+    const r = (await res.json()) as { name: string; error?: string; license_required?: boolean };
     if (r.error) {
       alert(r.error);
       return;
