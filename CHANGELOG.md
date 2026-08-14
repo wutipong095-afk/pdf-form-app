@@ -5,6 +5,12 @@
 - คลังเอกสารแสดงรายการเลื่อนได้ แยกตามโฟลเดอร์ แทน dropdown ที่หาฟอร์ม 30+ รายการยาก
 - สร้าง PDF แล้วไม่ทับไฟล์วันเดียวกัน — ชื่อเป็น `{ฟอร์ม}-{YYYYMMDD-HHMMSS}.pdf`
 - แก้รีวิวงานเก่า: ไม่ล้างฟอร์มเมื่อเปิดไฟล์ไม่ได้, จองชื่อไฟล์แบบ exclusive กันทับ, คืนเคอร์เซอร์มาร์คจุด, ล้างแชทตอนดูงานเก่า
+
+## 0.3.0
+- โหมดทดลอง: แพ็กตัวอย่าง 3 ใบ (ใบเบิก / ใบลา / request) ตรวจ hash · ไม่มีคีย์ห้ามอัปโหลดและคลังเอกสาร
+- เว็บ FromDD: ดาวน์โหลด Setup ชุดเดียว, ราคาไทย/USD คนละหน้า, นโยบายซัพพอร์ต
+- ชื่อไฟล์ที่ลูกค้าเห็น: `FromDD-Setup-x.y.z.exe` (immutable ตามเวอร์ชัน) · `latest.json` มี sha256/size
+- แอปดาวน์โหลด Setup แล้วตรวจ SHA-256 ก่อนรัน · `update_feed.url` ชี้ fromdd.xambrain.com
 - แพ็กเกจ desktop แยก Linux (`.tar.gz`) / macOS (`.app` + `.dmg`) — `scripts/build_linux.sh` · `scripts/build_macos.sh`
 - ข้อมูล frozen บน macOS/Linux เก็บใต้ Application Support / XDG ไม่ใช่ในโฟลเดอร์ติดตั้ง
 

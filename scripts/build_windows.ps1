@@ -85,7 +85,10 @@ if ($Leaks.Count -gt 0) {
 }
 
 # Sanity: bundled assets (PyInstaller 6 onedir puts datas under _internal)
-# อัปเดต: ผู้ขายวาง update_feed.url เองหลัง build (ดู docs/UPDATE.md)
+$FeedSrc = Join-Path $Root "installer\update_feed.url"
+if (Test-Path $FeedSrc) {
+    Copy-Item -Force $FeedSrc (Join-Path $BundleRoot "update_feed.url")
+}
 foreach ($rel in @("license_public.pem", "fonts", "demo", "templates", "static", "formpacks", "locales")) {
     $p = Join-Path $BundleRoot $rel
     $pInternal = Join-Path $BundleRoot "_internal\$rel"
@@ -143,8 +146,14 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup failed (exit $LASTEXITCODE)"
 }
 
-$Setup = Get-ChildItem (Join-Path $Root "dist\installer\PDFFormMarker-Setup-*.exe") |
+$Setup = Get-ChildItem (Join-Path $Root "dist\installer\FromDD-Setup-*.exe") |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
+if (-not $Setup) {
+    throw "Inno finished but FromDD-Setup-*.exe was not found under dist\installer\"
+}
+& $Python (Join-Path $Root "scripts\write_release_meta.py") $Setup.FullName
 Write-Host ""
 Write-Host "Done: $($Setup.FullName)" -ForegroundColor Green
+Write-Host "Meta:  dist\installer\latest.json  +  SHA256SUMS.txt"
+Write-Host "Upload the versioned .exe as a new file. Do not overwrite an older FromDD-Setup-x.y.z.exe."

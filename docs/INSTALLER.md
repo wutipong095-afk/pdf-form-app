@@ -12,7 +12,7 @@
 | ผลลัพธ์ | ความหมาย |
 |---------|----------|
 | `dist/PDFFormMarker/` | โฟลเดอร์รันได้จาก PyInstaller (one-folder) |
-| `dist/installer/PDFFormMarker-Setup-0.2.0.exe` | ตัวติดตั้ง Inno Setup (ถ้ามี ISCC) |
+| `dist/installer/FromDD-Setup-0.3.0.exe` | ตัวติดตั้ง Inno Setup ที่ลูกค้าเห็น (ถ้ามี ISCC) |
 
 รวมในแพ็ก: ฟอนต์สารบรรณ, demo, `formpacks/`, `license_public.pem`, UI จาก `static/`
 
@@ -39,7 +39,7 @@
 .\scripts\build_windows.ps1 -SkipFrontend   # ใช้ static/ ที่มีอยู่แล้ว
 ```
 
-ผลลัพธ์: `dist\PDFFormMarker\PDFFormMarker.exe` และ (ถ้ามี Inno) `dist\installer\PDFFormMarker-Setup-0.2.0.exe`
+ผลลัพธ์: `dist\PDFFormMarker\PDFFormMarker.exe` และ (ถ้ามี Inno) `dist\installer\FromDD-Setup-0.3.0.exe` พร้อม `latest.json` / `SHA256SUMS.txt`
 ## ทดสอบบนเครื่องแพ็ก
 
 1. รัน `dist\PDFFormMarker\PDFFormMarker.exe`
@@ -56,13 +56,25 @@
 
 ## ติดตั้งที่โรงเรียน
 
-1. ส่ง `PDFFormMarker-Setup-*.exe`
+1. ส่ง `FromDD-Setup-*.exe`
 2. ติดตั้ง (ไม่ต้องสิทธิ์แอดมิน — PrivilegesRequired=lowest)
 3. เปิดจาก Desktop / Start Menu
-4. คัดลอกรหัสเครื่องจากแอป → ขอคีย์จากผู้ขาย
+4. คัดลอกรหัสเครื่องจากแถบไลเซนต์ (ปุ่มคัดลอก) → ส่งมาที่ fromdd@xambrain.com เพื่อขอคีย์  
+   นโยบาย: [SUPPORT.md](SUPPORT.md)
 
 ถ้าโปรแกรมเก่ายังเปิดอยู่ Setup จะ**ปิดให้อัตโนมัติ**ก่อนคัดลอกไฟล์ทับ (และตอนถอนการติดตั้งด้วย) — ไม่ต้องปิดมือ
 
 ถ้ายังทับไฟล์ไม่ได้ Setup อาจขอ**รีสตาร์ทเครื่อง** (ธง `restartreplace`) — หลังรีบูตเปิดแอปแล้วดูเลขเวอร์ชันมุมขวาบนให้ตรงกับ Setup
 
 ถอนการติดตั้งไม่ลบโฟลเดอร์ AppData — สำรองด้วยปุ่มในแอปก่อนย้ายเครื่อง
+
+ชื่อที่ลูกค้าเห็นคือ **FromDD-Setup-x.y.z.exe** (โฟลเดอร์ติดตั้งและ exe ภายในยังเป็น `PDFFormMarker` เพื่อให้อัปเกรดทับชุดเดิมได้)
+
+## ปล่อยรุ่น
+
+ไฟล์ `.exe` ตามเวอร์ชันเป็น immutable — ห้ามทับ `FromDD-Setup-0.3.0.exe` ด้วยไฟล์ใหม่  
+อัปโหลดไฟล์ใหม่ + ทับแค่ `latest.json` บน `fromdd.xambrain.com`  
+สร้าง GitHub Release คู่ทุกครั้ง (`FromDD-Setup-x.y.z.exe` + `SHA256SUMS.txt`)
+
+รายละเอียด SHA-256, แคช Caddy, และของที่ห้ามวางใน `/var/www/fromdd`: [UPDATE.md](UPDATE.md)
+

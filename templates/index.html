@@ -57,6 +57,8 @@
   #licbar code { background:rgba(0,0,0,.06); padding:2px 6px; border-radius:4px; user-select:all; }
   #licbar input[type=text] { min-width:260px; flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
   #licbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font:inherit; }
+  #liccopy { padding:3px 8px; font-size:12px; }
+  #lictrial { flex-basis:100%; font-size:12px; opacity:.92; }
   /* คลังเอกสาร: ซ่อนจนกดเรียกใช้จากปุ่มใน header */
   #libbar { padding:8px 16px; font-size:13px; display:none; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f7f9fc; }
   #libbar.open { display:flex; }
@@ -117,7 +119,10 @@
 </header>
 <div id="licbar" class="warn">
   <span id="licmsg">{{ t('lic.checking') }}</span>
-  <span>{{ t('lic.machineId') }} <code id="licmid">—</code></span>
+  <span>{{ t('lic.machineId') }} <code id="licmid">—</code>
+    <button type="button" id="liccopy" data-i18n="lic.copyId">{{ t('lic.copyId') }}</button>
+  </span>
+  <span id="lictrial" hidden data-i18n="lic.trialHint">{{ t('lic.trialHint') }}</span>
   <span id="licform" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;flex:1">
     <input type="text" id="lickey" placeholder="{{ t('lic.keyPlaceholder') }}">
     <button type="button" id="licactivate">{{ t('lic.activate') }}</button>
@@ -125,8 +130,8 @@
 </div>
 <div id="updbar" role="status" aria-live="polite">
   <span id="updmsg">{{ t('upd.available') }}</span>
+  <button type="button" id="updinstall">{{ t('upd.install') }}</button>
   <a id="updlink" href="#" target="_blank" rel="noopener">{{ t('upd.download') }}</a>
-  <button type="button" id="updopen">{{ t('upd.open') }}</button>
   <button type="button" id="upddismiss" class="secondary">{{ t('upd.dismiss') }}</button>
 </div>
 <div id="libbar" aria-hidden="true">

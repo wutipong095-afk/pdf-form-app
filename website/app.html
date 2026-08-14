@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF Form Marker — FromDD (ทดลองบนเว็บ)</title>
+<meta name="description" content="ทดลอง PDF Form Marker บนเว็บ: มาร์คจุด กรอกใบลา และสร้าง PDF">
+<link rel="canonical" href="https://fromdd.xambrain.com/app.html">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header>
+  <h1>📄 PDF Form Marker</h1>
+  <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
+  <select id="docsel"><option>— เลือก PDF —</option></select>
+  <select id="tplsel"><option value="">— เทมเพลตใหม่ —</option></select>
+  <input id="tplname" placeholder="ชื่อเทมเพลต" style="width:140px">
+  <button type="button" id="savetpl">💾 บันทึกเทมเพลต</button>
+  <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
+    <a href="index.html" style="color:#fff;font-weight:bold">หน้าแรก</a>
+    <span id="appver" style="opacity:.75;font-size:12px">เว็บทดลอง</span>
+    <span id="who">เครื่องนี้</span>
+  </span>
+</header>
+<div id="licbar" class="warn">
+  <span id="licmsg">โหมดทดลองบนเว็บ — ใช้ได้เฉพาะใบลาและฟอร์มตัวอย่าง · อัปโหลด PDF โรงเรียนได้เมื่อติดตั้งโปรแกรมบนเครื่อง</span>
+  <a id="setup-link" href="releases/FromDD-Setup-0.3.0.exe">ดาวน์โหลด Setup</a>
+</div>
+<main>
+  <div id="viewer">
+    <div class="pgnav">
+      <button type="button" id="prev">◀</button>
+      <span id="pglabel">หน้า - / -</span>
+      <button type="button" id="next">▶</button>
+      <span class="hint" id="fonthint">ฟอนต์ทับ: Leelawadee UI</span>
+    </div>
+    <div id="pagewrap" class="marking">
+      <img id="pageimg" alt="เลือก PDF ก่อน">
+    </div>
+  </div>
+  <div id="side">
+    <div id="tabs">
+      <button type="button" id="tab-edit" class="active">① มาร์คจุด</button>
+      <button type="button" id="tab-fill">② กรอกข้อมูล (แชท)</button>
+    </div>
+    <div id="panel-edit" class="panel active">
+      <p class="hint">คลิก<b>บนเส้นปะพอดี</b>ตรงจุดเริ่มต้นของช่องว่าง → ตัวอักษรจะ "นั่งทับ" บนจุดที่ปัก (จุด = เส้นฐานตัวอักษร)</p>
+      <p class="hint">🎯 จูนละเอียด: คลิกเลือกจุด (เป็นสีน้ำเงิน) แล้วกดลูกศร ↑↓←→ ขยับทีละ 0.5pt · Shift+ลูกศร = 5pt · Esc = เลิกเลือก</p>
+      <label>ขนาดตัวอักษร (pt): <input type="number" id="fsize" value="14" style="width:60px"></label>
+      <ul id="fieldlist"></ul>
+      <p class="hint">คลิกชื่อฟิลด์เพื่อเลือก แล้วคลิกตำแหน่งใหม่บนเอกสารเพื่อย้ายจุด · ✕ = ลบ</p>
+    </div>
+    <div id="panel-fill" class="panel">
+      <p class="hint">✏️ แก้ค่าได้ 3 ทาง: พิมพ์ในตารางนี้ · <b>คลิกจุดสีแดงบนเอกสาร</b> · หรือตอบแชทด้านล่าง · ✕ = ล้างค่าช่องนั้น</p>
+      <div id="valuelist"></div>
+      <button class="btn" id="clearvals" style="background:#888; margin-bottom:8px" type="button">🧹 ล้างค่าทั้งหมด (เริ่มรอบใหม่)</button>
+      <div id="chatlog"></div>
+      <div id="chatrow">
+        <input id="chatinput" placeholder="พิมพ์คำตอบแล้วกด Enter…">
+        <button class="btn" id="chatsend" type="button">ส่ง</button>
+      </div>
+      <p class="hint">พิมพ์ <b>-</b> เพื่อเว้นว่าง · <b>แก้ [ชื่อฟิลด์]</b> เพื่อแก้ค่า</p>
+      <button class="btn orange" id="makepdf" type="button">🖨️ สร้าง PDF</button>
+      <div id="result"></div>
+    </div>
+  </div>
+</main>
+<script src="js/app.js"></script>
+</body>
+</html>

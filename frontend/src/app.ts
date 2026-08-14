@@ -131,13 +131,12 @@ function bindClearAndFill(): void {
       $("result").textContent = t("app.fillFromHistory");
       return;
     }
-    const demoDoc = state.lic?.demo_doc || "demo-form.pdf";
-    if (
-      state.lic &&
-      !state.lic.licensed &&
-      String(state.doc).toLowerCase() !== String(demoDoc).toLowerCase()
-    ) {
-      $("result").textContent = t("app.needLicense", { demo: demoDoc });
+    const demoDocs = (state.lic?.demo_docs || [state.lic?.demo_doc || "demo-form.pdf"]).map((n) =>
+      String(n).toLowerCase(),
+    );
+    const docName = String(state.doc).toLowerCase();
+    if (state.lic && !state.lic.licensed && !demoDocs.includes(docName)) {
+      $("result").textContent = t("app.needLicense");
       return;
     }
     const outname = (($("tplname") as HTMLInputElement).value || "filled").trim() || "filled";
@@ -205,7 +204,9 @@ function init(): void {
   bindLangToggle();
   bindClientLog();
   bindSchoolUi();
-  bindLicenseUi();
+  bindLicenseUi(() => {
+    void refreshDocs(paintMarkers, renderAll);
+  });
   bindLibrary(paintMarkers, renderAll);
   bindHistory(paintMarkers, renderAll);
   bindBackupUi(paintMarkers, renderAll);

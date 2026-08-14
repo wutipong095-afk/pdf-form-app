@@ -1,5 +1,5 @@
-/** Update notice from latest.json — offline-safe */
-import { apiJson } from "./api";
+/** Update notice from latest.json — offline-safe; verify SHA-256 before running Setup */
+import { ApiError, apiJson } from "./api";
 import { t } from "./i18n";
 
 type UpdateCheck = {
@@ -9,6 +9,8 @@ type UpdateCheck = {
   offline?: boolean;
   latest?: string | null;
   setup_url?: string | null;
+  sha256?: string | null;
+  size?: number | null;
   notes?: string | null;
 };
 
@@ -43,7 +45,7 @@ function showBar(info: UpdateCheck): void {
   const bar = document.getElementById("updbar");
   const msg = document.getElementById("updmsg");
   const link = document.getElementById("updlink") as HTMLAnchorElement | null;
-  const openBtn = document.getElementById("updopen") as HTMLButtonElement | null;
+  const installBtn = document.getElementById("updinstall") as HTMLButtonElement | null;
   if (!bar || !msg || !info.latest) return;
 
   const notes = info.notes ? ` — ${info.notes}` : "";
@@ -54,6 +56,7 @@ function showBar(info: UpdateCheck): void {
   });
 
   const url = (info.setup_url || "").trim();
+  const canVerify = Boolean(url && info.sha256);
   if (link) {
     if (url) {
       link.href = url;
@@ -63,10 +66,12 @@ function showBar(info: UpdateCheck): void {
       link.style.display = "none";
     }
   }
-  if (openBtn) {
-    openBtn.style.display = url ? "" : "none";
-    openBtn.onclick = () => {
-      if (url) window.open(url, "_blank", "noopener");
+  if (installBtn) {
+    installBtn.style.display = canVerify ? "" : "none";
+    installBtn.disabled = false;
+    installBtn.textContent = t("upd.installVer", { latest: info.latest });
+    installBtn.onclick = () => {
+      void runVerifiedInstall(installBtn, msg);
     };
   }
 
@@ -79,6 +84,29 @@ function showBar(info: UpdateCheck): void {
   }
 
   bar.classList.add("show");
+}
+
+async function runVerifiedInstall(
+  btn: HTMLButtonElement,
+  msg: HTMLElement,
+): Promise<void> {
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = t("upd.downloading");
+  try {
+    await apiJson("/api/update-install", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    msg.textContent = t("upd.installOk");
+    btn.textContent = t("upd.installOk");
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = prev || t("upd.install");
+    const text = err instanceof ApiError ? err.message : t("api.updateDownloadFail");
+    msg.textContent = text;
+  }
 }
 
 export function bindUpdateCheck(): void {
