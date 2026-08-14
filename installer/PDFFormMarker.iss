@@ -2,9 +2,9 @@
 ; Requires dist\PDFFormMarker\ first (scripts\build_windows.ps1)
 ; Compile: ISCC.exe installer\PDFFormMarker.iss
 
-#define MyAppName "PDF Form Marker"
+#define MyAppName "FromDD"
 #define MyAppVersion "0.3.0"
-#define MyAppPublisher "PDF Form Marker"
+#define MyAppPublisher "FromDD"
 #define MyAppExeName "PDFFormMarker.exe"
 #define MyAppId "{{A8E3C2B1-4F5D-4A9E-9C1B-7D6E5F4A3B2C}"
 
@@ -17,7 +17,7 @@ DefaultDirName={autopf}\PDFFormMarker
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist\installer
-OutputBaseFilename=PDFFormMarker-Setup-{#MyAppVersion}
+OutputBaseFilename=FromDD-Setup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -50,14 +50,14 @@ english.CreateDesktopIcon=Create a desktop icon
 english.AdditionalIcons=Additional icons:
 english.UninstallShortcut=Uninstall {#MyAppName}
 english.LaunchApp=Launch {#MyAppName}
-english.CannotCloseApp=Could not close a running PDF Form Marker.%n%nPlease close the app window and the "PDF Form Marker" status window, then click OK to try again.
+english.CannotCloseApp=Could not close a running FromDD.%n%nPlease close the app window and the "PDF Form Marker" status window, then click OK to try again.
 english.UninstallNote=Form data and license remain in %LOCALAPPDATA%\PDFFormMarker%nUninstall does not delete this folder — back up first if you are moving to another PC.
 #if ENABLE_THAI
 thai.CreateDesktopIcon=สร้างไอคอนบนเดสก์ท็อป
 thai.AdditionalIcons=ไอคอนเพิ่มเติม:
 thai.UninstallShortcut=ถอนการติดตั้ง {#MyAppName}
 thai.LaunchApp=เปิด {#MyAppName}
-thai.CannotCloseApp=ไม่สามารถปิด PDF Form Marker ที่กำลังทำงานอยู่ได้%n%nกรุณาปิดหน้าต่างโปรแกรมและหน้าต่างสถานะ "PDF Form Marker" แล้วกด OK เพื่อลองอีกครั้ง
+thai.CannotCloseApp=ไม่สามารถปิด FromDD ที่กำลังทำงานอยู่ได้%n%nกรุณาปิดหน้าต่างโปรแกรมและหน้าต่างสถานะ "PDF Form Marker" แล้วกด OK เพื่อลองอีกครั้ง
 thai.UninstallNote=ข้อมูลฟอร์มและไลเซนต์อยู่ที่ %LOCALAPPDATA%\PDFFormMarker%nถอนการติดตั้งจะไม่ลบโฟลเดอร์นี้ — สำรองข้อมูลก่อนถ้าต้องการย้ายเครื่อง
 #endif
 

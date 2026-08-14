@@ -1,4 +1,5 @@
-PDF Form Marker — โปรแกรมกรอกฟอร์ม PDF สำหรับโรงเรียน
+FromDD — โปรแกรมกรอกฟอร์ม PDF สำหรับโรงเรียน
+(ภายในเครื่อง: PDF Form Marker)
 
 หลังติดตั้ง:
   • เปิดจากไอคอน Desktop หรือ Start Menu
@@ -16,7 +17,8 @@ PDF Form Marker — โปรแกรมกรอกฟอร์ม PDF สำ�
 
 --------------------------------------------------
 
-PDF Form Marker — PDF form filler for schools
+FromDD — PDF form filler for schools
+(internal name: PDF Form Marker)
 
 After install:
   • Launch from the Desktop or Start Menu icon

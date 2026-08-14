@@ -8,8 +8,13 @@
 - `pricing.html` / `pricing.en.html` — ราคาไทย (บาท) และต่างประเทศ (USD) คนละหน้า
 - `app.html` — ทดลองมาร์คจุด / กรอกใบลา ในเบราว์เซอร์
 
-ดาวน์โหลดชี้ไปที่ `releases/PDFFormMarker-Setup-*.exe`  
-ถ้ามี `releases/latest.json` ปุ่มจะอัปเดต URL ตาม `setup_url` (คัดลอกจาก `releases/latest.example.json`)
+ดาวน์โหลดชี้ไปที่ `releases/FromDD-Setup-*.exe` (ห้ามใช้ชื่อ `FromDD-Setup.exe` แล้วทับ)  
+ถ้ามี `releases/latest.json` ปุ่มจะอัปเดต URL ตาม `setup_url` (มี `sha256` / `size` — คัดลอกจาก `releases/latest.example.json` หรือไฟล์ที่ build เขียนให้)
+
+`latest.json` ต้องไม่ถูกแคชนาน (Caddy `Cache-Control: no-cache`) · ไฟล์ `.exe` ตามเวอร์ชันแคชยาวได้เพราะ immutable
+
+GitHub Release สร้างคู่ทุกครั้งเป็นสำเนา — โฮสต์หลักยังเป็น fromdd.xambrain.com  
+ห้ามวาง private key / `gen_license.py` / `.env` ใน `/var/www/fromdd` — ดู [docs/UPDATE.md](../docs/UPDATE.md)
 
 อีเมลออกคีย์ชั่วคราว: fromdd@xambrain.com — เทมเพลตใน [docs/LICENSE_EMAIL.md](../docs/LICENSE_EMAIL.md)
 

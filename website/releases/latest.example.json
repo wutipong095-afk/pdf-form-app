@@ -1,6 +1,8 @@
 {
   "version": "0.3.0",
-  "setup_url": "https://fromdd.xambrain.com/releases/PDFFormMarker-Setup-0.3.0.exe",
-  "notes": "UI ไทย/อังกฤษ และคลังเอกสาร",
-  "published_at": "2026-07-26"
+  "setup_url": "https://fromdd.xambrain.com/releases/FromDD-Setup-0.3.0.exe",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "size": 34603008,
+  "published_at": "2026-08-13",
+  "notes": "แทนที่ sha256/size ด้วยค่าจาก dist/installer/latest.json หลัง build"
 }

@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const SETUP_FALLBACK = "releases/PDFFormMarker-Setup-0.3.0.exe";
+  const SETUP_FALLBACK = "releases/FromDD-Setup-0.3.0.exe";
 
   function bindSetupLinks() {
     const nodes = document.querySelectorAll("[data-setup]");

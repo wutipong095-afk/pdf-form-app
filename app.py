@@ -85,7 +85,7 @@ from library_core import (
     tpl_beside_pdf,
 )
 from logging_setup import get_logger, init_logging
-from update_core import check_for_update
+from update_core import UpdateInstallError, check_for_update, download_and_verify_setup
 
 load_dotenv()
 
@@ -653,9 +653,49 @@ def update_check():
             "offline": True,
             "latest": None,
             "setup_url": None,
+            "sha256": None,
+            "size": None,
             "notes": None,
         })
     return jsonify(info)
+
+
+_UPDATE_INSTALL_ERRORS = {
+    "no_feed": "api.updateNoFeed",
+    "offline": "api.updateOffline",
+    "no_update": "api.updateNoUpdate",
+    "no_setup_url": "api.updateNoUrl",
+    "no_sha256": "api.updateNoHash",
+    "bad_filename": "api.updateBadFile",
+    "download_fail": "api.updateDownloadFail",
+    "hash_mismatch": "api.updateHashMismatch",
+    "size_mismatch": "api.updateSizeMismatch",
+    "too_large": "api.updateTooLarge",
+}
+
+
+@app.post("/api/update-install")
+@login_required
+def update_install():
+    """ดาวน์โหลด Setup แล้วตรวจ SHA-256 ก่อนเปิด — เฉพาะเครื่อง local หลังผู้ใช้กดปุ่ม"""
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.updateLocalOnly")}), 403
+    try:
+        result = download_and_verify_setup(DATA_DIR / "updates")
+        path = Path(result["path"])
+        if sys.platform == "win32":
+            os.startfile(str(path))  # type: ignore[attr-defined]
+            result["launched"] = True
+        else:
+            result["launched"] = False
+        log.info("update-install version=%s sha256=%s…", result.get("version"), (result.get("sha256") or "")[:12])
+        return jsonify(result)
+    except UpdateInstallError as exc:
+        key = _UPDATE_INSTALL_ERRORS.get(exc.code, "api.updateDownloadFail")
+        return jsonify({"ok": False, "error": t(key), "code": exc.code}), 400
+    except OSError:
+        log.exception("update-install failed")
+        return jsonify({"ok": False, "error": t("api.updateDownloadFail")}), 500
 
 
 @app.get("/api/license")

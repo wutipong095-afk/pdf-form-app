@@ -251,6 +251,20 @@
 
 ---
 
+## โฮสต์เว็บ / อัปเดต / คีย์
+
+เว็บและตัวติดตั้งอยู่ที่ **fromdd.xambrain.com** (โฟลเดอร์ `/var/www/fromdd`) คู่กับ Shed บน VPS เดียวกันผ่าน Caddy ไซต์แยก
+
+- ไฟล์ที่ลูกค้าโหลด: `FromDD-Setup-0.3.0.exe` (ไม่ทับรุ่นเก่า) · `latest.json` ชี้รุ่นใหม่ได้อย่างเดียว
+- GitHub Release สร้าง**ทุกครั้ง**เป็นสำเนา (`FromDD-Setup-x.y.z.exe` + `SHA256SUMS.txt`) — ไม่ใช่โฮสต์หลัก
+- `/var/www/fromdd` มีได้แค่ HTML/CSS/JS/installer/`latest.json`  
+  **ห้าม**วาง private key, `gen_license.py`, `.env`, ฐานข้อมูลลูกค้า
+- เฟส 3 Activate ออนไลน์: แยก `api.fromdd.xambrain.com` (หรือ `/api` ผ่าน reverse proxy) — คีย์อยู่ใน secret ของ backend เท่านั้น
+
+รายละเอียด: [UPDATE.md](UPDATE.md) · ตัวอย่าง Caddy: `website/Caddyfile.fromdd`
+
+---
+
 ## ความเสี่ยงที่ต้องรับ
 
 - `machine_id` เป็นไฟล์ UUID ใน AppData ไม่ใช่ซีเรียลฮาร์ดแวร์ — คนคัดลอกโฟลเดอร์ data ได้ เฟสแรกใช้กติกา + ย้ายเครื่องแบบมีโควตา ไม่ทำ TPM ในรอบนี้
