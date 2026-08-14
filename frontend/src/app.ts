@@ -3,7 +3,7 @@
  */
 import { $ } from "./dom";
 import { api } from "./api";
-import { state } from "./state";
+import { isOutDoc, state } from "./state";
 import { bindLicenseUi } from "./license";
 import { bindViewer, nudgeSelected, renderMarkers, showPage } from "./viewer";
 import { bindValues, renderList, renderValues } from "./fields";
@@ -12,6 +12,7 @@ import { bindDocs, refreshDocs } from "./docs";
 import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
+import { bindHistory, notifyHistoryChanged } from "./history";
 import { bindBackupUi } from "./backup";
 import { bindLangToggle, t } from "./i18n";
 import type { FillResponse } from "./types";
@@ -21,7 +22,7 @@ function setTab(tab: "edit" | "fill"): void {
   document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
   $("tab-" + tab).classList.add("active");
   $("panel-" + tab).classList.add("active");
-  $("pagewrap").classList.toggle("marking", tab === "edit");
+  $("pagewrap").classList.toggle("marking", tab === "edit" && !isOutDoc(state.doc));
   paintMarkers();
 }
 
@@ -88,6 +89,10 @@ function bindTemplateSave(): void {
       alert(t("app.needPdfAndName"));
       return;
     }
+    if (isOutDoc(state.doc)) {
+      alert(t("app.fillFromHistory"));
+      return;
+    }
     const res = await api("/api/template/" + encodeURIComponent(name), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -122,6 +127,10 @@ function bindClearAndFill(): void {
 
   $("makepdf").onclick = async () => {
     if (!state.doc) return;
+    if (isOutDoc(state.doc)) {
+      $("result").textContent = t("app.fillFromHistory");
+      return;
+    }
     const demoDoc = state.lic?.demo_doc || "demo-form.pdf";
     if (
       state.lic &&
@@ -131,10 +140,7 @@ function bindClearAndFill(): void {
       $("result").textContent = t("app.needLicense", { demo: demoDoc });
       return;
     }
-    const outname =
-      (($("tplname") as HTMLInputElement).value || "filled") +
-      "-" +
-      new Date().toISOString().slice(0, 10);
+    const outname = (($("tplname") as HTMLInputElement).value || "filled").trim() || "filled";
     const res = await api("/api/fill", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -154,6 +160,7 @@ function bindClearAndFill(): void {
     link.textContent = t("app.openFile", { file: r.file! });
     result.appendChild(link);
     bub(t("app.created", { file: r.file! }), "bot");
+    notifyHistoryChanged();
   };
 }
 
@@ -200,6 +207,7 @@ function init(): void {
   bindSchoolUi();
   bindLicenseUi();
   bindLibrary(paintMarkers, renderAll);
+  bindHistory(paintMarkers, renderAll);
   bindBackupUi(paintMarkers, renderAll);
   bindDocs(paintMarkers, renderAll);
   bindMarking();

@@ -73,6 +73,7 @@ hiddenimports = [
     "envutil",
     "logging_setup",
     "library_core",
+    "history_core",
     "backup_core",
     "update_core",
     "i18n_core",

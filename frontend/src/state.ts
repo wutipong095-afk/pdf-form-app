@@ -21,3 +21,7 @@ export const state: AppState = {
   chatIdx: -1,
   lic: null,
 };
+
+export function isOutDoc(doc: string | null | undefined): boolean {
+  return (doc || "").startsWith("@out.");
+}

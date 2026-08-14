@@ -58,12 +58,20 @@ export function bindDocs(
     }
     await refreshDocs(onMarkers, onRender);
     ($("docsel") as HTMLSelectElement).value = r.name;
-    await loadDoc(r.name, onMarkers);
+    try {
+      await loadDoc(r.name, onMarkers);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t("app.loadDocFail"));
+    }
   };
 
   ($("docsel") as HTMLSelectElement).onchange = (e) => {
     const v = (e.target as HTMLSelectElement).value;
-    if (v) void loadDoc(v, onMarkers);
+    if (v) {
+      void loadDoc(v, onMarkers).catch((err) => {
+        alert(err instanceof Error ? err.message : t("app.loadDocFail"));
+      });
+    }
   };
 
   ($("tplsel") as HTMLSelectElement).onchange = async (e) => {
@@ -78,8 +86,12 @@ export function bindDocs(
     ($("tplname") as HTMLInputElement).value = v;
     state.fields = tpl.fields || [];
     if (tpl.doc && tpl.doc !== state.doc) {
-      await loadDoc(tpl.doc, onMarkers);
-      ($("docsel") as HTMLSelectElement).value = tpl.doc;
+      try {
+        await loadDoc(tpl.doc, onMarkers);
+        ($("docsel") as HTMLSelectElement).value = tpl.doc;
+      } catch (err) {
+        alert(err instanceof Error ? err.message : t("app.loadDocFail"));
+      }
     }
     onRender();
   };
