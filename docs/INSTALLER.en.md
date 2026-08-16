@@ -9,7 +9,7 @@ Thai: [INSTALLER.md](INSTALLER.md)
 | Artifact | Meaning |
 |----------|---------|
 | `dist/PDFFormMarker/` | Runnable PyInstaller one-folder build |
-| `dist/installer/FromDD-Setup-0.3.0.exe` | Inno Setup installer customers download (if ISCC is available) |
+| `dist/installer/FromDD-Setup-0.3.1.exe` | Inno Setup installer customers download (if ISCC is available) |
 
 Bundled: civil-service fonts, demo, `formpacks/`, `locales/`, `license_public.pem`, UI from `static/`
 
@@ -37,7 +37,7 @@ Options:
 .\scripts\build_windows.ps1 -SkipFrontend   # reuse existing static/
 ```
 
-Result: `dist\PDFFormMarker\PDFFormMarker.exe` and (with Inno) `dist\installer\FromDD-Setup-0.3.0.exe` plus `latest.json` / `SHA256SUMS.txt`
+Result: `dist\PDFFormMarker\PDFFormMarker.exe` and (with Inno) `dist\installer\FromDD-Setup-0.3.1.exe` plus `latest.json` / `SHA256SUMS.txt`
 
 ## Test on the build PC
 
@@ -73,7 +73,7 @@ The customer-facing filename is **FromDD-Setup-x.y.z.exe** (the install folder a
 
 ## Shipping a release
 
-Versioned `.exe` files are immutable — never overwrite `FromDD-Setup-0.3.0.exe` with a newer binary.  
+Versioned `.exe` files are immutable — never overwrite `FromDD-Setup-0.3.1.exe` with a newer binary.  
 Upload the new file and only replace `latest.json` on `fromdd.xambrain.com`.  
 Also create a GitHub Release every time (`FromDD-Setup-x.y.z.exe` + `SHA256SUMS.txt`).
 
