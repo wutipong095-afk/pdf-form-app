@@ -72,6 +72,14 @@ from history_core import (
     out_filename_from_doc,
     unique_output_name,
 )
+from profiles_core import (
+    ProfilesUnreadable,
+    create_profile,
+    delete_profile,
+    load_profiles,
+    profiles_path,
+    update_profile,
+)
 from library_core import (
     MAX_SCAN_DEPTH,
     browse_folder_dialog,
@@ -921,6 +929,87 @@ def save_template(name):
         json.dump(data, f, ensure_ascii=False, indent=2)
     log.info("template saved name=%s fields=%s", safe_name(name), len(fields))
     return jsonify({"ok": True, "name": safe_name(name)})
+
+
+# --- สมุดข้อมูลล่วงหน้า (autofill profiles) ---
+_PROFILE_ID_RE = re.compile(r"^p-[0-9a-f]{4,32}$")
+
+
+def _profiles_root() -> Path:
+    return user_paths(current_user())["root"]
+
+
+def _clean_profile_id(profile_id: str) -> Optional[str]:
+    pid = (profile_id or "").strip()
+    return pid if _PROFILE_ID_RE.match(pid) else None
+
+
+def _profiles_unreadable_response(exc: ProfilesUnreadable):
+    """ไฟล์สมุดเสีย — บอกที่อยู่ไฟล์ แล้วปฏิเสธทุกการเขียน (กันเขียนทับของเดิม)"""
+    path = profiles_path(_profiles_root())
+    log.error("profiles.json unreadable path=%s err=%s", path, exc)
+    return jsonify({
+        "error": t("profiles.unreadable", path=str(path)),
+        "unreadable": True,
+    }), 409
+
+
+@app.get("/api/profiles")
+@login_required
+def profiles_list():
+    try:
+        return jsonify(load_profiles(_profiles_root()))
+    except ProfilesUnreadable as e:
+        return _profiles_unreadable_response(e)
+
+
+@app.post("/api/profiles")
+@login_required
+def profiles_create():
+    data = request.get_json(force=True, silent=True)
+    try:
+        profile = create_profile(_profiles_root(), data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except ProfilesUnreadable as e:
+        return _profiles_unreadable_response(e)
+    log.info("profile created id=%s keys=%s", profile["id"], len(profile["values"]))
+    return jsonify({"ok": True, "profile": profile})
+
+
+@app.put("/api/profiles/<profile_id>")
+@login_required
+def profiles_update(profile_id):
+    pid = _clean_profile_id(profile_id)
+    if not pid:
+        return jsonify({"error": t("profiles.notFound")}), 404
+    data = request.get_json(force=True, silent=True)
+    try:
+        profile = update_profile(_profiles_root(), pid, data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except ProfilesUnreadable as e:
+        return _profiles_unreadable_response(e)
+    except KeyError:
+        return jsonify({"error": t("profiles.notFound")}), 404
+    log.info("profile updated id=%s keys=%s", pid, len(profile["values"]))
+    return jsonify({"ok": True, "profile": profile})
+
+
+@app.delete("/api/profiles/<profile_id>")
+@login_required
+def profiles_delete(profile_id):
+    pid = _clean_profile_id(profile_id)
+    if not pid:
+        return jsonify({"error": t("profiles.notFound")}), 404
+    try:
+        delete_profile(_profiles_root(), pid)
+    except ProfilesUnreadable as e:
+        return _profiles_unreadable_response(e)
+    except KeyError:
+        return jsonify({"error": t("profiles.notFound")}), 404
+    log.info("profile deleted id=%s", pid)
+    return jsonify({"ok": True})
 
 
 @app.get("/api/library")

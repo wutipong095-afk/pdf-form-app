@@ -2,6 +2,7 @@
 import { $ } from "./dom";
 import { api, apiJson } from "./api";
 import { refreshDocs } from "./docs";
+import { refreshProfiles } from "./profiles";
 import { t } from "./i18n";
 
 async function downloadBlob(res: Response, fallbackName: string): Promise<void> {
@@ -45,6 +46,8 @@ async function doRestore(
     body: fd,
   });
   await refreshDocs(onMarkers, onRender);
+  // The ZIP may carry a different autofill book — reload it so Apply profile isn't stale
+  await refreshProfiles().catch(() => undefined);
   alert(
     t("bak.restoreOk", {
       mode,

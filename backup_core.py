@@ -88,7 +88,7 @@ def create_backup_zip(
         data_dir=data_dir,
         library_root=lib_root,
     )
-    counts = {"uploads": 0, "templates": 0, "output": 0, "library": 0}
+    counts = {"uploads": 0, "templates": 0, "output": 0, "library": 0, "profiles": 0}
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         counts["uploads"] = _add_tree(zf, user_root / "uploads", "user/uploads")
@@ -99,6 +99,10 @@ def create_backup_zip(
         seeded = user_root / "seeded.json"
         if seeded.is_file():
             zf.write(seeded, arcname="user/seeded.json")
+        profiles = user_root / "profiles.json"
+        if profiles.is_file():
+            zf.write(profiles, arcname="user/profiles.json")
+            counts["profiles"] = 1
 
         lib_cfg = config_path(data_dir)
         if lib_cfg.is_file():
@@ -144,12 +148,15 @@ def _validated_members(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
             raise ValueError("Backup compression ratio is unsafe")
         parts = Path(name).parts
         basename = parts[-1] if parts else ""
+        # สระ/วรรณยุกต์ไทยเป็น combining mark — isalnum() เป็น False ต้องรับช่วง Thai ทั้งบล็อก
+        # ไม่งั้นกู้คืนเทมเพลตชื่อไทย (เช่น demo-ใบเบิก.json) ไม่ได้
         safe_basename = bool(basename) and all(
-            ch.isalnum() or ch in "._- " for ch in basename
+            ch.isalnum() or "฀" <= ch <= "๿" or ch in "._- " for ch in basename
         )
         allowed = safe_basename and (
             name in {
-                "meta.json", "user/seeded.json", "library/library.json",
+                "meta.json", "user/seeded.json", "user/profiles.json",
+                "library/library.json",
                 "library/pdfmarker/settings.json", "library/pdfmarker/index.json",
             }
             or (len(parts) == 3 and parts[0] == "user" and parts[1] == "uploads" and name.lower().endswith(".pdf"))
@@ -184,7 +191,7 @@ def restore_backup(
     """กู้ ZIP ลง user_root + library.json — ไม่แตะ machine_id/license
 
     mode=merge: ไม่ทับไฟล์ที่มีอยู่แล้ว
-    mode=replace: ล้าง uploads/templates_json/output ของ user แล้วแตกทับ
+    mode=replace: ล้าง uploads/templates_json/output + seeded.json/profiles.json แล้วแตกทับ
 
     แตก library.json ก่อนเสมอ แล้วค่อย .pdfmarker/* — กันลำดับใน ZIP ทำให้ข้ามดัชนีคลัง
     """
@@ -209,9 +216,10 @@ def restore_backup(
             for p in d.rglob("*"):
                 if p.is_file():
                     p.unlink()
-        seeded = user_root / "seeded.json"
-        if seeded.is_file():
-            seeded.unlink()
+        for extra in ("seeded.json", "profiles.json"):
+            p = user_root / extra
+            if p.is_file():
+                p.unlink()
 
     written = 0
     skipped = 0
