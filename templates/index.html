@@ -82,6 +82,44 @@
   .pick-empty { padding:10px 12px; color:#777; font-size:13px; }
   #histnotice { margin:0 0 8px; padding:6px 10px; background:#fff8e1; color:#6d4c00; border-radius:6px; font-size:12px; }
   #histnotice[hidden] { display:none; }
+  /* สมุดข้อมูลล่วงหน้า: ซ่อนจนกดเรียกใช้จากปุ่มใน header */
+  #profbar { padding:8px 16px; font-size:13px; display:none; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f4f7f4; }
+  #profbar.open { display:flex; }
+  #profbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
+  #profbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
+  #profstatus { color:#555; font-size:12px; flex:1 1 180px; }
+  #btn-prof-toggle.active { background:#ffb84d !important; color:#222 !important; font-weight:bold; }
+  #profbody { flex:1 1 100%; display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+  #proflist { flex:1 1 200px; max-width:280px; max-height:260px; }
+  #profedit { flex:3 1 380px; background:#fff; border:1px solid #d5dbe3; border-radius:8px; padding:10px; }
+  #profedit[hidden] { display:none; }
+  .profline { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+  .profline label { display:flex; gap:6px; align-items:center; flex:1 1 200px; }
+  #profname { flex:1; min-width:140px; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
+  #profkind { padding:4px 6px; border:1px solid #ccc; border-radius:6px; font:inherit; }
+  #profpairs { max-height:200px; overflow:auto; margin-bottom:8px; }
+  .prow { display:flex; gap:6px; align-items:center; margin-bottom:5px; }
+  .prow input { padding:4px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; font-size:13px; }
+  .prow input:focus { border-color:#1a3c6e; outline:none; background:#f0f6ff; }
+  .prow .pkey { flex:1 1 150px; min-width:0; }
+  .prow .pval { flex:2 1 200px; min-width:0; }
+  .prow .prowdel { background:none !important; color:#e63946 !important; border:none; font-size:15px; padding:2px 6px; cursor:pointer; }
+  #profsuggest { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px; }
+  #profsuggest .sugglabel { color:#555; font-size:12px; }
+  #profsuggest .suggchip { background:#e8eaf0 !important; color:#1a3c6e !important; font-size:12px; padding:3px 8px; border-radius:12px; }
+  #profapplyrow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px; padding:8px; background:#f4f7f4; border:1px solid #dbe4db; border-radius:8px; font-size:13px; }
+  #profapplyrow[hidden] { display:none; }
+  #profapplyrow select { flex:1 1 130px; min-width:0; padding:4px 6px; border:1px solid #ccc; border-radius:6px; font:inherit; font-size:13px; }
+  #profapplyrow button { background:#1a3c6e; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; font-size:13px; }
+  #profapplyrow button.secondary { background:#e8eaf0; color:#1a3c6e; }
+  #profapplystatus { flex:1 1 100%; color:#555; font-size:12px; }
+  #markdlg { border:none; border-radius:10px; padding:16px; box-shadow:0 6px 30px rgba(0,0,0,.3); font:inherit; min-width:min(360px,90vw); }
+  #markdlg::backdrop { background:rgba(0,0,0,.35); }
+  #markdlg p { margin:0 0 8px; }
+  #markname { width:100%; padding:6px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
+  #markdlg menu { display:flex; gap:8px; justify-content:flex-end; margin:0; padding:0; }
+  #markdlg button { background:#1a3c6e; color:#fff; border:none; padding:6px 14px; border-radius:6px; cursor:pointer; font:inherit; }
+  #markdlg button.secondary { background:#e8eaf0; color:#1a3c6e; }
   #bakbar { padding:6px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f3f6f3; }
   #bakbar button { background:#2e7d32; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
   #bakbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
@@ -108,6 +146,7 @@
     </select>
     <button type="button" id="btn-lib-toggle" title="{{ t('header.libraryTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.library') }}</button>
     <button type="button" id="btn-hist-toggle" title="{{ t('header.historyTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.history') }}</button>
+    <button type="button" id="btn-prof-toggle" title="{{ t('header.profilesTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.profiles') }}</button>
     <button type="button" id="btn-support-report" title="{{ t('header.supportTitle') }}" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.support') }}</button>
     <span id="appver" style="opacity:.75;font-size:12px"></span>
     <span id="who">{{ user }}</span>
@@ -157,6 +196,33 @@
   <button type="button" id="histhide" class="secondary" title="{{ t('hist.hideTitle') }}">{{ t('hist.hide') }}</button>
   <div id="histlist" class="picklist" role="listbox" aria-label="{{ t('hist.title') }}"></div>
 </div>
+<div id="profbar" aria-hidden="true">
+  <strong>{{ t('prof.title') }}</strong>
+  <button type="button" id="profnew">{{ t('prof.new') }}</button>
+  <span id="profstatus">{{ t('prof.idle') }}</span>
+  <button type="button" id="profhide" class="secondary" title="{{ t('prof.hideTitle') }}">{{ t('prof.hide') }}</button>
+  <div id="profbody">
+    <div id="proflist" class="picklist" role="listbox" aria-label="{{ t('prof.listLabel') }}"></div>
+    <div id="profedit" hidden>
+      <div class="profline">
+        <label>{{ t('prof.nameLabel') }}
+          <input type="text" id="profname" maxlength="120" placeholder="{{ t('prof.namePlaceholder') }}">
+        </label>
+        <label>{{ t('prof.kindLabel') }} <select id="profkind"></select></label>
+      </div>
+      <div id="profpairs"></div>
+      <div class="profline">
+        <button type="button" id="profaddrow" class="secondary">{{ t('prof.addRow') }}</button>
+      </div>
+      <div id="profsuggest"></div>
+      <div class="profline">
+        <button type="button" id="profsave">{{ t('prof.save') }}</button>
+        <button type="button" id="profdup" class="secondary">{{ t('prof.duplicate') }}</button>
+        <button type="button" id="profdel" class="secondary">{{ t('prof.delete') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="bakbar">
   <strong>{{ t('bak.title') }}</strong>
   <button type="button" id="btn-backup">{{ t('bak.backup') }}</button>
@@ -193,6 +259,13 @@
     </div>
     <div id="panel-fill" class="panel">
       <p class="hint">{{ t('fill.hint1')|safe }}</p>
+      <div id="profapplyrow" hidden>
+        <label for="profapplysel">{{ t('prof.applyLabel') }}</label>
+        <select id="profapplysel"></select>
+        <button type="button" id="profapply" title="{{ t('prof.applyTitle') }}">{{ t('prof.apply') }}</button>
+        <button type="button" id="profreplace" class="secondary" title="{{ t('prof.replaceAllTitle') }}">{{ t('prof.replaceAll') }}</button>
+        <span id="profapplystatus"></span>
+      </div>
       <div id="valuelist"></div>
       <button class="btn" id="clearvals" style="background:#888; margin-bottom:8px">{{ t('fill.clearAll') }}</button>
       <div id="chatlog"></div>
@@ -206,6 +279,16 @@
     </div>
   </div>
 </main>
+<dialog id="markdlg" aria-labelledby="marklabel">
+  <p id="marklabel">{{ t('app.markNamePrompt') }}</p>
+  <input type="text" id="markname" list="profkeys" autocomplete="off" maxlength="80">
+  <datalist id="profkeys"></datalist>
+  <p class="hint" style="margin:6px 0 10px">{{ t('prof.markDatalistHint') }}</p>
+  <menu>
+    <button type="button" id="markcancel" class="secondary">{{ t('markdlg.cancel') }}</button>
+    <button type="button" id="markok">{{ t('markdlg.ok') }}</button>
+  </menu>
+</dialog>
 <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

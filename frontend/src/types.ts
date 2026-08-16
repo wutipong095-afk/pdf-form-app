@@ -76,6 +76,27 @@ export type LibraryStatus = {
   open_folder_enabled?: boolean;
 };
 
+/** Autofill book — reusable field name → value pairs, not tied to any PDF */
+export type ProfileKind = "org" | "partner" | "person";
+
+export type Profile = {
+  id: string;
+  name: string;
+  kind: ProfileKind;
+  values: Record<string, string>;
+};
+
+export type ProfilesResponse = {
+  version: number;
+  profiles: Profile[];
+};
+
+export type ProfileSaveResponse = {
+  ok?: boolean;
+  profile?: Profile;
+  error?: string;
+};
+
 export type HistoryFile = {
   name: string;
   stem: string;

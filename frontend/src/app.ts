@@ -7,13 +7,14 @@ import { isOutDoc, state } from "./state";
 import { bindLicenseUi } from "./license";
 import { bindViewer, nudgeSelected, renderMarkers, showPage } from "./viewer";
 import { bindValues, renderList, renderValues } from "./fields";
-import { bindChat, bub, startChat } from "./chat";
+import { ask, bindChat, bub, startChat } from "./chat";
 import { bindDocs, refreshDocs } from "./docs";
 import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import { bindHistory, notifyHistoryChanged } from "./history";
 import { bindBackupUi } from "./backup";
+import { askFieldName, bindProfiles } from "./profiles";
 import { bindLangToggle, t } from "./i18n";
 import type { FillResponse } from "./types";
 
@@ -190,14 +191,29 @@ function bindMarking(): void {
       state.fields[state.selIdx].y = y;
       state.fields[state.selIdx].page = state.cur;
       state.selIdx = -1;
-    } else {
-      const name = prompt(t("app.markNamePrompt"));
-      if (!name) return;
-      const size = parseFloat(($("fsize") as HTMLInputElement).value) || 14;
-      state.fields.push({ name, page: state.cur, x, y, size, value: "" });
+      renderAll();
+      return;
     }
-    renderAll();
+    // Naming is async — the dialog offers field names already in the autofill book
+    const page = state.cur;
+    const size = parseFloat(($("fsize") as HTMLInputElement).value) || 14;
+    void askFieldName().then((name) => {
+      if (!name) return;
+      state.fields.push({ name: name.trim(), page, x, y, size, value: "" });
+      renderAll();
+    });
   });
+}
+
+/**
+ * After autofill: repaint values/markers, and move the chat on only if the box it is
+ * currently asking about got filled — otherwise the same question is asked twice.
+ */
+function afterProfileApply(): void {
+  renderAll();
+  if (state.chatIdx < 0) return;
+  const asking = state.fields[state.chatIdx];
+  if (asking && (asking.value || "").trim()) ask();
 }
 
 function init(): void {
@@ -210,6 +226,7 @@ function init(): void {
   bindLibrary(paintMarkers, renderAll);
   bindHistory(paintMarkers, renderAll);
   bindBackupUi(paintMarkers, renderAll);
+  bindProfiles(afterProfileApply);
   bindDocs(paintMarkers, renderAll);
   bindMarking();
   bindValues(
