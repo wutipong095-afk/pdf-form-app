@@ -83,7 +83,7 @@
 
 ## ลำดับแนะนำทำต่อ
 
-1. บิวด์/ปล่อย Setup 0.3.0 เป็น `FromDD-Setup-0.3.0.exe` แล้ววางบน VPS `/releases/` (ห้ามทับไฟล์รุ่นเก่า) + GitHub Release คู่  
+1. บิวด์/ปล่อย Setup 0.3.1 เป็น `FromDD-Setup-0.3.1.exe` แล้ววางบน VPS `/releases/` (ห้ามทับรุ่น 0.3.0) + GitHub Release คู่  
 2. ตั้ง VPS `/releases/` + ทดสอบจากเน็ตภายนอก (A2 / D1) — ปุ่มดาวน์โหลดบนเว็บชี้ไฟล์นี้ · Caddy: `latest.json` no-cache, `.exe` immutable  
 3. **เฟส 1** แพ็กทดลอง + ล็อกอัปโหลด/คลังตอนไม่มีไลเซนต์ — ทำแล้ว  
 4. **เฟส 2** เว็บดาวน์โหลด + หน้า Pricing + นโยบาย A6 — ทำแล้วใน `website/` + [SUPPORT.md](SUPPORT.md)  

@@ -28,8 +28,8 @@ Dismissible (remembered per version in the browser).
 
 ```json
 {
-  "version": "0.3.0",
-  "setup_url": "https://fromdd.xambrain.com/releases/FromDD-Setup-0.3.0.exe",
+  "version": "0.3.1",
+  "setup_url": "https://fromdd.xambrain.com/releases/FromDD-Setup-0.3.1.exe",
   "sha256": "abcdef....64 hex....",
   "size": 34603008,
   "published_at": "2026-08-13",
@@ -38,7 +38,7 @@ Dismissible (remembered per version in the browser).
 ```
 
 - `version` must be newer than the app (numeric semver compare)
-- `setup_url` must be HTTPS and the filename must match the version, e.g. `FromDD-Setup-0.3.0.exe`
+- `setup_url` must be HTTPS and the filename must match the version, e.g. `FromDD-Setup-0.3.1.exe`
 - `sha256` is required for the in-app Install button (verified before running)
 - `size` is recommended — when present, the app also checks the byte length
 - Full examples: `docs/latest.example.json` / `website/releases/latest.example.json`
@@ -80,11 +80,11 @@ The app fetches the feed with `Cache-Control: no-cache` and a ~3s timeout.
 ## GitHub Releases (every time — backup, not primary host)
 
 The marketing/update host remains `fromdd.xambrain.com`.  
-Still create a GitHub Release for every version, e.g. tag `v0.3.0` titled **FromDD v0.3.0**.
+Still create a GitHub Release for every version, e.g. tag `v0.3.1` titled **FromDD v0.3.1**.
 
 Assets:
 
-- `FromDD-Setup-0.3.0.exe`
+- `FromDD-Setup-0.3.1.exe`
 - `SHA256SUMS.txt`
 
 This gives history, tags, notes, a backup binary, proof that version shipped, and a download fallback if the VPS is down.
@@ -92,10 +92,10 @@ This gives history, tags, notes, a backup binary, proof that version shipped, an
 Example:
 
 ```powershell
-gh release create v0.3.0 `
-  dist/installer/FromDD-Setup-0.3.0.exe `
+gh release create v0.3.1 `
+  dist/installer/FromDD-Setup-0.3.1.exe `
   dist/installer/SHA256SUMS.txt `
-  --title "FromDD v0.3.0" `
+  --title "FromDD v0.3.1" `
   --notes-file CHANGELOG.md
 ```
 

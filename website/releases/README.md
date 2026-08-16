@@ -11,7 +11,7 @@
 ผิด: `FromDD-Setup.exe` แล้วเอาไฟล์ใหม่ไปทับตลอด  
 ถูก: `FromDD-Setup-0.3.0.exe`, `FromDD-Setup-0.3.1.exe`, `FromDD-Setup-0.4.0.exe`
 
-ปุ่มดาวน์โหลดบนเว็บอ่าน `latest.json` ถ้ามี ไม่งั้นชี้ `FromDD-Setup-0.3.0.exe`
+ปุ่มดาวน์โหลดบนเว็บอ่าน `latest.json` ถ้ามี ไม่งั้นชี้ `FromDD-Setup-0.3.1.exe`
 
 Caddy: `latest.json` = `Cache-Control: no-cache` · `.exe` = cache ยาว immutable — ดู `website/Caddyfile.fromdd`
 

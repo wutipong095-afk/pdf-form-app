@@ -28,8 +28,8 @@
 
 ```json
 {
-  "version": "0.3.0",
-  "setup_url": "https://fromdd.xambrain.com/releases/FromDD-Setup-0.3.0.exe",
+  "version": "0.3.1",
+  "setup_url": "https://fromdd.xambrain.com/releases/FromDD-Setup-0.3.1.exe",
   "sha256": "abcdef....64 hex....",
   "size": 34603008,
   "published_at": "2026-08-13",
@@ -38,7 +38,7 @@
 ```
 
 - `version` ต้องใหม่กว่าในแอป (เทียบแบบ semver ตัวเลข)
-- `setup_url` ต้องเป็น HTTPS และชื่อไฟล์ต้องตรงเวอร์ชัน เช่น `FromDD-Setup-0.3.0.exe`
+- `setup_url` ต้องเป็น HTTPS และชื่อไฟล์ต้องตรงเวอร์ชัน เช่น `FromDD-Setup-0.3.1.exe`
 - `sha256` จำเป็นถ้าจะให้แอปติดตั้งจากปุ่มในแอป (ตรวจก่อนรัน)
 - `size` แนะนำ — ถ้ามี แอปจะเทียบขนาดไฟล์ด้วย
 - ตัวอย่างเต็ม: `docs/latest.example.json` / `website/releases/latest.example.json`
@@ -80,11 +80,11 @@ Cache-Control: public, max-age=31536000, immutable
 ## GitHub Releases (ทำทุกครั้ง — สำเนา ไม่ใช่โฮสต์หลัก)
 
 เว็บหลักยังเป็น `fromdd.xambrain.com`  
-ทุกครั้งที่ปล่อยรุ่น ให้สร้าง GitHub Release คู่ด้วย เช่น tag `v0.3.0` ชื่อ **FromDD v0.3.0**
+ทุกครั้งที่ปล่อยรุ่น ให้สร้าง GitHub Release คู่ด้วย เช่น tag `v0.3.1` ชื่อ **FromDD v0.3.1**
 
 Assets:
 
-- `FromDD-Setup-0.3.0.exe`
+- `FromDD-Setup-0.3.1.exe`
 - `SHA256SUMS.txt`
 
 ประโยชน์: ประวัติ, tag, release notes, binary สำรอง, หลักฐานว่าเวอร์ชันนั้นเคยถูกปล่อย, ดาวน์โหลดสำรองถ้า VPS มีปัญหา
@@ -92,10 +92,10 @@ Assets:
 ตัวอย่าง:
 
 ```powershell
-gh release create v0.3.0 `
-  dist/installer/FromDD-Setup-0.3.0.exe `
+gh release create v0.3.1 `
+  dist/installer/FromDD-Setup-0.3.1.exe `
   dist/installer/SHA256SUMS.txt `
-  --title "FromDD v0.3.0" `
+  --title "FromDD v0.3.1" `
   --notes-file CHANGELOG.md
 ```
 

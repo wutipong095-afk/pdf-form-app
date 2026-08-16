@@ -3,7 +3,7 @@
 ; Compile: ISCC.exe installer\PDFFormMarker.iss
 
 #define MyAppName "FromDD"
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.3.1"
 #define MyAppPublisher "FromDD"
 #define MyAppExeName "PDFFormMarker.exe"
 #define MyAppId "{{A8E3C2B1-4F5D-4A9E-9C1B-7D6E5F4A3B2C}"

@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const SETUP_FALLBACK = "releases/FromDD-Setup-0.3.0.exe";
+  const SETUP_FALLBACK = "releases/FromDD-Setup-0.3.1.exe";
 
   function bindSetupLinks() {
     const nodes = document.querySelectorAll("[data-setup]");
@@ -42,7 +42,8 @@
     { t: 48, src: "pages/leave-0.png", caption: "แท็บ ① มาร์คจุด — คลิกบนเส้นปะเพื่อปักจุดแดง" },
     { t: 88, src: "pages/demo-form-0.png", caption: "สลับแท็บ ② กรอกข้อมูล ตอบแชทหรือพิมพ์ในตาราง" },
     { t: 130, src: "pages/leave-0.png", caption: "ข้อความทับบนฟอร์มทันที แล้วกดสร้าง PDF" },
-    { t: 165, src: "pages/yt-thumb.png", caption: "โปรแกรมเต็มใช้ออฟไลน์บนเครื่องโรงเรียน" },
+    { t: 158, src: "pages/demo-form-0.png", caption: "เปิดงานเก่า ค้นหาไฟล์ที่กรอกแล้วโดยไม่ต้องไล่ใน Explorer" },
+    { t: 180, src: "pages/yt-thumb.png", caption: "โปรแกรมเต็มใช้ออฟไลน์บนเครื่องโรงเรียน" },
   ];
 
   function $(id) {
