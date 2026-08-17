@@ -166,11 +166,42 @@ def thai_font():
 _FONT_METRICS: dict = {}
 
 
+_DEFAULT_FILL_METRICS = {"font_ascender": 0.85, "font_descender": -0.25}
+
+
 def _font_metrics(fontfile: str) -> tuple:
     if fontfile not in _FONT_METRICS:
         f = fitz.Font(fontfile=fontfile)
         _FONT_METRICS[fontfile] = (f.ascender, f.descender)
     return _FONT_METRICS[fontfile]
+
+
+def fill_font_rev() -> str:
+    """fingerprint ของไฟล์ฟอนต์ — ใส่ใน URL พรีวิวกันแคช TTF เก่า"""
+    path = thai_font()
+    if not path:
+        return "0"
+    try:
+        st = os.stat(path)
+    except OSError:
+        return "0"
+    return f"{int(st.st_mtime)}-{st.st_size}"
+
+
+def fill_font_metrics() -> dict[str, float]:
+    """สัดส่วน baseline ของฟอนต์ที่ใช้ตอนพิมพ์ — พรีวิวต้องใช้ค่าเดียวกัน
+
+    ห้ามโยนต่อเมื่อเปิดฟอนต์ไม่ได้ — /api/docs และ /api/pageinfo ต้องยังเปิดเอกสารได้
+    """
+    path = thai_font()
+    if not path:
+        return dict(_DEFAULT_FILL_METRICS)
+    try:
+        asc, desc = _font_metrics(path)
+    except Exception:
+        log.warning("fill font metrics unavailable path=%s", path, exc_info=True)
+        return dict(_DEFAULT_FILL_METRICS)
+    return {"font_ascender": float(asc), "font_descender": float(desc)}
 
 
 def insert_thai_text(page, point, text, fontsize, fontfile):
@@ -628,6 +659,7 @@ def index():
         auth_required=AUTH_REQUIRED,
         app_version=APP_VERSION,
         csrf_token=_csrf_token(),
+        fill_font_rev=fill_font_rev(),
     )
 
 
@@ -770,14 +802,16 @@ def list_docs():
         pdfs = allowed
         trial_tpls = {p.stem for p in (DEMO_DIR / "templates_json").glob("*.json")}
         tpls = [name for name in tpls if name in trial_tpls]
-    return jsonify({
+    payload = {
         "pdfs": pdfs,
         "templates": tpls,
         "font": thai_font(),
         "user": current_user(),
         "auth_required": AUTH_REQUIRED,
         "license": st,
-    })
+    }
+    payload.update(fill_font_metrics())
+    return jsonify(payload)
 
 
 @app.post("/api/upload")
@@ -859,7 +893,22 @@ def pageinfo(doc):
                 pass
     with fitz.open(path) as d:
         sizes = [{"w": p.rect.width, "h": p.rect.height} for p in d]
-    return jsonify({"pages": len(sizes), "sizes": sizes, "zoom": ZOOM})
+    info = {"pages": len(sizes), "sizes": sizes, "zoom": ZOOM}
+    info.update(fill_font_metrics())
+    return jsonify(info)
+
+
+@app.get("/api/fill-font")
+@login_required
+def fill_font_file():
+    """TTF เดียวกับตอนสร้าง PDF — ให้ overlay พรีวิวใช้ฟอนต์เดียวกัน"""
+    path = thai_font()
+    if not path or not os.path.isfile(path):
+        return jsonify({"error": t("api.thaiFontMissing")}), 404
+    resp = send_file(path, mimetype="font/ttf", download_name="fill.ttf", as_attachment=False)
+    # URL มี ?v=mtime-size จากหน้า index — แคชได้เมื่อไฟล์เดิม, เปลี่ยนฟอนต์แล้ว URL ใหม่
+    resp.headers["Cache-Control"] = "private, max-age=86400"
+    return resp
 
 
 @app.get("/page/<doc>/<int:pno>.png")

@@ -5,7 +5,7 @@ import { $ } from "./dom";
 import { api } from "./api";
 import { isOutDoc, state } from "./state";
 import { bindLicenseUi } from "./license";
-import { bindViewer, nudgeSelected, renderMarkers, showPage } from "./viewer";
+import { bindViewer, nudgeSelected, renderMarkers, showPage, ensureFillFont } from "./viewer";
 import { bindValues, renderList, renderValues } from "./fields";
 import { ask, bindChat, bub, startChat } from "./chat";
 import { bindDocs, refreshDocs } from "./docs";
@@ -252,6 +252,7 @@ function init(): void {
   bindTemplateSave();
   bindClearAndFill();
   bindKeyboard();
+  ensureFillFont(paintMarkers);
   void refreshDocs(paintMarkers, renderAll);
 }
 

@@ -33,6 +33,8 @@ export type DocsResponse = {
   user: string;
   auth_required?: boolean;
   license: LicenseStatus;
+  font_ascender?: number;
+  font_descender?: number;
 };
 
 export type FillResponse = {
@@ -52,6 +54,8 @@ export type PageInfo = {
   pages: number;
   sizes: { w: number; h: number }[];
   zoom: number;
+  font_ascender?: number;
+  font_descender?: number;
 };
 
 export type LibraryDoc = {

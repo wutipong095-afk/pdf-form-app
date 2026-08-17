@@ -22,7 +22,13 @@
   .marker { position:absolute; transform:translate(-3px,-3px); width:8px; height:8px; border-radius:50%; background:#e63946; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,.5); cursor:pointer; }
   .marker.sel { background:#0077ff; }
   .mlabel { position:absolute; transform:translateY(-100%); background:rgba(230,57,70,.85); color:#fff; font-size:11px; padding:0 4px; border-radius:3px; white-space:nowrap; pointer-events:none; }
-  .mvalue { position:absolute; transform:translateY(-76%); line-height:1; color:#0a58ca; white-space:pre; pointer-events:none; font-family:'Leelawadee UI',Tahoma,sans-serif; }
+  /* overlay ใช้ฟอนต์เดียวกับตอนพิมพ์ — ห้าม translateY มายากล เพราะ baseline คำนวณจาก ascender */
+  @font-face {
+    font-family: FillPreview;
+    src: url("/api/fill-font?v={{ fill_font_rev }}") format("truetype");
+    font-display: block;
+  }
+  .mvalue { position:absolute; line-height:1.1; color:#0a58ca; white-space:pre; pointer-events:none; font-family:FillPreview,'Leelawadee UI',Tahoma,sans-serif; }
   #side { width:400px; background:#fff; border-left:1px solid #ddd; display:flex; flex-direction:column; min-height:0; }
   #tabs { display:flex; }
   #tabs button { flex:1; padding:10px; border:none; background:#e8eaf0; cursor:pointer; font:inherit; font-weight:bold; }
