@@ -2,7 +2,7 @@ import { $ } from "./dom";
 import { api } from "./api";
 import { state } from "./state";
 import { renderLicense } from "./license";
-import { loadDoc } from "./viewer";
+import { loadDoc, applyFontMetrics } from "./viewer";
 import { getLocale, t } from "./i18n";
 import type { DocsResponse, TemplatePayload } from "./types";
 
@@ -43,6 +43,7 @@ export async function refreshDocs(onMarkers: () => void, onRender: () => void): 
   $("fonthint").textContent = r.font
     ? t("docs.fontOk", { name: fontName || "" })
     : t("docs.fontMissing");
+  applyFontMetrics(r.font_ascender, r.font_descender);
   if (r.user) {
     $("who").textContent = r.auth_required === false ? t("header.thisMachine") : r.user;
   }

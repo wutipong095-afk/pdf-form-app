@@ -9,6 +9,9 @@ export type AppState = {
   selIdx: number;
   chatIdx: number;
   lic: LicenseStatus | null;
+  /** Fill-font ascender / descender — overlay must match insert_thai_text */
+  fontAsc: number;
+  fontDesc: number;
 };
 
 export const state: AppState = {
@@ -20,6 +23,8 @@ export const state: AppState = {
   selIdx: -1,
   chatIdx: -1,
   lic: null,
+  fontAsc: 0.85,
+  fontDesc: -0.25,
 };
 
 export function isOutDoc(doc: string | null | undefined): boolean {

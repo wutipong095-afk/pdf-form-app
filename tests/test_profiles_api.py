@@ -185,3 +185,36 @@ def test_thai_named_templates_survive_a_restore_round_trip(client):
     r = restore(client, data, "merge")
     assert r.status_code == 200, r.get_json()
     assert tpl.is_file()
+
+
+def test_docs_includes_font_metrics_for_preview(client):
+    data = client.get("/api/docs").get_json()
+    assert 0.5 < data["font_ascender"] < 1.5
+    assert -1.0 < data["font_descender"] < 0
+
+
+def test_docs_survives_unreadable_fill_font(client, monkeypatch):
+    """FONT_PATH ชี้ไฟล์เสียต้องไม่ทำให้เปิดรายการเอกสารพังทั้งแอป"""
+    def boom(_path):
+        raise RuntimeError("FzErrorLibrary: font")
+
+    monkeypatch.setattr(A, "_font_metrics", boom)
+    r = client.get("/api/docs")
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["font_ascender"] == 0.85
+    assert data["font_descender"] == -0.25
+
+
+def test_fill_font_bytes_match_thai_font(client):
+    path = A.thai_font()
+    assert path and os.path.isfile(path)
+    r = client.get("/api/fill-font")
+    assert r.status_code == 200
+    assert r.data == Path(path).read_bytes()
+    assert "font" in (r.content_type or "")
+
+
+def test_index_font_face_url_is_cache_busted(client):
+    html = client.get("/").get_data(as_text=True)
+    assert f"/api/fill-font?v={A.fill_font_rev()}" in html

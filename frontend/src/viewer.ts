@@ -17,6 +17,26 @@ export function scale(): number {
   return el.naturalWidth ? el.naturalWidth / el.clientWidth : 1;
 }
 
+/** Overlay CSS px for one PDF point — same mapping as pin x/y */
+function pdfPtToCss(pt: number): number {
+  return (pt * state.zoom) / scale();
+}
+
+export function applyFontMetrics(asc?: number, desc?: number): void {
+  if (typeof asc === "number" && Number.isFinite(asc) && asc > 0) state.fontAsc = asc;
+  if (typeof desc === "number" && Number.isFinite(desc) && desc < 0) state.fontDesc = desc;
+}
+
+/** Load the fill TTF so overlay glyphs match the printed PDF, then repaint. */
+export function ensureFillFont(onReady: () => void): void {
+  const fonts = document.fonts;
+  if (!fonts?.load) return;
+  void fonts
+    .load("16px FillPreview")
+    .then(() => onReady())
+    .catch(() => undefined);
+}
+
 export function showPage(onMarkers: () => void): void {
   if (!state.doc) return;
   const el = img();
@@ -31,6 +51,8 @@ export async function loadDoc(name: string, onMarkers: () => void): Promise<void
     pages?: number;
     zoom?: number;
     error?: string;
+    font_ascender?: number;
+    font_descender?: number;
   };
   if (!res.ok || info.pages == null) {
     throw new ApiError(info.error || t("app.loadDocFail"), res.status);
@@ -38,6 +60,7 @@ export async function loadDoc(name: string, onMarkers: () => void): Promise<void
   state.doc = name;
   state.pages = info.pages;
   state.zoom = info.zoom ?? 2;
+  applyFontMetrics(info.font_ascender, info.font_descender);
   state.cur = 0;
   syncHistoryChrome();
   showPage(onMarkers);
@@ -64,13 +87,12 @@ export function renderMarkers(
 ): void {
   const w = wrap();
   w.querySelectorAll(".marker,.mlabel,.mvalue").forEach((n) => n.remove());
-  const s = scale();
   const fillActive = $("panel-fill").classList.contains("active");
 
   state.fields.forEach((f, i) => {
     if (f.page !== state.cur) return;
-    const px = (f.x * state.zoom) / s;
-    const py = (f.y * state.zoom) / s;
+    const px = pdfPtToCss(f.x);
+    const py = pdfPtToCss(f.y);
     const m = document.createElement("div");
     m.className = "marker" + (i === state.selIdx ? " sel" : "");
     m.style.left = `${px}px`;
@@ -87,12 +109,15 @@ export function renderMarkers(
     };
     w.appendChild(m);
     if (f.value) {
+      const em = pdfPtToCss(f.size);
       const v = document.createElement("div");
       v.className = "mvalue";
       v.textContent = f.value;
       v.style.left = `${px}px`;
-      v.style.top = `${py}px`;
-      v.style.fontSize = `${(f.size * state.zoom) / s}px`;
+      // ตรงกับ insert_thai_text: top = y - ascender * fontsize
+      v.style.top = `${py - state.fontAsc * em}px`;
+      v.style.fontSize = `${em}px`;
+      v.style.lineHeight = String(state.fontAsc - state.fontDesc);
       w.appendChild(v);
     } else {
       const l = document.createElement("div");
