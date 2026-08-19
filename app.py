@@ -66,11 +66,24 @@ from license_core import (
     license_status,
 )
 from history_core import (
+    HISTORY_LIMIT,
     archive_filled_beside,
     is_out_doc,
     list_history,
     out_filename_from_doc,
     unique_output_name,
+)
+from job_core import (
+    JobError,
+    extract_job_pdf,
+    is_job_doc,
+    job_filename_from_doc,
+    layout_fields,
+    list_jobs,
+    make_job_doc,
+    read_job,
+    save_job,
+    unique_job_name,
 )
 from profiles_core import (
     ProfilesUnreadable,
@@ -280,6 +293,7 @@ def user_paths(username: str) -> dict:
         "uploads": root / "uploads",
         "templates": root / "templates_json",
         "output": root / "output",
+        "jobs": root / "jobs",
     }
     for p in paths.values():
         p.mkdir(parents=True, exist_ok=True)
@@ -851,7 +865,35 @@ def upload():
     return jsonify({"ok": True, "name": name})
 
 
+def _job_file(username: str, doc: str) -> Path:
+    try:
+        name = job_filename_from_doc(doc)
+    except JobError as e:
+        raise ValueError(str(e)) from e
+    path = user_paths(username)["jobs"] / name
+    if not path.is_file() or path.stat().st_size == 0:
+        raise FileNotFoundError(t("api.jobMissing"))
+    return path
+
+
+def _license_name_for_source(source_doc: str, fallback: str) -> str:
+    src = (source_doc or "").strip()
+    if not src or is_job_doc(src) or is_out_doc(src):
+        return fallback
+    if is_lib_doc(src):
+        try:
+            return Path(lib_rel_from_doc(src)).name
+        except ValueError:
+            return fallback
+    return Path(src).name
+
+
 def _pdf_path(username: str, doc: str) -> Path:
+    if is_job_doc(doc):
+        try:
+            return extract_job_pdf(_job_file(username, doc))
+        except JobError as e:
+            raise FileNotFoundError(str(e)) from e
     if is_out_doc(doc):
         return user_paths(username)["output"] / out_filename_from_doc(doc)
     if is_lib_doc(doc):
@@ -861,6 +903,17 @@ def _pdf_path(username: str, doc: str) -> Path:
         return resolve_under_root(root, lib_rel_from_doc(doc))
     name = safe_name(doc[:-4] if doc.lower().endswith(".pdf") else doc) + ".pdf"
     return user_paths(username)["uploads"] / name
+
+
+def _resolve_open_pdf(username: str, doc: str) -> tuple[Path, str]:
+    """PDF ที่เปิดได้ + ชื่อไฟล์สำหรับเช็คไลเซนต์ (งาน .fromdd ใช้ต้นฉบับที่แพ็กไว้)"""
+    path = _pdf_path(username, doc)
+    if is_job_doc(doc):
+        meta = read_job(_job_file(username, doc))
+        return path, _license_name_for_source(str(meta.get("source_doc") or ""), path.name)
+    if is_lib_doc(doc):
+        return path, path.name
+    return path, Path(str(doc or path.name)).name
 
 
 def _require_library_root() -> Path:
@@ -875,12 +928,11 @@ def _require_library_root() -> Path:
 def pageinfo(doc):
     # doc อาจเป็น @lib/... (frontend ส่งแบบ encodeURIComponent ทั้งก้อน)
     try:
-        path = _pdf_path(current_user(), doc)
-    except (ValueError, FileNotFoundError) as e:
+        path, lic_doc = _resolve_open_pdf(current_user(), doc)
+    except (ValueError, FileNotFoundError, JobError) as e:
         return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
-    lic_doc = path.name if is_lib_doc(doc) else doc
     ok, lic_err = can_open_document(DATA_DIR, lic_doc, path)
     if not ok:
         return _license_required_response(lic_err)
@@ -915,12 +967,11 @@ def fill_font_file():
 @login_required
 def page_png(doc, pno):
     try:
-        path = _pdf_path(current_user(), doc)
-    except (ValueError, FileNotFoundError) as e:
+        path, lic_doc = _resolve_open_pdf(current_user(), doc)
+    except (ValueError, FileNotFoundError, JobError) as e:
         return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
-    lic_doc = path.name if is_lib_doc(doc) else doc
     ok, lic_err = can_open_document(DATA_DIR, lic_doc, path)
     if not ok:
         return _license_required_response(lic_err)
@@ -946,8 +997,15 @@ def get_template(name):
 @login_required
 def save_template(name):
     data = request.get_json(force=True, silent=True) or {}
-    # ถ้ากำลังแก้เอกสารในคลัง — บันทึกเป็นชื่อ.tpl.json คู่กับ PDF
     doc = data.get("doc") or ""
+    if is_job_doc(doc) or is_out_doc(doc):
+        return jsonify({"error": t("api.tplFromJob")}), 400
+    try:
+        data = dict(data)
+        data["fields"] = layout_fields(data.get("fields") or [])
+    except JobError as e:
+        return jsonify({"error": str(e)}), 400
+    # ถ้ากำลังแก้เอกสารในคลัง — บันทึกเป็นชื่อ.tpl.json คู่กับ PDF
     if is_lib_doc(doc):
         if not _paid_license():
             return _license_required_response(t("api.libraryNeedsLicense"))
@@ -1347,6 +1405,100 @@ def library_get_template():
     return jsonify(data)
 
 
+def _job_payload_response(path: Path) -> dict:
+    meta = read_job(path)
+    return {
+        "ok": True,
+        "file": path.name,
+        "doc_id": make_job_doc(path.name),
+        "title": meta.get("title") or path.stem,
+        "source_doc": meta.get("source_doc") or "",
+        "template_name": meta.get("template_name") or "",
+        "fields": meta.get("fields") or [],
+        "updated_at": meta.get("updated_at"),
+    }
+
+
+@app.post("/api/jobs")
+@login_required
+def jobs_save():
+    data = request.get_json(force=True, silent=True) or {}
+    raw_job = str(data.get("job") or "").strip()
+    source_doc = str(data.get("source_doc") or "").strip()
+    title = str(data.get("title") or "").strip()
+    template_name = str(data.get("template_name") or "").strip()
+    user = current_user()
+    paths = user_paths(user)
+    jobs_dir = paths["jobs"]
+
+    try:
+        if raw_job:
+            path = jobs_dir / job_filename_from_doc(raw_job)
+            if not path.is_file() or path.stat().st_size == 0:
+                return jsonify({"error": t("api.jobMissing")}), 404
+            save_job(path, {
+                "title": title,
+                "source_doc": source_doc,
+                "template_name": template_name,
+                "fields": data.get("fields") or [],
+            })
+            log.info("job updated name=%s fields=%s", path.name, len(data.get("fields") or []))
+            return jsonify(_job_payload_response(path))
+
+        if not source_doc or is_job_doc(source_doc) or is_out_doc(source_doc):
+            return jsonify({"error": t("api.jobNeedSource")}), 400
+        try:
+            src, lic_doc = _resolve_open_pdf(user, source_doc)
+        except (ValueError, FileNotFoundError, JobError) as e:
+            return jsonify({"error": str(e)}), 404
+        if not src.is_file():
+            return jsonify({"error": t("api.pdfMissing")}), 404
+        ok, lic_err = can_open_document(DATA_DIR, lic_doc, src)
+        if not ok:
+            return _license_required_response(lic_err)
+        pdf_bytes = src.read_bytes()
+        name = unique_job_name(jobs_dir, title or src.stem)
+        path = jobs_dir / name
+        try:
+            save_job(
+                path,
+                {
+                    "title": title or src.stem,
+                    "source_doc": source_doc,
+                    "template_name": template_name,
+                    "fields": data.get("fields") or [],
+                },
+                pdf_bytes=pdf_bytes,
+            )
+        except Exception:
+            # unique_job_name จองชื่อไว้แล้ว — อย่าทิ้งไฟล์ 0 ไบต์ค้างไว้
+            try:
+                if path.is_file() and path.stat().st_size == 0:
+                    path.unlink()
+            except OSError:
+                pass
+            raise
+        log.info("job created name=%s fields=%s", path.name, len(data.get("fields") or []))
+        return jsonify(_job_payload_response(path))
+    except JobError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.get("/api/jobs/<name>")
+@login_required
+def jobs_get(name):
+    try:
+        path = user_paths(current_user())["jobs"] / job_filename_from_doc(name)
+    except JobError as e:
+        return jsonify({"error": str(e)}), 400
+    if not path.is_file():
+        return jsonify({"error": t("api.jobMissing")}), 404
+    try:
+        return jsonify(_job_payload_response(path))
+    except JobError as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @app.post("/api/fill")
 @login_required
 def fill():
@@ -1361,13 +1513,11 @@ def fill():
     if is_out_doc(doc_name):
         return jsonify({"error": t("api.fillFromHistory")}), 400
     try:
-        src = _pdf_path(current_user(), doc_name)
-    except (ValueError, FileNotFoundError) as e:
+        src, lic_doc = _resolve_open_pdf(current_user(), doc_name)
+    except (ValueError, FileNotFoundError, JobError) as e:
         return jsonify({"error": str(e)}), 404
     if not src.exists():
         return jsonify({"error": t("api.pdfMissing")}), 404
-    # ตรวจไลเซนต์ด้วยชื่อไฟล์จริง (ไม่ใช้ @lib/... ทั้งก้อน)
-    lic_doc = src.name if is_lib_doc(doc_name) else doc_name
     ok, lic_err = can_fill_document(DATA_DIR, lic_doc, src)
     if not ok:
         log.warning("fill blocked by license doc=%s", src.name)
@@ -1375,6 +1525,12 @@ def fill():
 
     paths = user_paths(current_user())
     out_base = data.get("outname") or src.stem
+    if is_job_doc(doc_name):
+        try:
+            meta = read_job(_job_file(current_user(), doc_name))
+            out_base = data.get("outname") or meta.get("title") or src.stem
+        except (JobError, FileNotFoundError, ValueError):
+            pass
     out_path: Optional[Path] = None
     out_name = ""
 
@@ -1442,9 +1598,19 @@ def download(name):
 @login_required
 def history_list():
     q = request.args.get("q") or ""
-    payload = list_history(user_paths(current_user())["output"], q)
-    payload["open_folder_enabled"] = _open_folder_allowed()
-    return jsonify(payload)
+    paths = user_paths(current_user())
+    pdfs = list_history(paths["output"], q)
+    jobs = list_jobs(paths["jobs"], q)
+    files = list(jobs) + list(pdfs.get("files") or [])
+    files.sort(key=lambda d: (-int(d.get("mtime") or 0), str(d.get("name") or "")))
+    truncated = bool(pdfs.get("truncated")) or len(files) > HISTORY_LIMIT
+    files = files[:HISTORY_LIMIT]
+    return jsonify({
+        "count": len(files),
+        "truncated": truncated,
+        "files": files,
+        "open_folder_enabled": _open_folder_allowed(),
+    })
 
 
 @app.post("/api/history/open")
@@ -1454,9 +1620,20 @@ def history_open():
         return jsonify({"error": t("api.openFolderLocalOnly")}), 403
     data = request.get_json(force=True, silent=True) or {}
     name = (data.get("name") or "").strip()
-    output = user_paths(current_user())["output"]
+    kind = (data.get("kind") or "").strip().lower()
+    paths = user_paths(current_user())
+    jobs_dir = paths["jobs"]
+    output = paths["output"]
     if not name:
-        target = output
+        target = jobs_dir
+    elif kind == "job" or is_job_doc(name) or name.lower().endswith(".fromdd"):
+        try:
+            fname = job_filename_from_doc(name)
+        except JobError as e:
+            return jsonify({"error": str(e)}), 400
+        target = jobs_dir / fname
+        if not target.is_file():
+            return jsonify({"error": t("api.jobMissing")}), 404
     else:
         try:
             fname = out_filename_from_doc(name) if is_out_doc(name) else (
@@ -1492,6 +1669,7 @@ def open_folder():
     mapping = {
         "data": DATA_DIR,
         "output": paths["output"],
+        "jobs": paths["jobs"],
         "logs": LOG_DIR,
         "uploads": paths["uploads"],
     }

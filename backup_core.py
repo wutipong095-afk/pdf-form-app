@@ -88,7 +88,7 @@ def create_backup_zip(
         data_dir=data_dir,
         library_root=lib_root,
     )
-    counts = {"uploads": 0, "templates": 0, "output": 0, "library": 0, "profiles": 0}
+    counts = {"uploads": 0, "templates": 0, "output": 0, "jobs": 0, "library": 0, "profiles": 0}
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         counts["uploads"] = _add_tree(zf, user_root / "uploads", "user/uploads")
@@ -96,6 +96,11 @@ def create_backup_zip(
             zf, user_root / "templates_json", "user/templates_json"
         )
         counts["output"] = _add_tree(zf, user_root / "output", "user/output")
+        jobs_dir = user_root / "jobs"
+        if jobs_dir.is_dir():
+            for path in jobs_dir.glob("*.fromdd"):
+                zf.write(path, arcname=f"user/jobs/{path.name}")
+                counts["jobs"] += 1
         seeded = user_root / "seeded.json"
         if seeded.is_file():
             zf.write(seeded, arcname="user/seeded.json")
@@ -162,6 +167,7 @@ def _validated_members(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
             or (len(parts) == 3 and parts[0] == "user" and parts[1] == "uploads" and name.lower().endswith(".pdf"))
             or (len(parts) == 3 and parts[0] == "user" and parts[1] == "templates_json" and name.lower().endswith(".json"))
             or (len(parts) == 3 and parts[0] == "user" and parts[1] == "output" and name.lower().endswith(".pdf"))
+            or (len(parts) == 3 and parts[0] == "user" and parts[1] == "jobs" and name.lower().endswith(".fromdd"))
         )
         if not allowed:
             raise ValueError(f"Backup path is not allowed: {name}")
@@ -191,7 +197,7 @@ def restore_backup(
     """กู้ ZIP ลง user_root + library.json — ไม่แตะ machine_id/license
 
     mode=merge: ไม่ทับไฟล์ที่มีอยู่แล้ว
-    mode=replace: ล้าง uploads/templates_json/output + seeded.json/profiles.json แล้วแตกทับ
+    mode=replace: ล้าง uploads/templates_json/output/jobs + seeded.json/profiles.json แล้วแตกทับ
 
     แตก library.json ก่อนเสมอ แล้วค่อย .pdfmarker/* — กันลำดับใน ZIP ทำให้ข้ามดัชนีคลัง
     """
@@ -208,11 +214,12 @@ def restore_backup(
     uploads = user_root / "uploads"
     templates = user_root / "templates_json"
     output = user_root / "output"
-    for d in (uploads, templates, output):
+    jobs = user_root / "jobs"
+    for d in (uploads, templates, output, jobs):
         d.mkdir(parents=True, exist_ok=True)
 
     if mode == "replace":
-        for d in (uploads, templates, output):
+        for d in (uploads, templates, output, jobs):
             for p in d.rglob("*"):
                 if p.is_file():
                     p.unlink()

@@ -29,6 +29,7 @@ python app.py
 | สิ่งที่แอปจัดให้ | ตำแหน่ง (Windows) |
 |------------------|-------------------|
 | ข้อมูล / ไลเซนต์ | `%LOCALAPPDATA%\PDFFormMarker\data` |
+| ไฟล์งาน `.fromdd` | `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\jobs` |
 | Log | `%LOCALAPPDATA%\PDFFormMarker\logs` |
 | Bind | `127.0.0.1` เท่านั้น |
 

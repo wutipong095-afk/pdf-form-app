@@ -1,14 +1,16 @@
-/** Completed work — filled PDFs in the user output folder */
+/** Completed work — job files (.fromdd) and printed PDFs */
 import { $ } from "./dom";
 import { apiJson } from "./api";
-import { state } from "./state";
+import { isJobDoc, state } from "./state";
 import { loadDoc } from "./viewer";
 import { clearChat } from "./chat";
+import { openJob, clearActiveJob } from "./jobs";
 import { t } from "./i18n";
 import type { HistoryFile, HistoryStatus } from "./types";
 
 let historyOpen = false;
 let selectedName = "";
+let selectedKind: "job" | "pdf" | "" = "";
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function setHistoryOpen(open: boolean): void {
@@ -38,6 +40,11 @@ function formatWhen(mtime: number): string {
   return new Date(mtime * 1000).toLocaleString();
 }
 
+function fileKind(f: HistoryFile): "job" | "pdf" {
+  if (f.kind === "job" || isJobDoc(f.doc_id) || f.name.toLowerCase().endsWith(".fromdd")) return "job";
+  return "pdf";
+}
+
 function fillList(files: HistoryFile[]): void {
   const box = $("histlist");
   if (!files.length) {
@@ -61,14 +68,17 @@ function fillList(files: HistoryFile[]): void {
     h.textContent = `${group} (${items.length})`;
     frag.appendChild(h);
     for (const f of items) {
+      const kind = fileKind(f);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "pick-item" + (f.name === selectedName ? " sel" : "");
       btn.dataset.name = f.name;
       btn.dataset.docId = f.doc_id;
+      btn.dataset.kind = kind;
       const meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = formatWhen(f.mtime);
+      const label = kind === "job" ? t("hist.kindJob") : t("hist.kindPdf");
+      meta.textContent = `${label} · ${formatWhen(f.mtime)}`;
       btn.append(f.name, meta);
       frag.appendChild(btn);
     }
@@ -102,9 +112,16 @@ export async function refreshHistory(q?: string): Promise<void> {
 
 async function openHistoryDoc(
   docId: string,
+  name: string,
+  kind: "job" | "pdf",
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<void> {
+  if (kind === "job") {
+    await openJob(name, onMarkers, onRender);
+    return;
+  }
+  clearActiveJob();
   await loadDoc(docId, onMarkers);
   ($("docsel") as HTMLSelectElement).value = "";
   ($("tplsel") as HTMLSelectElement).value = "";
@@ -124,7 +141,7 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
       await apiJson("/api/history/open", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "" }),
+        body: JSON.stringify({ name: "", kind: "job" }),
       });
     } catch (e) {
       alert(e instanceof Error ? e.message : t("hist.openFail"));
@@ -140,7 +157,7 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
       await apiJson("/api/history/open", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: selectedName }),
+        body: JSON.stringify({ name: selectedName, kind: selectedKind || undefined }),
       });
     } catch (e) {
       alert(e instanceof Error ? e.message : t("hist.openFail"));
@@ -158,9 +175,10 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
     const btn = (e.target as HTMLElement).closest("button.pick-item") as HTMLButtonElement | null;
     if (!btn?.dataset.docId) return;
     selectedName = btn.dataset.name || "";
+    selectedKind = btn.dataset.kind === "job" ? "job" : "pdf";
     $("histlist").querySelectorAll(".pick-item").forEach((el) => el.classList.remove("sel"));
     btn.classList.add("sel");
-    void openHistoryDoc(btn.dataset.docId, onMarkers, onRender).catch((err) => {
+    void openHistoryDoc(btn.dataset.docId, selectedName, selectedKind, onMarkers, onRender).catch((err) => {
       btn.classList.remove("sel");
       if (selectedName === btn.dataset.name) selectedName = "";
       alert(err instanceof Error ? err.message : t("hist.loadFail"));

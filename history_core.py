@@ -93,6 +93,7 @@ def list_history(
                 continue
             stem = path.stem
             files.append({
+                "kind": "pdf",
                 "name": path.name,
                 "stem": stem,
                 "group": form_group(stem),
