@@ -1420,6 +1420,7 @@ def _sheet_response(path: Path, data: Optional[dict] = None) -> dict:
         "sheet": path.name,
         "doc_id": make_form_doc(data["form_sha"]),
         "title": data.get("title") or path.stem,
+        "title_auto": bool(data.get("title_auto", True)),
         "form_sha": data["form_sha"],
         "source_doc": data.get("source_doc") or "",
         "template_name": data.get("template_name") or "",
@@ -1481,7 +1482,7 @@ def sheets_save():
         path = sheets_dir / name
         try:
             body = save_sheet(path, {
-                "title": sheet_core.auto_title(title or base, fields, base),
+                "title_base": title or base,
                 "form_sha": sha,
                 "source_doc": source_doc,
                 "template_name": template_name,

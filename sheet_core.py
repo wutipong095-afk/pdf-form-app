@@ -68,17 +68,28 @@ def build_payload(
     source_doc: str,
     template_name: str,
     fields: Any,
+    title_base: str = "",
+    title_auto: bool = True,
     created_at: str = "",
     printed: Any = None,
 ) -> dict[str, Any]:
+    sha = form_store.validate_sha(form_sha)
+    rows = normalize_fields(fields)
+    base = (title_base or "").strip()[:MAX_TITLE_LEN] or (title or "").strip()[:MAX_TITLE_LEN] or "sheet"
+    # ชื่ออัตโนมัติคิดจาก base + ค่าแรกที่กรอกใหม่ทุกครั้ง ไม่ต่อทับของเดิมจนยาวขึ้นเรื่อย ๆ
+    resolved = auto_title(base, rows, base) if title_auto else (
+        (title or "").strip()[:MAX_TITLE_LEN] or base
+    )
     return {
         "version": SHEET_VERSION,
         "kind": SHEET_KIND,
-        "title": (title or "").strip()[:MAX_TITLE_LEN] or "sheet",
-        "form_sha": form_store.validate_sha(form_sha),
+        "title": resolved,
+        "title_base": base,
+        "title_auto": bool(title_auto),
+        "form_sha": sha,
         "source_doc": (source_doc or "").strip(),
         "template_name": (template_name or "").strip()[:MAX_TITLE_LEN],
-        "fields": normalize_fields(fields),
+        "fields": rows,
         "created_at": (created_at or "").strip() or datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "printed": [str(p)[:200] for p in (printed or [])][-20:],
@@ -99,6 +110,8 @@ def read_sheet(path: Path) -> dict[str, Any]:
         raise SheetError("not a FromDD sheet")
     data["fields"] = normalize_fields(data.get("fields") or [])
     data["title"] = str(data.get("title") or "").strip()[:MAX_TITLE_LEN] or "sheet"
+    data["title_base"] = str(data.get("title_base") or "").strip()[:MAX_TITLE_LEN]
+    data["title_auto"] = bool(data.get("title_auto", True))
     data["form_sha"] = form_store.validate_sha(data.get("form_sha"))
     data["source_doc"] = str(data.get("source_doc") or "").strip()
     data["template_name"] = str(data.get("template_name") or "").strip()[:MAX_TITLE_LEN]
@@ -128,11 +141,24 @@ def save_sheet(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     old: dict[str, Any] = {}
     if path.is_file() and path.stat().st_size > 0:
         old = read_sheet(path)
+    template_name = str(payload.get("template_name") or old.get("template_name") or "")
+    title = str(payload.get("title") or "")
+    # ตั้งชื่อเองอยู่หรือเปล่า — ส่ง title มาพร้อม rename ถึงจะนับว่าคนตั้งเอง
+    title_auto = bool(old.get("title_auto", True))
+    if payload.get("rename") and title:
+        title_auto = False
+    else:
+        # ออโต้เซฟส่งชื่อเทมเพลตมาด้วยทุกครั้ง — ห้ามให้มันกลายเป็นชื่อใบ
+        title = str(old.get("title") or "")
     body = build_payload(
-        title=str(payload.get("title") or old.get("title") or ""),
+        title=title,
+        title_base=str(
+            payload.get("title_base") or old.get("title_base") or template_name or title or ""
+        ),
+        title_auto=title_auto,
         form_sha=str(payload.get("form_sha") or old.get("form_sha") or ""),
         source_doc=str(payload.get("source_doc") or old.get("source_doc") or ""),
-        template_name=str(payload.get("template_name") or old.get("template_name") or ""),
+        template_name=template_name,
         fields=payload.get("fields") if payload.get("fields") is not None else old.get("fields"),
         created_at=str(old.get("created_at") or ""),
         printed=payload.get("printed") if payload.get("printed") is not None else old.get("printed"),

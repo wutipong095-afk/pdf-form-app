@@ -31,7 +31,7 @@ def test_round_trip_keeps_thai(tmp_path: Path):
         "template_name": "ใบเบิก", "fields": sample_fields(),
     })
     got = sheet_core.read_sheet(path)
-    assert got["title"] == "ใบเบิก"
+    assert got["title"].startswith("ใบเบิก")
     assert got["form_sha"] == SHA
     assert got["fields"][0]["value"] == "โรงเรียนวัดตัวอย่าง"
 
@@ -51,7 +51,7 @@ def test_sheet_is_small_next_to_a_pdf(tmp_path: Path):
 def test_update_keeps_fields_when_not_sent(tmp_path: Path):
     path = tmp_path / "b.json"
     sheet_core.save_sheet(path, {"title": "ก", "form_sha": SHA, "fields": sample_fields()})
-    sheet_core.save_sheet(path, {"title": "ข"})
+    sheet_core.save_sheet(path, {"title": "ข", "rename": True})
     got = sheet_core.read_sheet(path)
     assert got["title"] == "ข"
     assert got["form_sha"] == SHA
@@ -122,3 +122,39 @@ def test_list_and_referenced_shas(tmp_path: Path):
     assert one["doc_id"].startswith("@form.")
     assert sheet_core.referenced_shas(tmp_path) == {SHA, OTHER}
     assert {r["name"] for r in sheet_core.list_sheets(tmp_path, "ใบลา")} == {"two.json"}
+
+
+def test_auto_title_follows_the_values_not_the_template_box(tmp_path: Path):
+    """ไคลเอนต์ส่งชื่อเทมเพลตมาทุกครั้ง — ต้องไม่ทับชื่อใบที่คิดจากค่าที่กรอก"""
+    path = tmp_path / "auto.json"
+    sheet_core.save_sheet(path, {
+        "title_base": "ใบเบิก", "form_sha": SHA, "template_name": "ใบเบิก",
+        "fields": [{"name": "ผู้เบิก", "page": 0, "x": 1, "y": 2, "size": 14, "value": "สมชาย"}],
+    })
+    assert sheet_core.read_sheet(path)["title"] == "ใบเบิก — สมชาย"
+
+    # ออโต้เซฟรอบถัดไปส่ง title เป็นชื่อเทมเพลตมาด้วย
+    sheet_core.save_sheet(path, {
+        "title": "ใบเบิก", "template_name": "ใบเบิก",
+        "fields": [{"name": "ผู้เบิก", "page": 0, "x": 1, "y": 2, "size": 14, "value": "สมหญิง"}],
+    })
+    got = sheet_core.read_sheet(path)
+    assert got["title"] == "ใบเบิก — สมหญิง"
+    # ไม่ต่อทับกันจนยาวขึ้นเรื่อย ๆ
+    assert got["title"].count("—") == 1
+
+
+def test_rename_sticks_and_stops_auto_naming(tmp_path: Path):
+    path = tmp_path / "named.json"
+    sheet_core.save_sheet(path, {
+        "title_base": "ใบเบิก", "form_sha": SHA, "template_name": "ใบเบิก",
+        "fields": [{"name": "ก", "page": 0, "x": 1, "y": 2, "size": 14, "value": "สมชาย"}],
+    })
+    sheet_core.save_sheet(path, {"title": "งานด่วนของ ผอ.", "rename": True})
+    assert sheet_core.read_sheet(path)["title"] == "งานด่วนของ ผอ."
+
+    sheet_core.save_sheet(path, {
+        "title": "ใบเบิก", "template_name": "ใบเบิก",
+        "fields": [{"name": "ก", "page": 0, "x": 1, "y": 2, "size": 14, "value": "คนอื่น"}],
+    })
+    assert sheet_core.read_sheet(path)["title"] == "งานด่วนของ ผอ."

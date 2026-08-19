@@ -92,11 +92,15 @@ export async function saveSheetNow(): Promise<SheetPayload | null> {
   try {
     const body: Record<string, unknown> = {
       fields: state.fields,
-      title: titleFromUi() || "sheet",
       template_name: titleFromUi(),
     };
-    if (state.sheet) body.sheet = state.sheet;
-    else body.source_doc = source;
+    if (state.sheet) {
+      // ไม่ส่ง title ตอนอัปเดต — ชื่อใบตั้งจากค่าที่กรอก ฝั่งเซิร์ฟเวอร์คิดให้เอง
+      body.sheet = state.sheet;
+    } else {
+      body.source_doc = source;
+      body.title = titleFromUi() || "sheet";
+    }
     const r = await apiJson<SheetPayload>("/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -163,7 +167,36 @@ export async function duplicateSheet(
   return r;
 }
 
-export async function deleteSheet(name: string): Promise<void> {
+/**
+ * ลบใบงาน — ถ้าเป็นใบที่เปิดอยู่ ต้องพาจอกลับไปที่ฟอร์มต้นฉบับ
+ * เพราะ @form.{sha} บนจออาจถูกเก็บกวาดไปพร้อมใบสุดท้ายที่อ้างถึงมัน
+ */
+export async function deleteSheet(
+  name: string,
+  onMarkers?: () => void,
+  onRender?: () => void,
+): Promise<void> {
+  const wasOpen = state.sheet === name;
+  const source = state.sourceDoc;
   await apiJson("/api/sheets/" + encodeURIComponent(name), { method: "DELETE" });
-  if (state.sheet === name) clearActiveSheet();
+  if (!wasOpen) return;
+
+  startNewSheet();
+  if (source && onMarkers) {
+    try {
+      await loadDoc(source, onMarkers);
+      // เปิดต้นฉบับได้แล้ว — state.doc เป็นเอกสารจริง ไม่ใช่สแนปช็อตอีกต่อไป
+      state.sourceDoc = null;
+      onRender?.();
+      return;
+    } catch {
+      // ต้นฉบับถูกลบ ย้าย หรือไลเซนต์ไม่ผ่าน — ล้างจอดีกว่าปล่อยให้ค้างที่ไฟล์ที่หายไป
+    }
+  }
+  clearActiveSheet();
+  state.fields = [];
+  state.selIdx = -1;
+  state.chatIdx = -1;
+  clearChat();
+  onRender?.();
 }

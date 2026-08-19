@@ -37,7 +37,7 @@ def import_fromdd(
     path = Path(sheets_dir) / name
     try:
         payload = sheet_core.save_sheet(path, {
-            "title": title,
+            "title_base": title,
             "form_sha": sha,
             "source_doc": meta.get("source_doc") or "",
             "template_name": meta.get("template_name") or "",

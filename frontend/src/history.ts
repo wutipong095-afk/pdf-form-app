@@ -180,7 +180,7 @@ async function runSheetAction(
     return;
   }
   if (!confirm(t("hist.deleteAsk", { name }))) return;
-  await deleteSheet(name);
+  await deleteSheet(name, onMarkers, onRender);
   if (selectedName === name) {
     selectedName = "";
     selectedKind = "";

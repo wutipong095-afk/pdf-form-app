@@ -44,7 +44,7 @@ def test_import_creates_sheet_and_snapshot(dirs, tmp_path: Path):
     _, sheets, forms = dirs
     src = write_fromdd(tmp_path / ("x" + job_core.JOB_EXT))
     body = fromdd_io.import_fromdd(sheets, forms, src)
-    assert body["title"] == "ใบลา"
+    assert body["title"].startswith("ใบลา")
     assert body["fields"][0]["value"] == "โรงเรียนวัดตัวอย่าง"
     assert form_store.pdf_path(forms, body["form_sha"]).is_file()
     assert (sheets / body["name"]).is_file()
@@ -58,7 +58,7 @@ def test_export_round_trips_back(dirs, tmp_path: Path):
 
     out = fromdd_io.export_fromdd(tmp_path / ("out" + job_core.JOB_EXT), forms, sheet)
     again = job_core.read_job(out)
-    assert again["title"] == "ใบลา"
+    assert again["title"].startswith("ใบลา")
     assert again["source_doc"] == "demo-leave.pdf"
     assert again["fields"][0]["value"] == "โรงเรียนวัดตัวอย่าง"
     assert job_core.read_job_pdf_bytes(out).startswith(b"%PDF-")

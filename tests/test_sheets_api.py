@@ -324,3 +324,39 @@ def test_legacy_fromdd_files_are_migrated_on_first_use(client, tmp_path):
     moved = next(f for f in rows if "ใบลาเก่า" in (f.get("title") or ""))
     got = client.get("/api/sheets/" + moved["sheet"]).get_json()
     assert got["fields"][0]["value"] == "ของเดิม"
+
+
+def test_autosave_does_not_overwrite_the_auto_title(client):
+    """ช่อง #tplname คือชื่อเทมเพลต ไม่ใช่ชื่อใบ — ออโต้เซฟต้องไม่เอาไปทับ"""
+    created = create_sheet(client).get_json()
+    assert created["title"] == "ใบลา — โรงเรียนวัดตัวอย่าง"
+
+    # เลียนแบบสิ่งที่ไคลเอนต์ส่งตอนพิมพ์ต่อ
+    body = client.post("/api/sheets", headers=hdr(client), json={
+        "sheet": created["sheet"],
+        "title": "demo-ใบลา",
+        "template_name": "demo-ใบลา",
+        "fields": fields("โรงเรียนบ้านหนองแวง"),
+    }).get_json()
+    assert body["title"] == "ใบลา — โรงเรียนบ้านหนองแวง"
+
+    st = client.get("/api/history").get_json()
+    row = next(f for f in st["files"] if f.get("sheet") == created["sheet"])
+    assert "โรงเรียนบ้านหนองแวง" in row["title"]
+    # ค้นด้วยชื่อหน่วยงานต้องเจอใบนั้น
+    found = client.get("/api/history?q=" + "หนองแวง").get_json()
+    assert any(f.get("sheet") == created["sheet"] for f in found["files"])
+
+
+def test_deleting_the_open_sheet_frees_the_snapshot_it_was_showing(client):
+    """ฝั่ง UI ต้องพาจอกลับไปที่ต้นฉบับ เพราะ @form.{sha} ตายไปพร้อมใบสุดท้าย"""
+    created = create_sheet(client).get_json()
+    assert client.get("/api/pageinfo/" + created["doc_id"]).status_code == 200
+
+    client.delete("/api/sheets/" + created["sheet"], headers=hdr(client))
+    assert client.get("/api/pageinfo/" + created["doc_id"]).status_code == 404
+    # ต้นฉบับยังอยู่ — เปิดต่อได้ ใบใหม่จึงสร้างได้
+    assert client.get("/api/pageinfo/demo-leave.pdf").status_code == 200
+    assert client.post("/api/sheets", headers=hdr(client), json={
+        "source_doc": "demo-leave.pdf", "title": "ใบลา", "fields": fields(),
+    }).status_code == 200
