@@ -14,6 +14,9 @@ export type SheetPayload = {
   title?: string;
   form_sha?: string;
   source_doc?: string;
+  source_name?: string;
+  source_present?: boolean;
+  source_changed?: boolean;
   template_name?: string;
   fields?: Field[];
   printed?: string[];
@@ -171,6 +174,22 @@ export async function duplicateSheet(
  * ลบใบงาน — ถ้าเป็นใบที่เปิดอยู่ ต้องพาจอกลับไปที่ฟอร์มต้นฉบับ
  * เพราะ @form.{sha} บนจออาจถูกเก็บกวาดไปพร้อมใบสุดท้ายที่อ้างถึงมัน
  */
+/** ย้ายใบงานไปใช้ฟอร์มต้นฉบับเวอร์ชันปัจจุบัน แล้วโหลดสแนปช็อตใหม่ขึ้นจอ */
+export async function relinkSheet(
+  name: string,
+  onMarkers: () => void,
+  onRender: () => void,
+): Promise<SheetPayload> {
+  const r = await apiJson<SheetPayload>(
+    "/api/sheets/" + encodeURIComponent(name) + "/relink",
+    { method: "POST" },
+  );
+  clearActiveSheet();
+  await loadDoc(r.doc_id, onMarkers);
+  applySheet(r, onRender);
+  return r;
+}
+
 export async function deleteSheet(
   name: string,
   onMarkers?: () => void,

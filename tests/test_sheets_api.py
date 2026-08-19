@@ -368,3 +368,143 @@ def test_deleting_the_open_sheet_frees_the_snapshot_it_was_showing(client):
     assert client.post("/api/sheets", headers=hdr(client), json={
         "source_doc": "demo-leave.pdf", "title": "ใบลา", "fields": fields(),
     }).status_code == 200
+
+
+def make_pdf(pages: int = 1) -> bytes:
+    import fitz
+
+    doc = fitz.open()
+    for _ in range(pages):
+        doc.new_page()
+    raw = doc.tobytes()
+    doc.close()
+    return raw
+
+
+@pytest.fixture()
+def licensed(monkeypatch):
+    """แพ็กทดลองถูกล็อกด้วยเนื้อไฟล์ — เคสฟอร์มเปลี่ยนเวอร์ชันต้องทดสอบกับเอกสารจริง"""
+    monkeypatch.setenv("LICENSE_BYPASS", "1")
+
+
+def upload(client, name: str, pages: int = 1) -> str:
+    r = client.post(
+        "/api/upload",
+        headers={"X-CSRF-Token": client._tok},
+        data={"file": (io.BytesIO(make_pdf(pages)), name)},
+        content_type="multipart/form-data",
+    )
+    assert r.status_code == 200, r.get_json()
+    return r.get_json()["name"]
+
+
+def sheet_from(client, doc: str, value: str = "โรงเรียนวัดตัวอย่าง") -> dict:
+    r = client.post("/api/sheets", headers=hdr(client), json={
+        "source_doc": doc, "title": "ใบเบิก", "template_name": "ใบเบิก", "fields": fields(value),
+    })
+    assert r.status_code == 200, r.get_json()
+    return r.get_json()
+
+
+def replace_upload(client, name: str, pages: int = 3) -> None:
+    """อัปโหลดฟอร์มชื่อเดิมทับด้วยไฟล์คนละตัว — สิ่งที่เกิดจริงตอนฟอร์มออกเวอร์ชันใหม่"""
+    upload(client, name, pages=pages)
+
+
+def test_sheet_reports_which_form_it_came_from(client):
+    created = create_sheet(client).get_json()
+    assert created["source_name"] == "demo-leave.pdf"
+    assert created["source_present"] is True
+    assert created["source_changed"] is False
+
+    row = next(
+        f for f in client.get("/api/history").get_json()["files"]
+        if f.get("sheet") == created["sheet"]
+    )
+    assert row["source_name"] == "demo-leave.pdf"
+    assert row["source_changed"] is False
+
+
+def test_replacing_the_form_does_not_change_old_sheets(client, licensed):
+    """แกนของการตัดสินใจ: อัปโหลดทับแล้วงานเก่าต้องยังพิมพ์ออกมาเหมือนเดิม"""
+    doc = upload(client, "ใบเบิก.pdf", pages=1)
+    created = sheet_from(client, doc)
+    assert client.get("/api/pageinfo/" + created["doc_id"]).get_json()["pages"] == 1
+
+    replace_upload(client, "ใบเบิก.pdf", pages=3)
+
+    after = client.get("/api/pageinfo/" + created["doc_id"]).get_json()
+    assert after["pages"] == 1, "ใบงานเก่าต้องยังอยู่กับฟอร์มเดิม"
+    assert client.post("/api/fill", headers=hdr(client), json={
+        "doc": created["doc_id"], "sheet": created["sheet"], "fields": fields(),
+    }).status_code == 200
+
+    got = client.get("/api/sheets/" + created["sheet"]).get_json()
+    assert got["source_changed"] is True, "แต่ต้องบอกผู้ใช้ว่าฟอร์มต้นฉบับเปลี่ยนแล้ว"
+    assert got["form_sha"] == created["form_sha"]
+
+
+def test_relink_moves_the_sheet_onto_the_new_form(client, licensed):
+    doc = upload(client, "ใบเบิก.pdf", pages=1)
+    created = sheet_from(client, doc)
+    replace_upload(client, "ใบเบิก.pdf", pages=3)
+
+    body = client.post(
+        "/api/sheets/" + created["sheet"] + "/relink", headers=hdr(client)
+    ).get_json()
+    assert body["form_sha"] != created["form_sha"]
+    assert body["source_changed"] is False
+    assert body["fields"][0]["value"] == "โรงเรียนวัดตัวอย่าง", "ค่าที่กรอกต้องอยู่ครบ"
+    assert client.get("/api/pageinfo/" + body["doc_id"]).get_json()["pages"] == 3
+    # สแนปช็อตเก่าที่ไม่มีใครอ้างแล้วต้องถูกเก็บกวาด
+    assert len(list(forms_dir(client).glob("*.pdf"))) == 1
+
+
+def test_relink_keeps_the_old_snapshot_for_other_sheets(client, licensed):
+    doc = upload(client, "ใบเบิก.pdf", pages=1)
+    a = sheet_from(client, doc)
+    b = sheet_from(client, doc)
+    replace_upload(client, "ใบเบิก.pdf", pages=3)
+
+    client.post("/api/sheets/" + a["sheet"] + "/relink", headers=hdr(client))
+    still = client.get("/api/sheets/" + b["sheet"]).get_json()
+    assert still["form_sha"] == a["form_sha"]
+    assert client.get("/api/pageinfo/" + still["doc_id"]).status_code == 200
+    assert len(list(forms_dir(client).glob("*.pdf"))) == 2
+
+
+def test_relink_is_a_no_op_when_the_form_is_unchanged(client, licensed):
+    doc = upload(client, "ใบเบิก.pdf", pages=1)
+    created = sheet_from(client, doc)
+    body = client.post(
+        "/api/sheets/" + created["sheet"] + "/relink", headers=hdr(client)
+    ).get_json()
+    assert body["form_sha"] == created["form_sha"]
+    assert len(list(forms_dir(client).glob("*.pdf"))) == 1
+
+
+def test_relink_refuses_a_tampered_trial_form(client):
+    """แพ็กทดลองล็อกด้วยเนื้อไฟล์ — เอาไฟล์อื่นมาสวมชื่อแล้วย้ายใบงานไปใช้ไม่ได้"""
+    created = create_sheet(client).get_json()
+    A._pdf_path("local", "demo-leave.pdf").write_bytes(make_pdf(3))
+    r = client.post("/api/sheets/" + created["sheet"] + "/relink", headers=hdr(client))
+    assert r.status_code == 402
+    assert client.get("/api/sheets/" + created["sheet"]).get_json()["form_sha"] == created["form_sha"]
+
+
+def test_missing_source_is_reported_not_fatal(client):
+    created = create_sheet(client).get_json()
+    A._pdf_path("local", "demo-leave.pdf").unlink()
+
+    got = client.get("/api/sheets/" + created["sheet"]).get_json()
+    assert got["source_present"] is False
+    assert got["source_changed"] is False
+    # ใบงานยังเปิดและพิมพ์ได้ เพราะสแนปช็อตยังอยู่
+    assert client.get("/api/pageinfo/" + created["doc_id"]).status_code == 200
+    assert client.post("/api/sheets/" + created["sheet"] + "/relink",
+                       headers=hdr(client)).status_code == 404
+
+
+def test_relink_needs_csrf(client):
+    created = create_sheet(client).get_json()
+    assert client.post("/api/sheets/" + created["sheet"] + "/relink").status_code == 403

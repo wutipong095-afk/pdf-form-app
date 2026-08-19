@@ -93,6 +93,37 @@ def store_pdf(
     return sha
 
 
+# hash ของไฟล์ต้นฉบับที่ยังอยู่ — แคชไว้เพราะลิสต์งานเก่าถามซ้ำทุกครั้งที่เปิดแถบ
+_LIVE_SHA: dict[tuple[str, int, int], str] = {}
+
+
+def sha_of_file(path: Path) -> Optional[str]:
+    """sha256 ของไฟล์ตอนนี้ — None ถ้าอ่านไม่ได้ (ถูกลบ ย้าย หรือไม่มีสิทธิ์)"""
+    path = Path(path)
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    key = (str(path), int(st.st_mtime_ns), int(st.st_size))
+    hit = _LIVE_SHA.get(key)
+    if hit:
+        return hit
+    if st.st_size > MAX_PDF_BYTES:
+        return None
+    h = hashlib.sha256()
+    try:
+        with path.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                h.update(chunk)
+    except OSError:
+        return None
+    if len(_LIVE_SHA) > 256:
+        _LIVE_SHA.clear()
+    sha = h.hexdigest()
+    _LIVE_SHA[key] = sha
+    return sha
+
+
 def read_meta(forms_dir: Path, sha: str) -> dict[str, Any]:
     path = meta_path(forms_dir, sha)
     try:

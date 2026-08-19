@@ -108,6 +108,9 @@ export type HistoryFile = {
   printed?: boolean;
   filled?: number;
   pins?: number;
+  source_name?: string;
+  source_present?: boolean;
+  source_changed?: boolean;
   name: string;
   stem: string;
   group: string;

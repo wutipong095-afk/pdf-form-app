@@ -135,7 +135,14 @@
     "delete": "Delete sheet",
     "export": "Export .fromdd",
     "printedTag": "Printed",
-    "draftTag": "Draft"
+    "draftTag": "Draft",
+    "fromForm": "from {name}",
+    "sourceGone": "Original form not found",
+    "formChanged": "Original form has changed",
+    "relink": "Move to the current version of the form",
+    "relinkAsk": "The original form “{name}” was replaced by a new upload.\n\nMove sheet “{sheet}” onto the new form?\nPins keep their positions — if the new form puts the blanks elsewhere you will need to move them yourself.",
+    "relinked": "Moved onto the current form",
+    "relinkFail": "Could not move onto the new form"
   },
   "markdlg": {
     "ok": "Add pin",

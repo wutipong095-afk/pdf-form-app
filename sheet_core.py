@@ -220,6 +220,8 @@ def list_sheets(
                 "size": st.st_size,
                 "doc_id": form_store.make_form_doc(data["form_sha"]),
                 "sheet": path.name,
+                "form_sha": data["form_sha"],
+                "source_doc": data.get("source_doc") or "",
                 "printed": bool(data.get("printed")),
                 "filled": sum(1 for f in data["fields"] if str(f.get("value") or "").strip()),
                 "pins": len(data["fields"]),

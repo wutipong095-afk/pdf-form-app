@@ -1413,6 +1413,33 @@ def _sheet_export_dir(paths: dict, max_age_s: float = 600.0) -> Path:
     return d
 
 
+def _source_label(source_doc: str) -> str:
+    """ชื่อฟอร์มต้นฉบับแบบที่คนอ่านรู้เรื่อง — @lib|a/b.pdf → b.pdf"""
+    return _license_name_for_source(source_doc, "")
+
+
+def _live_source_sha(username: str, source_doc: str) -> Optional[str]:
+    """sha ของฟอร์มต้นฉบับตอนนี้ — None ถ้าไฟล์หายไปหรือเปิดไม่ได้"""
+    src = (source_doc or "").strip()
+    if not src or is_form_doc(src) or is_out_doc(src):
+        return None
+    try:
+        return form_store.sha_of_file(_pdf_path(username, src))
+    except (ValueError, FileNotFoundError, OSError, FormDataError):
+        return None
+
+
+def _source_state(username: str, source_doc: str, form_sha: str) -> dict:
+    """บอกว่าฟอร์มต้นฉบับยังอยู่ไหม และถูกอัปโหลดทับด้วยเวอร์ชันใหม่หรือยัง"""
+    live = _live_source_sha(username, source_doc)
+    return {
+        "source_name": _source_label(source_doc),
+        "source_present": live is not None,
+        # ทับด้วยไฟล์คนละตัว — ไม่เปลี่ยนให้เอง ต้องให้ผู้ใช้สั่ง
+        "source_changed": bool(live and live != form_sha),
+    }
+
+
 def _sheet_response(path: Path, data: Optional[dict] = None) -> dict:
     data = data if data is not None else sheet_core.read_sheet(path)
     return {
@@ -1427,6 +1454,7 @@ def _sheet_response(path: Path, data: Optional[dict] = None) -> dict:
         "fields": data.get("fields") or [],
         "printed": data.get("printed") or [],
         "updated_at": data.get("updated_at"),
+        **_source_state(current_user(), str(data.get("source_doc") or ""), data["form_sha"]),
     }
 
 
@@ -1566,6 +1594,45 @@ def sheets_duplicate(name):
             pass
         raise
     log.info("sheet duplicated from=%s to=%s", path.name, new_name)
+    return jsonify(_sheet_response(path, body))
+
+
+@app.post("/api/sheets/<name>/relink")
+@login_required
+def sheets_relink(name):
+    """ย้ายใบนี้ไปใช้ฟอร์มต้นฉบับเวอร์ชันปัจจุบัน — ผู้ใช้สั่งเองเท่านั้น
+
+    หมุดยังอยู่พิกัดเดิม ถ้าฟอร์มใหม่วางช่องคนละที่ ผู้ใช้ต้องเลื่อนหมุดเอง
+    ดีกว่าเปลี่ยนให้เงียบ ๆ แล้วพิมพ์ออกมาผิดช่องโดยไม่รู้ตัว
+    """
+    user = current_user()
+    try:
+        path = _sheet_file(user, name)
+        data = sheet_core.read_sheet(path)
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
+        return jsonify({"error": str(e)}), 400
+
+    source_doc = str(data.get("source_doc") or "")
+    if not source_doc:
+        return jsonify({"error": t("api.sheetNeedSource")}), 400
+    try:
+        sha, _lic = _snapshot_for_source(user, source_doc)
+    except PermissionError as e:
+        return _license_required_response(str(e))
+    except (ValueError, FileNotFoundError) as e:
+        return jsonify({"error": str(e)}), 404
+
+    old_sha = data["form_sha"]
+    if sha == old_sha:
+        return jsonify(_sheet_response(path, data))
+    body = save_sheet(path, {"form_sha": sha})
+    freed = form_store.collect_garbage(
+        user_paths(user)["forms"], sheet_core.referenced_shas(user_paths(user)["sheets"])
+    )
+    log.info("sheet relinked name=%s %s -> %s freed=%s",
+             path.name, old_sha[:12], sha[:12], len(freed))
     return jsonify(_sheet_response(path, body))
 
 
@@ -1727,6 +1794,15 @@ def history_list():
     paths = user_paths(current_user())
     pdfs = list_history(paths["output"], q)
     sheets = list_sheets(paths["sheets"], q)
+    user = current_user()
+    live: dict[str, Optional[str]] = {}
+    for row in sheets:
+        src = str(row.get("source_doc") or "")
+        if src not in live:
+            live[src] = _live_source_sha(user, src)
+        row["source_name"] = _source_label(src)
+        row["source_present"] = live[src] is not None
+        row["source_changed"] = bool(live[src] and live[src] != row.get("form_sha"))
     files = list(sheets) + list(pdfs.get("files") or [])
     files.sort(key=lambda d: (-int(d.get("mtime") or 0), str(d.get("name") or "")))
     truncated = bool(pdfs.get("truncated")) or len(files) > HISTORY_LIMIT

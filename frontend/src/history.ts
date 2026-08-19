@@ -4,7 +4,7 @@ import { apiJson } from "./api";
 import { state } from "./state";
 import { loadDoc } from "./viewer";
 import { clearChat } from "./chat";
-import { clearActiveSheet, deleteSheet, duplicateSheet, openSheet } from "./sheets";
+import { clearActiveSheet, deleteSheet, duplicateSheet, openSheet, relinkSheet } from "./sheets";
 import { t } from "./i18n";
 import type { HistoryFile, HistoryStatus } from "./types";
 
@@ -12,6 +12,11 @@ let historyOpen = false;
 let selectedName = "";
 let selectedKind: "sheet" | "pdf" | "" = "";
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let lastRows: HistoryFile[] = [];
+
+function rowFor(name: string): HistoryFile | undefined {
+  return lastRows.find((f) => f.name === name);
+}
 
 export function setHistoryOpen(open: boolean): void {
   historyOpen = open;
@@ -50,25 +55,36 @@ function sheetMeta(f: HistoryFile): string {
     bits.push(`${f.filled}/${f.pins}`);
   }
   bits.push(f.printed ? t("hist.printedTag") : t("hist.draftTag"));
+  if (f.source_name) bits.push(t("hist.fromForm", { name: f.source_name }));
+  if (f.source_changed) bits.push("⚠ " + t("hist.formChanged"));
+  else if (f.source_present === false && f.source_name) bits.push(t("hist.sourceGone"));
   return bits.join(" · ");
 }
 
+const ACTION_GLYPH: Record<string, string> = {
+  del: "✕",
+  dup: "⧉",
+  export: "⤓",
+  relink: "⟳",
+};
+
 function actionButton(
-  act: "dup" | "export" | "del",
+  act: "dup" | "export" | "del" | "relink",
   label: string,
   name: string,
 ): HTMLButtonElement {
   const b = document.createElement("button");
   b.type = "button";
-  b.className = "del";
+  b.className = "del" + (act === "relink" ? " warn" : "");
   b.dataset.act = act;
   b.dataset.sheet = name;
   b.title = label;
-  b.textContent = act === "del" ? "✕" : act === "dup" ? "⧉" : "⤓";
+  b.textContent = ACTION_GLYPH[act];
   return b;
 }
 
 function fillList(files: HistoryFile[]): void {
+  lastRows = files;
   const box = $("histlist");
   if (!files.length) {
     const empty = document.createElement("div");
@@ -107,6 +123,7 @@ function fillList(files: HistoryFile[]): void {
       btn.append(kind === "sheet" ? f.title || f.name : f.name, meta);
       row.appendChild(btn);
       if (kind === "sheet") {
+        if (f.source_changed) row.appendChild(actionButton("relink", t("hist.relink"), f.name));
         row.appendChild(actionButton("dup", t("hist.duplicate"), f.name));
         row.appendChild(actionButton("export", t("hist.export"), f.name));
         row.appendChild(actionButton("del", t("hist.delete"), f.name));
@@ -179,6 +196,16 @@ async function runSheetAction(
     await refreshHistory();
     return;
   }
+  if (act === "relink") {
+    const row = rowFor(name);
+    if (!confirm(t("hist.relinkAsk", { name: row?.source_name || "", sheet: row?.title || name }))) {
+      return;
+    }
+    await relinkSheet(name, onMarkers, onRender);
+    setStatus(t("hist.relinked"));
+    await refreshHistory();
+    return;
+  }
   if (!confirm(t("hist.deleteAsk", { name }))) return;
   await deleteSheet(name, onMarkers, onRender);
   if (selectedName === name) {
@@ -232,9 +259,11 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
     const target = e.target as HTMLElement;
     const action = target.closest("button[data-act]") as HTMLButtonElement | null;
     if (action?.dataset.sheet) {
-      void runSheetAction(action.dataset.act || "", action.dataset.sheet, onMarkers, onRender).catch(
-        (err) => alert(err instanceof Error ? err.message : t("hist.deleteFail")),
-      );
+      const act = action.dataset.act || "";
+      void runSheetAction(act, action.dataset.sheet, onMarkers, onRender).catch((err) => {
+        const fallback = act === "relink" ? t("hist.relinkFail") : t("hist.deleteFail");
+        alert(err instanceof Error ? err.message : fallback);
+      });
       return;
     }
     const btn = target.closest("button.pick-item") as HTMLButtonElement | null;
