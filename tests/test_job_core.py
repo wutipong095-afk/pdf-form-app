@@ -192,3 +192,22 @@ def test_non_finite_and_out_of_range_geometry_rejected():
         normalize_fields([{"name": "a", "page": -1}])
     with pytest.raises(JobError, match="invalid field geometry"):
         normalize_fields([{"name": "a", "page": 10**20}])
+
+
+def test_corrupt_zip_is_job_error_not_raw_zip_error(tmp_path: Path):
+    path = tmp_path / ("broken" + JOB_EXT)
+    path.write_bytes(b"not a zip at all")
+    for call in (read_job, read_job_pdf_bytes, extract_job_pdf):
+        with pytest.raises(JobError):
+            call(path)
+    # อัปเดตงานจากไฟล์เสียก็ต้องเป็น JobError ไม่ใช่ BadZipFile หลุดขึ้นไป
+    with pytest.raises(JobError):
+        save_job(path, {"title": "ก", "fields": sample_fields()})
+
+
+def test_font_size_must_be_positive():
+    for bad in (0, -1, "0", 5000):
+        with pytest.raises(JobError, match="invalid field geometry"):
+            normalize_fields([{"name": "a", "page": 0, "x": 1, "y": 1, "size": bad}])
+    ok = normalize_fields([{"name": "a", "page": 0, "x": -50, "y": 1, "size": 8}])
+    assert ok[0]["size"] == 8 and ok[0]["x"] == -50

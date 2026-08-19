@@ -3,6 +3,7 @@ import { $ } from "./dom";
 import { apiJson } from "./api";
 import { isJobDoc, isOutDoc, state } from "./state";
 import { loadDoc } from "./viewer";
+import { clearChat } from "./chat";
 import { t } from "./i18n";
 import type { Field } from "./types";
 
@@ -21,6 +22,17 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let saving = false;
 let pending = false;
 let onSaved: (() => void) | null = null;
+/** เพิ่มทุกครั้งที่สลับใบ — คำตอบออโต้เซฟที่ออกก่อนหน้าถือว่าหมดอายุ */
+let epoch = 0;
+
+function newEpoch(): void {
+  epoch++;
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+  pending = false;
+}
 
 export function bindJobSaved(cb: () => void): void {
   onSaved = cb;
@@ -32,6 +44,7 @@ export function setJobStatus(msg: string): void {
 }
 
 export function clearActiveJob(): void {
+  newEpoch();
   state.job = null;
   state.sourceDoc = null;
   setJobStatus("");
@@ -39,6 +52,7 @@ export function clearActiveJob(): void {
 
 /** เริ่มใบใหม่จากฟอร์มเดิม — เก็บ sourceDoc ไว้ให้ออโต้เซฟสร้าง .fromdd ใหม่ */
 export function startNewSheet(): void {
+  newEpoch();
   state.job = null;
   setJobStatus("");
 }
@@ -72,6 +86,7 @@ export async function saveJobNow(): Promise<JobPayload | null> {
     return null;
   }
   saving = true;
+  const sent = epoch;
   try {
     const body: Record<string, unknown> = {
       fields: state.fields,
@@ -85,13 +100,15 @@ export async function saveJobNow(): Promise<JobPayload | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    // ผู้ใช้สลับใบระหว่างรอ — ไฟล์ฝั่งเซิร์ฟเวอร์ถูกต้องแล้ว แต่ห้ามผูกกลับมาที่ใบใหม่
+    if (sent !== epoch) return null;
     state.job = r.file;
     if (r.source_doc) state.sourceDoc = r.source_doc;
     setJobStatus(t("hist.saved", { file: r.file }));
     onSaved?.();
     return r;
   } catch {
-    setJobStatus(t("hist.saveFail"));
+    if (sent === epoch) setJobStatus(t("hist.saveFail"));
     return null;
   } finally {
     saving = false;
@@ -108,15 +125,19 @@ export async function openJob(
   onRender: () => void,
 ): Promise<void> {
   const r = await apiJson<JobPayload>("/api/jobs/" + encodeURIComponent(name));
+  // เปิดเอกสารให้ผ่านก่อน — ถ้าล้ม state.job ต้องไม่ค้างชี้ไฟล์ที่เปิดไม่ขึ้น
+  // ไม่งั้นค่าของใบที่ยังอยู่บนจอจะถูกออโต้เซฟทับลงไฟล์นั้น
+  clearActiveJob();
+  await loadDoc(r.doc_id, onMarkers);
   state.job = r.file;
   state.sourceDoc = r.source_doc || null;
   if (r.template_name) ($("tplname") as HTMLInputElement).value = r.template_name;
-  await loadDoc(r.doc_id, onMarkers);
   ($("docsel") as HTMLSelectElement).value = "";
   ($("tplsel") as HTMLSelectElement).value = "";
   state.fields = r.fields || [];
   state.selIdx = -1;
   state.chatIdx = -1;
+  clearChat();
   onRender();
   setJobStatus(t("hist.saved", { file: r.file }));
 }

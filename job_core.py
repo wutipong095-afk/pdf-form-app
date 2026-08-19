@@ -27,6 +27,8 @@ MAX_FIELDS = 500
 MAX_VALUE_LEN = 2000
 MAX_PAGE = 9999
 MAX_COORD = 1_000_000.0
+MIN_SIZE = 0.1
+MAX_SIZE = 1_000.0
 MAX_PDF_BYTES = 64 * 1024 * 1024
 MAX_JSON_BYTES = 1024 * 1024
 
@@ -89,7 +91,7 @@ def _field_int(val: Any, default: int, *, lo: int, hi: int) -> int:
     return n
 
 
-def _field_float(val: Any, default: float) -> float:
+def _field_float(val: Any, default: float, *, lo: float, hi: float) -> float:
     if val is None or val == "":
         val = default
     try:
@@ -97,7 +99,7 @@ def _field_float(val: Any, default: float) -> float:
     except (TypeError, ValueError, OverflowError) as e:
         raise JobError("invalid field geometry") from e
     # nan/inf เขียนเป็น JSON มาตรฐานไม่ได้ และทำให้ fill พังตอนวางข้อความ
-    if not math.isfinite(n) or abs(n) > MAX_COORD:
+    if not math.isfinite(n) or not lo <= n <= hi:
         raise JobError("invalid field geometry")
     return n
 
@@ -117,9 +119,9 @@ def normalize_fields(fields: Any) -> list[dict[str, Any]]:
         out.append({
             "name": name[:80],
             "page": _field_int(item.get("page"), 0, lo=0, hi=MAX_PAGE),
-            "x": _field_float(item.get("x"), 0),
-            "y": _field_float(item.get("y"), 0),
-            "size": _field_float(item.get("size"), 14),
+            "x": _field_float(item.get("x"), 0, lo=-MAX_COORD, hi=MAX_COORD),
+            "y": _field_float(item.get("y"), 0, lo=-MAX_COORD, hi=MAX_COORD),
+            "size": _field_float(item.get("size"), 14, lo=MIN_SIZE, hi=MAX_SIZE),
             "value": str(item.get("value") or "")[:MAX_VALUE_LEN],
         })
     return out
@@ -193,14 +195,19 @@ def read_job(path: Path) -> dict[str, Any]:
 
 def read_job_pdf_bytes(path: Path) -> bytes:
     path = Path(path)
-    with zipfile.ZipFile(path, "r") as zf:
-        names = _zip_names(zf)
-        if FORM_PDF not in names:
-            raise JobError("job file is incomplete")
-        info = zf.getinfo(FORM_PDF)
-        if info.file_size > MAX_PDF_BYTES:
-            raise JobError("packed PDF is too large")
-        data = zf.read(FORM_PDF)
+    try:
+        with zipfile.ZipFile(path, "r") as zf:
+            names = _zip_names(zf)
+            if FORM_PDF not in names:
+                raise JobError("job file is incomplete")
+            info = zf.getinfo(FORM_PDF)
+            if info.file_size > MAX_PDF_BYTES:
+                raise JobError("packed PDF is too large")
+            data = zf.read(FORM_PDF)
+    except JobError:
+        raise
+    except (OSError, KeyError, zipfile.BadZipFile) as e:
+        raise JobError("could not read job file") from e
     if not data.startswith(b"%PDF-"):
         raise JobError("packed file is not a PDF")
     return data

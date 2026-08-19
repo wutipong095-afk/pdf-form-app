@@ -161,3 +161,27 @@ def test_failed_create_leaves_no_empty_job_file(client, tmp_path, monkeypatch):
     assert r.status_code == 400
     # unique_job_name จองชื่อไว้ก่อนเขียน — ต้องไม่มีไฟล์ค้าง
     assert not list(tmp_path.rglob("*.fromdd"))
+
+
+def test_corrupt_job_file_is_400_not_500(client, tmp_path):
+    created = create_job(client).get_json()
+    path = next(tmp_path.rglob(created["file"]))
+    path.write_bytes(b"corrupted, not a zip")
+
+    r = client.get("/api/jobs/" + created["file"])
+    assert r.status_code == 400, r.get_json()
+
+    r = client.post("/api/jobs", headers=hdr(client), json={
+        "job": created["file"],
+        "fields": fields("ค่าใหม่"),
+    })
+    assert r.status_code == 400, r.get_json()
+
+    # เปิดหน้าเอกสาร / สร้าง PDF จากงานที่เสีย ต้องไม่ระเบิดเป็น 500
+    r = client.get("/api/pageinfo/" + created["doc_id"])
+    assert r.status_code == 404, r.get_json()
+
+    r = client.post("/api/fill", headers=hdr(client), json={
+        "doc": created["doc_id"], "fields": fields(), "outname": "x",
+    })
+    assert r.status_code in (400, 404), r.get_json()
