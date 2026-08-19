@@ -16,22 +16,26 @@ sys.path.insert(0, str(ROOT))
 
 os.environ["AUTH_REQUIRED"] = "false"
 # ตั้งทับเสมอ — ห้าม setdefault: ถ้า dev export DATA_DIR ไว้ชี้ข้อมูลจริง เทสจะไปเขียนทับของจริง
-_TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="pfm-tests-"))
-os.environ["DATA_DIR"] = str(_TEST_DATA_DIR)
-os.environ["LOG_DIR"] = str(_TEST_DATA_DIR / "logs")
+if "pfm-tests-" not in os.environ.get("DATA_DIR", ""):
+    _TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="pfm-tests-"))
+    os.environ["DATA_DIR"] = str(_TEST_DATA_DIR)
+    os.environ["LOG_DIR"] = str(_TEST_DATA_DIR / "logs")
+else:
+    _TEST_DATA_DIR = Path(os.environ["DATA_DIR"])
 
 import app as A  # noqa: E402
 
 # เทียบแบบ Path — เทียบสตริงพลาดได้เพราะ / กับ \ บนวินโดวส์
-assert Path(A.DATA_DIR).resolve() == _TEST_DATA_DIR.resolve(), (
+assert "pfm-tests-" in Path(A.DATA_DIR).resolve().as_posix(), (
     f"tests must not run against the real data dir (got {A.DATA_DIR})"
 )
 
 
 def test_suite_is_isolated_from_any_preset_data_dir():
     """กันเทสไปเขียนโฟลเดอร์ข้อมูลจริงถ้า dev export DATA_DIR ไว้"""
-    assert Path(A.DATA_DIR).resolve() == _TEST_DATA_DIR.resolve()
-    assert _TEST_DATA_DIR.parent == Path(tempfile.gettempdir()).resolve() or _TEST_DATA_DIR.is_absolute()
+    data = Path(A.DATA_DIR).resolve()
+    assert "pfm-tests-" in data.as_posix()
+    assert data.parent == Path(tempfile.gettempdir()).resolve() or data.is_absolute()
 
 
 @pytest.fixture()

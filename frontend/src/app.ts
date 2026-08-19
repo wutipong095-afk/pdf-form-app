@@ -3,7 +3,7 @@
  */
 import { $ } from "./dom";
 import { api } from "./api";
-import { isOutDoc, state } from "./state";
+import { isJobDoc, isOutDoc, state } from "./state";
 import { bindLicenseUi } from "./license";
 import { bindViewer, nudgeSelected, renderMarkers, showPage, ensureFillFont } from "./viewer";
 import { bindValues, renderList, renderValues } from "./fields";
@@ -13,6 +13,7 @@ import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import { bindHistory, notifyHistoryChanged } from "./history";
+import { bindJobSaved, saveJobNow, scheduleJobSave, startNewSheet } from "./jobs";
 import { bindBackupUi } from "./backup";
 import { askFieldName, bindProfiles } from "./profiles";
 import { bindLangToggle, t } from "./i18n";
@@ -25,6 +26,7 @@ function setTab(tab: "edit" | "fill"): void {
   $("panel-" + tab).classList.add("active");
   $("pagewrap").classList.toggle("marking", tab === "edit" && !isOutDoc(state.doc));
   paintMarkers();
+  if (tab === "fill") void saveJobNow();
 }
 
 function gotoField(i: number): void {
@@ -45,6 +47,7 @@ function delField(i: number): void {
   state.fields.splice(i, 1);
   state.selIdx = -1;
   renderAll();
+  if (state.job) scheduleJobSave();
 }
 
 function renameField(i: number): void {
@@ -52,6 +55,7 @@ function renameField(i: number): void {
   if (n) {
     state.fields[i].name = n.trim();
     renderAll();
+    if (state.job) scheduleJobSave();
   }
 }
 
@@ -64,6 +68,7 @@ function paintMarkers(): void {
     (i, value) => {
       state.fields[i].value = value;
       renderAll();
+      scheduleJobSave();
     },
   );
 }
@@ -94,19 +99,20 @@ function bindTemplateSave(): void {
       alert(t("app.fillFromHistory"));
       return;
     }
+    const tplDoc = state.sourceDoc || state.doc;
     const res = await api("/api/template/" + encodeURIComponent(name), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ doc: state.doc, fields: state.fields }),
+      body: JSON.stringify({ doc: tplDoc, fields: state.fields }),
     });
     const body = (await res.json().catch(() => ({}))) as { error?: string; library?: boolean };
     if (!res.ok) {
       alert(body.error || t("app.saveFail"));
       return;
     }
-    if (isLibDoc(state.doc)) {
+    if (isLibDoc(tplDoc)) {
       await refreshLibrary().catch(() => undefined);
-    } else {
+    } else if (!isJobDoc(state.doc)) {
       await refreshDocs(paintMarkers, renderAll);
       ($("tplsel") as HTMLSelectElement).value = name;
     }
@@ -117,6 +123,7 @@ function bindTemplateSave(): void {
 function bindClearAndFill(): void {
   $("clearvals").onclick = () => {
     if (!confirm(t("app.clearConfirm"))) return;
+    startNewSheet();
     state.fields.forEach((f) => {
       f.value = "";
     });
@@ -124,6 +131,7 @@ function bindClearAndFill(): void {
     $("chatlog").innerHTML = "";
     renderAll();
     startChat();
+    scheduleJobSave();
   };
 
   $("makepdf").onclick = async () => {
@@ -135,16 +143,20 @@ function bindClearAndFill(): void {
     const demoDocs = (state.lic?.demo_docs || [state.lic?.demo_doc || "demo-form.pdf"]).map((n) =>
       String(n).toLowerCase(),
     );
-    const docName = String(state.doc).toLowerCase();
-    if (state.lic && !state.lic.licensed && !demoDocs.includes(docName)) {
+    const fillKey = String(state.sourceDoc || state.doc).toLowerCase();
+    const docName = fillKey.split(/[/\\|]/).pop() || fillKey;
+    if (state.lic && !state.lic.licensed && !demoDocs.includes(docName) && !demoDocs.includes(fillKey)) {
       $("result").textContent = t("app.needLicense");
       return;
     }
+    await saveJobNow();
     const outname = (($("tplname") as HTMLInputElement).value || "filled").trim() || "filled";
+    // ใบใหม่หลังกดล้างค่ายังไม่ได้เปลี่ยน state.doc — สร้าง PDF จากใบที่กำลังแก้จริง
+    const fillDoc = state.job ? "@job." + state.job : state.doc;
     const res = await api("/api/fill", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ doc: state.doc, fields: state.fields, outname }),
+      body: JSON.stringify({ doc: fillDoc, fields: state.fields, outname }),
     });
     const r = (await res.json()) as FillResponse;
     if (r.error) {
@@ -181,6 +193,7 @@ function bindKeyboard(): void {
     } else return;
     e.preventDefault();
     paintMarkers();
+    if (state.job) scheduleJobSave();
   });
 }
 
@@ -192,6 +205,7 @@ function bindMarking(): void {
       state.fields[state.selIdx].page = state.cur;
       state.selIdx = -1;
       renderAll();
+      if (state.job) scheduleJobSave();
       return;
     }
     // Naming is async — the dialog offers field names already in the autofill book
@@ -201,6 +215,7 @@ function bindMarking(): void {
       if (!name) return;
       state.fields.push({ name: name.trim(), page, x, y, size, value: "" });
       renderAll();
+      if (state.job) scheduleJobSave();
     });
   });
 }
@@ -211,6 +226,7 @@ function bindMarking(): void {
  */
 function afterProfileApply(): void {
   renderAll();
+  scheduleJobSave();
   if (state.chatIdx < 0) return;
   const asking = state.fields[state.chatIdx];
   if (asking && (asking.value || "").trim()) ask();
@@ -225,6 +241,7 @@ function init(): void {
   });
   bindLibrary(paintMarkers, renderAll);
   bindHistory(paintMarkers, renderAll);
+  bindJobSaved(() => notifyHistoryChanged());
   bindBackupUi(paintMarkers, renderAll);
   bindProfiles(afterProfileApply);
   bindDocs(paintMarkers, renderAll);
@@ -234,10 +251,12 @@ function init(): void {
       state.fields[i].value = value;
       paintMarkers();
       renderList(selField, renameField, delField);
+      scheduleJobSave();
     },
     (i) => {
       state.fields[i].value = "";
       renderAll();
+      scheduleJobSave();
     },
     gotoField,
   );
@@ -247,7 +266,10 @@ function init(): void {
       state.cur = page;
       showPage(paintMarkers);
     },
-    renderAll,
+    () => {
+      renderAll();
+      scheduleJobSave();
+    },
   );
   bindTemplateSave();
   bindClearAndFill();

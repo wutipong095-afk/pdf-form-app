@@ -26,6 +26,7 @@ Open http://localhost:5000 — **no login required**
 | What the app provides | Location (Windows) |
 |-----------------------|--------------------|
 | Data / license | `%LOCALAPPDATA%\PDFFormMarker\data` |
+| Job files `.fromdd` | `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\jobs` |
 | Logs | `%LOCALAPPDATA%\PDFFormMarker\logs` |
 | Bind | `127.0.0.1` only |
 

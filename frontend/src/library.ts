@@ -3,6 +3,7 @@ import { $ } from "./dom";
 import { apiJson } from "./api";
 import { state } from "./state";
 import { loadDoc } from "./viewer";
+import { clearActiveJob } from "./jobs";
 import { t } from "./i18n";
 import type { LibraryDoc, LibraryStatus, TemplatePayload } from "./types";
 
@@ -178,6 +179,7 @@ async function openLibraryDoc(
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<void> {
+  clearActiveJob();
   try {
     await loadDoc(docId, onMarkers);
   } catch (e) {
