@@ -426,5 +426,25 @@
     "portTakenDuringStart": "Port {port} was taken by another program during startup\n\nClose it or change PORT and try again",
     "diedBeforeReady": "Server stopped before it was ready\nSee logs at %LOCALAPPDATA%\\PDFFormMarker\\logs\\",
     "notReady": "Server was not ready in time\nTry again or change PORT (currently {port})"
+  },
+  "save": {
+    "idle": "No sheet in progress",
+    "saving": "Saving…",
+    "saved": "✓ Saved {time}",
+    "failed": "⚠ Not saved",
+    "savedTitle": "Sheet: {name}\\nSaved automatically — no need to press save",
+    "failedTitle": "Could not save the sheet — check that the work folder is still writable"
+  },
+  "work": {
+    "label": "Work saved in: {path}",
+    "default": "Work saved in: the program data folder",
+    "change": "Change work folder…",
+    "reset": "Back to default",
+    "open": "Open work folder",
+    "picking": "Opening the folder picker…",
+    "movedOk": "Work folder moved to\\n{path}\\n{moved} file(s) moved",
+    "resetAsk": "Move the work back into the program data folder?",
+    "fail": "Could not change the work folder",
+    "unavailable": "That folder is not reachable — using the default location for now ({path})"
   }
 }

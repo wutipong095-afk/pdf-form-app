@@ -15,7 +15,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./viewer", () => ({ loadDoc: mocks.loadDoc, closeDoc: mocks.closeDoc }));
 vi.mock("./api", () => ({ apiJson: mocks.apiJson }));
 vi.mock("./chat", () => ({ clearChat: mocks.clearChat }));
-vi.mock("./i18n", () => ({ t: (key: string) => key }));
+vi.mock("./i18n", () => ({
+  t: (key: string, vars?: Record<string, unknown>) =>
+    vars ? `${key} ${Object.values(vars).join(" ")}` : key,
+}));
 
 type Sheets = typeof import("./sheets");
 type State = typeof import("./state").state;
@@ -37,6 +40,7 @@ function mountDom(): void {
     <select id="docsel"></select>
     <select id="tplsel"></select>
     <div id="jobstatus"></div>
+    <span id="savestate" class="idle"></span>
   `;
 }
 
@@ -258,5 +262,65 @@ describe("นำเข้า .fromdd", () => {
     expect(r.sheet).toBe("นำเข้า.json");
     expect(state.sheet).toBe("นำเข้า.json");
     expect(mocks.loadDoc).toHaveBeenCalledWith("@form.ccc", onMarkers);
+  });
+});
+
+describe("ป้ายสถานะบันทึก", () => {
+  function chip(): HTMLElement {
+    return document.getElementById("savestate")!;
+  }
+
+  it("ขึ้น กำลังบันทึก… แล้วเป็น บันทึกแล้ว", async () => {
+    state.doc = "ใบเบิก.pdf";
+    state.fields = [pin()];
+    let finish: (v: unknown) => void = () => undefined;
+    mocks.apiJson.mockReturnValue(new Promise((r) => {
+      finish = r;
+    }));
+
+    const inFlight = sheets.saveSheetNow();
+    expect(chip().className).toBe("saving");
+
+    finish({ sheet: "ก.json", doc_id: "@form.a", title: "ใบเบิก — สมชาย" });
+    await inFlight;
+
+    expect(chip().className).toBe("saved");
+    expect(chip().textContent).toContain("save.saved");
+    expect(chip().title).toContain("ใบเบิก — สมชาย");
+  });
+
+  it("บันทึกไม่สำเร็จต้องเห็นชัด ไม่ค้างที่ กำลังบันทึก…", async () => {
+    state.doc = "ใบเบิก.pdf";
+    state.fields = [pin()];
+    mocks.apiJson.mockRejectedValue(new Error("disk full"));
+
+    await sheets.saveSheetNow();
+
+    expect(chip().className).toBe("failed");
+    expect(chip().textContent).toContain("save.failed");
+  });
+
+  it("สลับเอกสารแล้วป้ายกลับเป็นว่าง", async () => {
+    state.doc = "ใบเบิก.pdf";
+    state.fields = [pin()];
+    mocks.apiJson.mockResolvedValue({ sheet: "ก.json", doc_id: "@form.a", title: "ก" });
+    await sheets.saveSheetNow();
+    expect(chip().className).toBe("saved");
+
+    sheets.clearActiveSheet();
+    expect(chip().className).toBe("idle");
+    expect(chip().textContent).toBe("save.idle");
+  });
+
+  it("เปิดใบเก่าขึ้นมาก็ถือว่าบันทึกแล้ว", async () => {
+    mocks.apiJson.mockResolvedValue({
+      sheet: "เก่า.json",
+      doc_id: "@form.b",
+      title: "ใบเบิก — สมหญิง",
+      fields: [pin()],
+    });
+    await sheets.openSheet("เก่า.json", onMarkers, onRender);
+    expect(chip().className).toBe("saved");
+    expect(chip().title).toContain("ใบเบิก — สมหญิง");
   });
 });

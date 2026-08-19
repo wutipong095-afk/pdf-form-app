@@ -77,6 +77,7 @@ import form_store
 import fromdd_io
 import job_core
 import sheet_core
+import workdir_core
 from fields_core import FormDataError, layout_fields
 from form_store import form_sha_from_doc, is_form_doc, make_form_doc
 from sheet_core import list_sheets, save_sheet, sheet_filename, unique_sheet_name
@@ -283,14 +284,18 @@ def user_root(username: str) -> Path:
 
 def user_paths(username: str) -> dict:
     root = user_root(username)
+    root.mkdir(parents=True, exist_ok=True)
+    # งานของผู้ใช้ย้ายไปโฟลเดอร์ที่เลือกเองได้ ส่วนที่เหลืออยู่ใต้โฟลเดอร์ข้อมูลเสมอ
+    work = workdir_core.resolve(root)
     paths = {
         "root": root,
+        "work": work,
         "uploads": root / "uploads",
         "templates": root / "templates_json",
-        "output": root / "output",
         "jobs": root / "jobs",
-        "sheets": root / "sheets",
-        "forms": root / "forms",
+        "output": work / "output",
+        "sheets": work / "sheets",
+        "forms": work / "forms",
     }
     for p in paths.values():
         p.mkdir(parents=True, exist_ok=True)
@@ -1187,6 +1192,11 @@ def library_browse():
         root = get_library_root(DATA_DIR)
         initial = str(root) if root else str(suggest_default_root().parent)
 
+    return _browse_start(initial)
+
+
+def _browse_start(initial: str):
+    """เปิดกล่องเลือกโฟลเดอร์นอก worker แล้วคืน job_id ให้ client มา poll"""
     global _BROWSE_ACTIVE
     with _BROWSE_LOCK:
         _browse_job_cleanup()
@@ -1213,7 +1223,7 @@ def library_browse():
                     job["cancelled"] = chosen is None
                     job["path"] = chosen
         except Exception as exc:  # noqa: BLE001 — ส่งข้อความให้ client
-            log.exception("library browse failed")
+            log.exception("folder browse failed")
             with _BROWSE_LOCK:
                 job = _BROWSE_JOBS.get(jid)
                 if job is not None:
@@ -1228,13 +1238,7 @@ def library_browse():
     return jsonify({"ok": True, "job_id": job_id, "pending": True})
 
 
-@app.get("/api/library/browse/<job_id>")
-@machine_admin_required
-def library_browse_status(job_id: str):
-    if not _paid_license():
-        return _license_required_response(t("api.libraryNeedsLicense"))
-    if not _open_folder_allowed():
-        return jsonify({"error": t("api.browseLocalOnly")}), 403
+def _browse_poll(job_id: str):
     with _BROWSE_LOCK:
         job = _BROWSE_JOBS.get(job_id)
         if job is None:
@@ -1254,6 +1258,66 @@ def library_browse_status(job_id: str):
     if payload.get("error"):
         return jsonify(payload), 500
     return jsonify(payload)
+
+
+@app.get("/api/library/browse/<job_id>")
+@machine_admin_required
+def library_browse_status(job_id: str):
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.browseLocalOnly")}), 403
+    return _browse_poll(job_id)
+
+
+@app.get("/api/workdir")
+@login_required
+def workdir_get():
+    return jsonify(workdir_core.status(user_root(current_user())))
+
+
+@app.post("/api/workdir/browse")
+@machine_admin_required
+def workdir_browse():
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.browseLocalOnly")}), 403
+    data = request.get_json(force=True, silent=True) or {}
+    initial = (data.get("initial") or "").strip()
+    if not initial:
+        initial = str(Path.home() / "Documents")
+    return _browse_start(initial)
+
+
+@app.get("/api/workdir/browse/<job_id>")
+@machine_admin_required
+def workdir_browse_status(job_id: str):
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.browseLocalOnly")}), 403
+    return _browse_poll(job_id)
+
+
+@app.post("/api/workdir")
+@machine_admin_required
+def workdir_set():
+    """ย้ายที่เก็บงาน — ใบงานที่มีอยู่ย้ายตามไปด้วย"""
+    data = request.get_json(force=True, silent=True) or {}
+    root = user_root(current_user())
+    try:
+        if data.get("reset"):
+            out = workdir_core.reset(root)
+        else:
+            out = workdir_core.set_work_dir(
+                root,
+                str(data.get("path") or ""),
+                # ห้ามชี้เข้าโฟลเดอร์ข้อมูล/ติดตั้งของโปรแกรมเอง
+                forbidden=(DATA_DIR, BASE),
+            )
+    except workdir_core.WorkDirError as e:
+        return jsonify({"error": str(e)}), 400
+    except OSError as e:
+        log.exception("set work dir failed")
+        return jsonify({"error": str(e)}), 400
+    return jsonify(out)
 
 
 @app.post("/api/library/root")
@@ -1872,6 +1936,7 @@ def open_folder():
         "data": DATA_DIR,
         "output": paths["output"],
         "sheets": paths["sheets"],
+        "work": paths["work"],
         "logs": LOG_DIR,
         "uploads": paths["uploads"],
     }
@@ -1991,6 +2056,7 @@ def api_backup():
             data_dir=DATA_DIR,
             username=user or LOCAL_USER,
             user_root=paths["root"],
+            work_root=paths["work"],
             app_version=APP_VERSION,
         )
     except OSError:
@@ -2030,6 +2096,7 @@ def api_restore():
         result = restore_backup(
             raw,
             user_root=paths["root"],
+            work_root=paths["work"],
             data_dir=DATA_DIR,
             mode=mode,  # type: ignore[arg-type]
         )

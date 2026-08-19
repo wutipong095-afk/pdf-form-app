@@ -48,11 +48,34 @@ export function setSheetStatus(msg: string): void {
   if (el) el.textContent = msg;
 }
 
+type SaveState = "idle" | "saving" | "saved" | "failed";
+
+/** ป้ายสถานะบนหัวเว็บ — ผู้ใช้ต้องเห็นว่างานถูกบันทึกแล้วโดยไม่ต้องเดา */
+function setSaveState(kind: SaveState, name = ""): void {
+  const el = document.getElementById("savestate");
+  if (!el) return;
+  el.className = kind;
+  if (kind === "saved") {
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    el.textContent = t("save.saved", { time });
+    el.title = t("save.savedTitle", { name });
+    return;
+  }
+  if (kind === "failed") {
+    el.textContent = t("save.failed");
+    el.title = t("save.failedTitle");
+    return;
+  }
+  el.textContent = kind === "saving" ? t("save.saving") : t("save.idle");
+  el.title = "";
+}
+
 export function clearActiveSheet(): void {
   newEpoch();
   state.sheet = null;
   state.sourceDoc = null;
   setSheetStatus("");
+  setSaveState("idle");
 }
 
 /** เริ่มใบใหม่จากฟอร์มเดิม — เก็บ sourceDoc ไว้ให้ออโต้เซฟสร้างใบใหม่ */
@@ -92,6 +115,7 @@ export async function saveSheetNow(): Promise<SheetPayload | null> {
   }
   saving = true;
   const sent = epoch;
+  setSaveState("saving");
   try {
     const body: Record<string, unknown> = {
       fields: state.fields,
@@ -114,10 +138,14 @@ export async function saveSheetNow(): Promise<SheetPayload | null> {
     state.sheet = r.sheet;
     if (r.source_doc) state.sourceDoc = r.source_doc;
     setSheetStatus(t("hist.saved", { file: r.title || r.sheet }));
+    setSaveState("saved", r.title || r.sheet);
     onSaved?.();
     return r;
   } catch {
-    if (sent === epoch) setSheetStatus(t("hist.saveFail"));
+    if (sent === epoch) {
+      setSheetStatus(t("hist.saveFail"));
+      setSaveState("failed");
+    }
     return null;
   } finally {
     saving = false;
@@ -129,6 +157,7 @@ export async function saveSheetNow(): Promise<SheetPayload | null> {
 }
 
 function applySheet(r: SheetPayload, onRender: () => void): void {
+  setSaveState("saved", r.title || r.sheet);
   state.sheet = r.sheet;
   state.sourceDoc = r.source_doc || null;
   if (r.template_name) ($("tplname") as HTMLInputElement).value = r.template_name;

@@ -15,6 +15,7 @@ import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import { bindHistory, notifyHistoryChanged } from "./history";
 import { bindSheetSaved, saveSheetNow, scheduleSheetSave, startNewSheet } from "./sheets";
 import { bindBackupUi } from "./backup";
+import { bindWorkDir } from "./workdir";
 import { askFieldName, bindProfiles } from "./profiles";
 import { bindLangToggle, t } from "./i18n";
 import type { FillResponse } from "./types";
@@ -242,6 +243,7 @@ function init(): void {
   bindHistory(paintMarkers, renderAll);
   bindSheetSaved(() => notifyHistoryChanged());
   bindBackupUi(paintMarkers, renderAll);
+  bindWorkDir(() => notifyHistoryChanged());
   bindProfiles(afterProfileApply);
   bindDocs(paintMarkers, renderAll);
   bindMarking();

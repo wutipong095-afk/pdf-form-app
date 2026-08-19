@@ -20,6 +20,8 @@ FORBIDDEN_NAMES = frozenset({
     "secret_key",
     "clock_guard.json",
 })
+# โฟลเดอร์ที่ตามผู้ใช้ไปเมื่อเปลี่ยนที่เก็บงาน
+WORK_DIR_NAMES = ("sheets", "forms", "output")
 RestoreMode = Literal["merge", "replace"]
 MAX_ZIP_ENTRIES = int(os.environ.get("MAX_BACKUP_ENTRIES", "2000"))
 MAX_ZIP_FILE_BYTES = int(os.environ.get("MAX_BACKUP_FILE_MB", "64")) * 1024 * 1024
@@ -77,10 +79,15 @@ def create_backup_zip(
     username: str,
     user_root: Path,
     app_version: str,
+    work_root: Optional[Path] = None,
 ) -> tuple[io.BytesIO, str, dict[str, Any]]:
-    """สร้าง ZIP ใน memory — คืน (buf, filename, meta)"""
+    """สร้าง ZIP ใน memory — คืน (buf, filename, meta)
+
+    work_root = โฟลเดอร์เก็บงานที่ผู้ใช้เลือก (sheets/forms/output) ถ้าไม่ส่งมาถือว่าอยู่ใต้ user_root
+    """
     data_dir = Path(data_dir)
     user_root = Path(user_root)
+    work_root = Path(work_root) if work_root is not None else user_root
     lib_root = get_library_root(data_dir)
     meta = build_meta(
         app_version=app_version,
@@ -95,13 +102,13 @@ def create_backup_zip(
         counts["templates"] = _add_tree(
             zf, user_root / "templates_json", "user/templates_json"
         )
-        counts["output"] = _add_tree(zf, user_root / "output", "user/output")
-        sheets_dir = user_root / "sheets"
+        counts["output"] = _add_tree(zf, work_root / "output", "user/output")
+        sheets_dir = work_root / "sheets"
         if sheets_dir.is_dir():
             for path in sheets_dir.glob("*.json"):
                 zf.write(path, arcname=f"user/sheets/{path.name}")
                 counts["sheets"] += 1
-        forms_dir = user_root / "forms"
+        forms_dir = work_root / "forms"
         if forms_dir.is_dir():
             # สแนปช็อตฟอร์ม — ใบงานหลายใบใช้ร่วมกัน สำรองชุดเดียวพอ
             for path in sorted(forms_dir.iterdir()):
@@ -206,6 +213,7 @@ def restore_backup(
     user_root: Path,
     data_dir: Path,
     mode: RestoreMode = "merge",
+    work_root: Optional[Path] = None,
 ) -> dict[str, Any]:
     """กู้ ZIP ลง user_root + library.json — ไม่แตะ machine_id/license
 
@@ -216,6 +224,7 @@ def restore_backup(
     """
     user_root = Path(user_root)
     data_dir = Path(data_dir)
+    work_root = Path(work_root) if work_root is not None else user_root
     fileobj.seek(0)
     meta = read_backup_meta(fileobj)
     fileobj.seek(0)
@@ -226,9 +235,9 @@ def restore_backup(
 
     uploads = user_root / "uploads"
     templates = user_root / "templates_json"
-    output = user_root / "output"
-    sheets = user_root / "sheets"
-    forms = user_root / "forms"
+    output = work_root / "output"
+    sheets = work_root / "sheets"
+    forms = work_root / "forms"
     for d in (uploads, templates, output, sheets, forms):
         d.mkdir(parents=True, exist_ok=True)
 
@@ -280,9 +289,11 @@ def restore_backup(
                 if not rel or ".." in Path(rel).parts:
                     skipped += 1
                     continue
-                dest = (user_root / rel).resolve()
+                # งาน (sheets/forms/output) ลงโฟลเดอร์ที่ผู้ใช้เลือก ที่เหลืออยู่ใต้ user_root
+                base_root = work_root if Path(rel).parts[0] in WORK_DIR_NAMES else user_root
+                dest = (base_root / rel).resolve()
                 try:
-                    dest.relative_to(user_root.resolve())
+                    dest.relative_to(base_root.resolve())
                 except ValueError:
                     skipped += 1
                     continue

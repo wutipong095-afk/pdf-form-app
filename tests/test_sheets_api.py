@@ -508,3 +508,83 @@ def test_missing_source_is_reported_not_fatal(client):
 def test_relink_needs_csrf(client):
     created = create_sheet(client).get_json()
     assert client.post("/api/sheets/" + created["sheet"] + "/relink").status_code == 403
+
+
+def clear_workdir_cache():
+    import workdir_core
+
+    workdir_core._RESOLVED.clear()
+
+
+def test_work_folder_defaults_to_the_program_data_folder(client):
+    st = client.get("/api/workdir").get_json()
+    assert st["custom"] is False
+    assert st["unavailable"] is False
+    assert Path(st["path"]) == Path(st["default_path"])
+
+
+def test_sheets_land_in_the_chosen_folder(client, tmp_path):
+    created = create_sheet(client).get_json()
+    dest = tmp_path / "Documents" / "FromDD"
+
+    r = client.post("/api/workdir", headers=hdr(client), json={"path": str(dest)})
+    assert r.status_code == 200, r.get_json()
+    assert r.get_json()["custom"] is True
+    clear_workdir_cache()
+
+    # งานเดิมย้ายตามมา และยังเปิดได้เหมือนเดิม
+    assert (dest / "sheets" / created["sheet"]).is_file()
+    assert (dest / "forms" / (created["form_sha"] + ".pdf")).is_file()
+    assert client.get("/api/sheets/" + created["sheet"]).status_code == 200
+    assert client.get("/api/pageinfo/" + created["doc_id"]).status_code == 200
+
+    # ใบใหม่ลงที่ใหม่ด้วย
+    fresh = create_sheet(client, "โรงเรียนบ้านหนองแวง").get_json()
+    assert (dest / "sheets" / fresh["sheet"]).is_file()
+
+    # PDF ที่พิมพ์ก็ไปอยู่ที่เดียวกัน
+    out = client.post("/api/fill", headers=hdr(client), json={
+        "doc": fresh["doc_id"], "sheet": fresh["sheet"], "fields": fields(), "outname": "ใบลา",
+    }).get_json()["file"]
+    assert (dest / "output" / out).is_file()
+
+
+def test_reset_brings_the_work_back(client, tmp_path):
+    created = create_sheet(client).get_json()
+    dest = tmp_path / "ที่ใหม่"
+    client.post("/api/workdir", headers=hdr(client), json={"path": str(dest)})
+    clear_workdir_cache()
+
+    r = client.post("/api/workdir", headers=hdr(client), json={"reset": True})
+    assert r.status_code == 200
+    assert r.get_json()["custom"] is False
+    clear_workdir_cache()
+
+    assert client.get("/api/sheets/" + created["sheet"]).status_code == 200
+    assert not (dest / "sheets" / created["sheet"]).exists()
+
+
+def test_backup_follows_the_chosen_folder(client, tmp_path):
+    created = create_sheet(client).get_json()
+    dest = tmp_path / "ที่เก็บงาน"
+    client.post("/api/workdir", headers=hdr(client), json={"path": str(dest)})
+    clear_workdir_cache()
+
+    r = client.post("/api/backup", headers=hdr(client, json_body=False))
+    assert r.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(r.get_data())) as zf:
+        names = zf.namelist()
+    assert f"user/sheets/{created['sheet']}" in names
+    assert f"user/forms/{created['form_sha']}.pdf" in names
+
+
+def test_work_folder_rejects_the_data_folder(client, tmp_path):
+    r = client.post("/api/workdir", headers=hdr(client), json={"path": str(A.DATA_DIR / "ข้างใน")})
+    assert r.status_code == 400
+    assert r.get_json()["error"]
+
+
+def test_work_folder_needs_csrf(client, tmp_path):
+    r = client.post("/api/workdir", headers={"Content-Type": "application/json"},
+                    json={"path": str(tmp_path / "x")})
+    assert r.status_code == 403
