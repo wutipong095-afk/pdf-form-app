@@ -205,6 +205,8 @@
   <input type="text" id="histsearch" placeholder="{{ t('hist.searchPlaceholder') }}" style="flex:1;min-width:200px">
   <button type="button" id="histopen" class="secondary" title="{{ t('header.outputTitle') }}">{{ t('hist.openFolder') }}</button>
   <button type="button" id="histopenfile" class="secondary">{{ t('hist.openFile') }}</button>
+  <button type="button" id="histimport" class="secondary" title="{{ t('hist.importTitle') }}">{{ t('hist.import') }}</button>
+  <input type="file" id="histimportfile" accept=".fromdd" hidden>
   <span id="histstatus">{{ t('hist.idle') }}</span>
   <button type="button" id="histhide" class="secondary" title="{{ t('hist.hideTitle') }}">{{ t('hist.hide') }}</button>
   <div id="histlist" class="picklist" role="listbox" aria-label="{{ t('hist.title') }}"></div>

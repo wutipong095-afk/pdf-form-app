@@ -174,6 +174,21 @@ export async function duplicateSheet(
  * ลบใบงาน — ถ้าเป็นใบที่เปิดอยู่ ต้องพาจอกลับไปที่ฟอร์มต้นฉบับ
  * เพราะ @form.{sha} บนจออาจถูกเก็บกวาดไปพร้อมใบสุดท้ายที่อ้างถึงมัน
  */
+/** นำเข้าไฟล์ .fromdd จากเครื่องอื่น แล้วเปิดใบที่ได้ขึ้นมาแก้ต่อ */
+export async function importSheet(
+  file: File,
+  onMarkers: () => void,
+  onRender: () => void,
+): Promise<SheetPayload> {
+  const form = new FormData();
+  form.append("file", file);
+  const r = await apiJson<SheetPayload>("/api/sheets/import", { method: "POST", body: form });
+  clearActiveSheet();
+  await loadDoc(r.doc_id, onMarkers);
+  applySheet(r, onRender);
+  return r;
+}
+
 /** ย้ายใบงานไปใช้ฟอร์มต้นฉบับเวอร์ชันปัจจุบัน แล้วโหลดสแนปช็อตใหม่ขึ้นจอ */
 export async function relinkSheet(
   name: string,

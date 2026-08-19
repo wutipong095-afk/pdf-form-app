@@ -4,7 +4,14 @@ import { apiJson } from "./api";
 import { state } from "./state";
 import { loadDoc } from "./viewer";
 import { clearChat } from "./chat";
-import { clearActiveSheet, deleteSheet, duplicateSheet, openSheet, relinkSheet } from "./sheets";
+import {
+  clearActiveSheet,
+  deleteSheet,
+  duplicateSheet,
+  importSheet,
+  openSheet,
+  relinkSheet,
+} from "./sheets";
 import { t } from "./i18n";
 import type { HistoryFile, HistoryStatus } from "./types";
 
@@ -246,6 +253,29 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
     } catch (e) {
       alert(e instanceof Error ? e.message : t("hist.openFail"));
     }
+  };
+
+  const picker = $("histimportfile") as HTMLInputElement;
+  $("histimport").onclick = () => picker.click();
+  picker.onchange = () => {
+    const file = picker.files?.[0];
+    picker.value = "";
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".fromdd")) {
+      alert(t("hist.importWrongType"));
+      return;
+    }
+    setStatus(t("hist.importing"));
+    void importSheet(file, onMarkers, onRender)
+      .then(async (r) => {
+        setHistoryOpen(true);
+        await refreshHistory();
+        setStatus(t("hist.imported", { name: r.title || r.sheet }));
+      })
+      .catch((err) => {
+        setStatus(t("hist.importFail"));
+        alert(err instanceof Error ? err.message : t("hist.importFail"));
+      });
   };
 
   ($("histsearch") as HTMLInputElement).oninput = () => {
