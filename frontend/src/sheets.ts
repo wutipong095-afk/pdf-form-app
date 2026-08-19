@@ -2,7 +2,7 @@
 import { $ } from "./dom";
 import { apiJson } from "./api";
 import { isFormDoc, isOutDoc, state } from "./state";
-import { loadDoc } from "./viewer";
+import { closeDoc, loadDoc } from "./viewer";
 import { clearChat } from "./chat";
 import { t } from "./i18n";
 import type { Field } from "./types";
@@ -193,6 +193,9 @@ export async function deleteSheet(
       // ต้นฉบับถูกลบ ย้าย หรือไลเซนต์ไม่ผ่าน — ล้างจอดีกว่าปล่อยให้ค้างที่ไฟล์ที่หายไป
     }
   }
+  // สแนปช็อตอาจถูกเก็บกวาดไปพร้อมใบสุดท้ายแล้ว — ตัด state.doc ทิ้งด้วย
+  // ไม่งั้นพรีวิวยังขอ /page/@form.{sha} ที่ 404
+  closeDoc();
   clearActiveSheet();
   state.fields = [];
   state.selIdx = -1;

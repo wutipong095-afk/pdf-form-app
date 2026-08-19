@@ -312,18 +312,26 @@ def test_legacy_fromdd_files_are_migrated_on_first_use(client, tmp_path):
         marker.unlink()
 
     src = A._pdf_path("local", "demo-leave.pdf")
+    # รุ่นก่อนเก็บ title กับ template_name จากช่องเดียวกัน จึงเท่ากันเสมอ
     job_core.write_job(jobs / ("เก่า" + job_core.JOB_EXT), src.read_bytes(), job_core.build_payload(
-        title="ใบลาเก่า", source_doc="demo-leave.pdf", template_name="ใบลา",
+        title="ใบลาเก่า", source_doc="demo-leave.pdf", template_name="ใบลาเก่า",
         fields=fields("ของเดิม"),
     ))
     (user_root / ".migrated-from-fromdd").unlink(missing_ok=True)
 
     st = client.get("/api/history").get_json()
     rows = [f for f in st["files"] if f.get("kind") == "sheet"]
-    assert any("ใบลาเก่า" in (f.get("title") or "") for f in rows)
     moved = next(f for f in rows if "ใบลาเก่า" in (f.get("title") or ""))
+    # ไฟล์รุ่นก่อนไม่มี title_base — ต้องได้ชื่อที่ค้นเจอจากค่าที่กรอก ไม่ใช่ชื่อฟอร์มเปล่า ๆ
+    assert moved["title"] == "ใบลาเก่า — ของเดิม"
     got = client.get("/api/sheets/" + moved["sheet"]).get_json()
     assert got["fields"][0]["value"] == "ของเดิม"
+
+    # แก้ค่าต่อหลังย้ายแล้ว ชื่อต้องเปลี่ยนตาม ไม่ต่อซ้อน
+    after = client.post("/api/sheets", headers=hdr(client), json={
+        "sheet": moved["sheet"], "template_name": "ใบลาเก่า", "fields": fields("ของใหม่"),
+    }).get_json()
+    assert after["title"] == "ใบลาเก่า — ของใหม่"
 
 
 def test_autosave_does_not_overwrite_the_auto_title(client):

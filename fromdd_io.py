@@ -33,11 +33,17 @@ def import_fromdd(
         display_name=str(meta.get("template_name") or meta.get("title") or src.stem),
     )
     title = str(meta.get("title") or src.stem)
+    # ฐานของชื่อต้องเป็นชื่อฟอร์ม ไม่ใช่ชื่อใบที่คิดแล้ว ไม่งั้นแก้ค่าแรกแล้วจะได้
+    # «ใบลา — โรงเรียนเก่า — โรงเรียนใหม่» ไฟล์เก่าที่ไม่มี title_base ใช้ template_name แทน
+    title_base = str(meta.get("title_base") or meta.get("template_name") or title)
+    title_auto = bool(meta.get("title_auto", True))
     name = sheet_core.unique_sheet_name(sheets_dir, base_name or title)
     path = Path(sheets_dir) / name
     try:
         payload = sheet_core.save_sheet(path, {
-            "title_base": title,
+            "title": title,
+            "rename": not title_auto,
+            "title_base": title_base,
             "form_sha": sha,
             "source_doc": meta.get("source_doc") or "",
             "template_name": meta.get("template_name") or "",
@@ -63,6 +69,8 @@ def export_fromdd(dest: Path, forms_dir: Path, sheet: dict[str, Any]) -> Path:
         pdf.read_bytes(),
         job_core.build_payload(
             title=str(sheet.get("title") or dest.stem),
+            title_base=str(sheet.get("title_base") or ""),
+            title_auto=bool(sheet.get("title_auto", True)),
             source_doc=str(sheet.get("source_doc") or ""),
             template_name=str(sheet.get("template_name") or ""),
             fields=sheet.get("fields") or [],

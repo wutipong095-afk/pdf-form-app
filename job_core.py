@@ -45,11 +45,16 @@ def build_payload(
     source_doc: str,
     template_name: str,
     fields: Any,
+    title_base: str = "",
+    title_auto: bool = True,
 ) -> dict[str, Any]:
     return {
         "version": JOB_VERSION,
         "kind": JOB_KIND,
         "title": (title or "").strip()[:120] or "job",
+        # ฐานของชื่อ ไม่ใช่ชื่อที่คิดแล้ว — ไม่งั้นนำเข้าไปแล้วแก้ค่าจะต่อท้ายซ้อนกัน
+        "title_base": (title_base or "").strip()[:120],
+        "title_auto": bool(title_auto),
         "source_doc": (source_doc or "").strip(),
         "template_name": (template_name or "").strip()[:120],
         "fields": normalize_fields(fields),
@@ -68,6 +73,8 @@ def _read_payload_bytes(raw: bytes) -> dict[str, Any]:
         raise JobError("not a FromDD job file")
     data["fields"] = normalize_fields(data.get("fields") or [])
     data["title"] = str(data.get("title") or "").strip()[:120] or "job"
+    data["title_base"] = str(data.get("title_base") or "").strip()[:120]
+    data["title_auto"] = bool(data.get("title_auto", True))
     data["source_doc"] = str(data.get("source_doc") or "").strip()
     data["template_name"] = str(data.get("template_name") or "").strip()[:120]
     return data
