@@ -8,7 +8,8 @@ In the app, click **Backup** to get `pdfmarker-backup-….zip` containing:
 
 - Uploaded original PDFs (`uploads/`)
 - Templates (`templates_json/`)
-- Job files `.fromdd` (`jobs/`)
+- Sheets — the filled values (`sheets/`)
+- Form snapshots — blank PDFs stored once per hash (`forms/`)
 - Filled PDFs (`output/`)
 - Autofill book (`profiles.json`)
 - Document library settings (`library.json` + `.pdfmarker` if present)
@@ -20,7 +21,7 @@ In the app, click **Backup** to get `pdfmarker-backup-….zip` containing:
 1. Click **Restore…** and pick a ZIP
 2. Choose a mode:
    - **Merge** — do not overwrite existing files
-   - **Replace** — clear the user’s uploads/templates/output/jobs and autofill book (`profiles.json`), then extract from the ZIP
+   - **Replace** — clear the user’s uploads/templates/output/sheets/forms and autofill book (`profiles.json`), then extract from the ZIP
 
 ## Moving to a new PC
 

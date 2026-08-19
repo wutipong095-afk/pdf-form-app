@@ -29,7 +29,8 @@ python app.py
 | สิ่งที่แอปจัดให้ | ตำแหน่ง (Windows) |
 |------------------|-------------------|
 | ข้อมูล / ไลเซนต์ | `%LOCALAPPDATA%\PDFFormMarker\data` |
-| ไฟล์งาน `.fromdd` | `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\jobs` |
+| ใบงาน (ค่าที่กรอก) | `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\sheets` |
+| สแนปช็อตฟอร์ม (PDF ต้นฉบับ เก็บชุดเดียวต่อฟอร์ม) | `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\forms` |
 | Log | `%LOCALAPPDATA%\PDFFormMarker\logs` |
 | Bind | `127.0.0.1` เท่านั้น |
 

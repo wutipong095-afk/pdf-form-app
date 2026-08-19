@@ -86,6 +86,11 @@
   .pick-item:hover, .pick-item.sel { background:#e7f1ff; }
   .pick-item .meta { color:#777; font-size:12px; margin-left:8px; }
   .pick-empty { padding:10px 12px; color:#777; font-size:13px; }
+  .pick-row { display:flex; align-items:stretch; border-bottom:1px solid #f3f3f3; }
+  .pick-row .pick-item { flex:1; min-width:0; border-bottom:none; }
+  .pick-row .del { border:none; background:none; cursor:pointer; color:#8a94a6; font-size:14px; padding:0 8px; }
+  .pick-row .del:hover { color:#1a3c6e; background:#e7f1ff; }
+  .pick-row .del[data-act="del"]:hover { color:#e63946; background:#ffecec; }
   #histnotice { margin:0 0 8px; padding:6px 10px; background:#fff8e1; color:#6d4c00; border-radius:6px; font-size:12px; }
   #histnotice[hidden] { display:none; }
   /* สมุดข้อมูลล่วงหน้า: ซ่อนจนกดเรียกใช้จากปุ่มใน header */

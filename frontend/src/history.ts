@@ -1,16 +1,16 @@
-/** Completed work — job files (.fromdd) and printed PDFs */
+/** งานเก่า — ใบงานที่แก้ต่อได้ และ PDF ที่พิมพ์ไปแล้ว */
 import { $ } from "./dom";
 import { apiJson } from "./api";
-import { isJobDoc, state } from "./state";
+import { state } from "./state";
 import { loadDoc } from "./viewer";
 import { clearChat } from "./chat";
-import { openJob, clearActiveJob } from "./jobs";
+import { clearActiveSheet, deleteSheet, duplicateSheet, openSheet } from "./sheets";
 import { t } from "./i18n";
 import type { HistoryFile, HistoryStatus } from "./types";
 
 let historyOpen = false;
 let selectedName = "";
-let selectedKind: "job" | "pdf" | "" = "";
+let selectedKind: "sheet" | "pdf" | "" = "";
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function setHistoryOpen(open: boolean): void {
@@ -40,9 +40,32 @@ function formatWhen(mtime: number): string {
   return new Date(mtime * 1000).toLocaleString();
 }
 
-function fileKind(f: HistoryFile): "job" | "pdf" {
-  if (f.kind === "job" || isJobDoc(f.doc_id) || f.name.toLowerCase().endsWith(".fromdd")) return "job";
-  return "pdf";
+function fileKind(f: HistoryFile): "sheet" | "pdf" {
+  return f.kind === "sheet" ? "sheet" : "pdf";
+}
+
+function sheetMeta(f: HistoryFile): string {
+  const bits = [t("hist.kindSheet"), formatWhen(f.mtime)];
+  if (typeof f.filled === "number" && typeof f.pins === "number") {
+    bits.push(`${f.filled}/${f.pins}`);
+  }
+  bits.push(f.printed ? t("hist.printedTag") : t("hist.draftTag"));
+  return bits.join(" · ");
+}
+
+function actionButton(
+  act: "dup" | "export" | "del",
+  label: string,
+  name: string,
+): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "del";
+  b.dataset.act = act;
+  b.dataset.sheet = name;
+  b.title = label;
+  b.textContent = act === "del" ? "✕" : act === "dup" ? "⧉" : "⤓";
+  return b;
 }
 
 function fillList(files: HistoryFile[]): void {
@@ -69,6 +92,8 @@ function fillList(files: HistoryFile[]): void {
     frag.appendChild(h);
     for (const f of items) {
       const kind = fileKind(f);
+      const row = document.createElement("div");
+      row.className = "pick-row";
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "pick-item" + (f.name === selectedName ? " sel" : "");
@@ -77,10 +102,16 @@ function fillList(files: HistoryFile[]): void {
       btn.dataset.kind = kind;
       const meta = document.createElement("span");
       meta.className = "meta";
-      const label = kind === "job" ? t("hist.kindJob") : t("hist.kindPdf");
-      meta.textContent = `${label} · ${formatWhen(f.mtime)}`;
-      btn.append(f.name, meta);
-      frag.appendChild(btn);
+      meta.textContent =
+        kind === "sheet" ? sheetMeta(f) : `${t("hist.kindPdf")} · ${formatWhen(f.mtime)}`;
+      btn.append(kind === "sheet" ? f.title || f.name : f.name, meta);
+      row.appendChild(btn);
+      if (kind === "sheet") {
+        row.appendChild(actionButton("dup", t("hist.duplicate"), f.name));
+        row.appendChild(actionButton("export", t("hist.export"), f.name));
+        row.appendChild(actionButton("del", t("hist.delete"), f.name));
+      }
+      frag.appendChild(row);
     }
   }
   box.replaceChildren(frag);
@@ -113,15 +144,15 @@ export async function refreshHistory(q?: string): Promise<void> {
 async function openHistoryDoc(
   docId: string,
   name: string,
-  kind: "job" | "pdf",
+  kind: "sheet" | "pdf",
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<void> {
-  if (kind === "job") {
-    await openJob(name, onMarkers, onRender);
+  if (kind === "sheet") {
+    await openSheet(name, onMarkers, onRender);
     return;
   }
-  clearActiveJob();
+  clearActiveSheet();
   await loadDoc(docId, onMarkers);
   ($("docsel") as HTMLSelectElement).value = "";
   ($("tplsel") as HTMLSelectElement).value = "";
@@ -130,6 +161,32 @@ async function openHistoryDoc(
   state.chatIdx = -1;
   clearChat();
   onRender();
+}
+
+async function runSheetAction(
+  act: string,
+  name: string,
+  onMarkers: () => void,
+  onRender: () => void,
+): Promise<void> {
+  if (act === "export") {
+    window.location.href = "/api/sheets/" + encodeURIComponent(name) + "/export";
+    return;
+  }
+  if (act === "dup") {
+    await duplicateSheet(name, onMarkers, onRender);
+    setStatus(t("hist.duplicated"));
+    await refreshHistory();
+    return;
+  }
+  if (!confirm(t("hist.deleteAsk", { name }))) return;
+  await deleteSheet(name);
+  if (selectedName === name) {
+    selectedName = "";
+    selectedKind = "";
+  }
+  setStatus(t("hist.deleted"));
+  await refreshHistory();
 }
 
 export function bindHistory(onMarkers: () => void, onRender: () => void): void {
@@ -141,7 +198,7 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
       await apiJson("/api/history/open", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "", kind: "job" }),
+        body: JSON.stringify({ name: "", kind: "sheet" }),
       });
     } catch (e) {
       alert(e instanceof Error ? e.message : t("hist.openFail"));
@@ -172,16 +229,26 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
   };
 
   $("histlist").onclick = (e) => {
-    const btn = (e.target as HTMLElement).closest("button.pick-item") as HTMLButtonElement | null;
+    const target = e.target as HTMLElement;
+    const action = target.closest("button[data-act]") as HTMLButtonElement | null;
+    if (action?.dataset.sheet) {
+      void runSheetAction(action.dataset.act || "", action.dataset.sheet, onMarkers, onRender).catch(
+        (err) => alert(err instanceof Error ? err.message : t("hist.deleteFail")),
+      );
+      return;
+    }
+    const btn = target.closest("button.pick-item") as HTMLButtonElement | null;
     if (!btn?.dataset.docId) return;
     selectedName = btn.dataset.name || "";
-    selectedKind = btn.dataset.kind === "job" ? "job" : "pdf";
+    selectedKind = btn.dataset.kind === "sheet" ? "sheet" : "pdf";
     $("histlist").querySelectorAll(".pick-item").forEach((el) => el.classList.remove("sel"));
     btn.classList.add("sel");
-    void openHistoryDoc(btn.dataset.docId, selectedName, selectedKind, onMarkers, onRender).catch((err) => {
-      btn.classList.remove("sel");
-      if (selectedName === btn.dataset.name) selectedName = "";
-      alert(err instanceof Error ? err.message : t("hist.loadFail"));
-    });
+    void openHistoryDoc(btn.dataset.docId, selectedName, selectedKind, onMarkers, onRender).catch(
+      (err) => {
+        btn.classList.remove("sel");
+        if (selectedName === btn.dataset.name) selectedName = "";
+        alert(err instanceof Error ? err.message : t("hist.loadFail"));
+      },
+    );
   };
 }

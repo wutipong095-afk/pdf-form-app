@@ -102,7 +102,12 @@ export type ProfileSaveResponse = {
 };
 
 export type HistoryFile = {
-  kind?: "job" | "pdf";
+  kind?: "sheet" | "pdf";
+  title?: string;
+  sheet?: string;
+  printed?: boolean;
+  filled?: number;
+  pins?: number;
   name: string;
   stem: string;
   group: string;

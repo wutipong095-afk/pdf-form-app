@@ -3,7 +3,7 @@ import { api } from "./api";
 import { state } from "./state";
 import { renderLicense } from "./license";
 import { loadDoc, applyFontMetrics } from "./viewer";
-import { clearActiveJob } from "./jobs";
+import { clearActiveSheet } from "./sheets";
 import { getLocale, t } from "./i18n";
 import type { DocsResponse, TemplatePayload } from "./types";
 
@@ -83,7 +83,7 @@ export function bindDocs(
     await refreshDocs(onMarkers, onRender);
     ($("docsel") as HTMLSelectElement).value = r.name;
     try {
-      clearActiveJob();
+      clearActiveSheet();
       await loadDoc(r.name, onMarkers);
     } catch (err) {
       alert(err instanceof Error ? err.message : t("app.loadDocFail"));
@@ -93,7 +93,7 @@ export function bindDocs(
   ($("docsel") as HTMLSelectElement).onchange = (e) => {
     const v = (e.target as HTMLSelectElement).value;
     if (v) {
-      clearActiveJob();
+      clearActiveSheet();
       void loadDoc(v, onMarkers).catch((err) => {
         alert(err instanceof Error ? err.message : t("app.loadDocFail"));
       });
@@ -102,7 +102,7 @@ export function bindDocs(
 
   ($("tplsel") as HTMLSelectElement).onchange = async (e) => {
     const v = (e.target as HTMLSelectElement).value;
-    clearActiveJob();
+    clearActiveSheet();
     if (!v) {
       state.fields = [];
       onRender();

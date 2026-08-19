@@ -8,7 +8,8 @@
 
 - PDF ต้นฉบับที่อัปโหลด (`uploads/`)
 - เทมเพลต (`templates_json/`)
-- ไฟล์งาน `.fromdd` (`jobs/`)
+- ใบงาน — ค่าที่กรอก (`sheets/`)
+- สแนปช็อตฟอร์ม — PDF ต้นฉบับ เก็บตาม hash ชุดเดียวต่อฟอร์ม (`forms/`)
 - PDF ที่กรอกแล้ว (`output/`)
 - สมุดข้อมูลล่วงหน้า (`profiles.json`)
 - ค่าตั้งคลังเอกสาร (`library.json` + `.pdfmarker` ถ้ามี)
@@ -20,7 +21,7 @@
 1. กด **กู้คืน** แล้วเลือกไฟล์ ZIP
 2. เลือกโหมด:
    - **รวม (merge)** — ไม่ทับไฟล์ที่มีอยู่แล้ว
-   - **แทนที่ (replace)** — ล้าง uploads/templates/output/jobs และสมุดข้อมูล (`profiles.json`) ของผู้ใช้แล้วแตกจาก ZIP
+   - **แทนที่ (replace)** — ล้าง uploads/templates/output/sheets/forms และสมุดข้อมูล (`profiles.json`) ของผู้ใช้แล้วแตกจาก ZIP
 
 ## ย้ายเครื่องใหม่
 
