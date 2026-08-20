@@ -9,9 +9,9 @@
 - `SHA256SUMS.txt` — สำเนา checksum สำหรับ GitHub Release
 
 ผิด: `FromDD-Setup.exe` แล้วเอาไฟล์ใหม่ไปทับตลอด  
-ถูก: `FromDD-Setup-0.3.0.exe`, `FromDD-Setup-0.3.1.exe`, `FromDD-Setup-0.4.0.exe`
+ถูก: `FromDD-Setup-0.3.0.exe`, `FromDD-Setup-0.3.1.exe`, `FromDD-Setup-0.3.2.exe`
 
-ปุ่มดาวน์โหลดบนเว็บอ่าน `latest.json` ถ้ามี ไม่งั้นชี้ `FromDD-Setup-0.3.1.exe`
+ปุ่มดาวน์โหลดบนเว็บอ่าน `latest.json` ถ้ามี ไม่งั้นชี้ `FromDD-Setup-0.3.2.exe`
 
 Caddy: `latest.json` = `Cache-Control: no-cache` · `.exe` = cache ยาว immutable — ดู `website/Caddyfile.fromdd`
 
