@@ -104,6 +104,9 @@ def resolve(user_root: Path) -> Path:
         found = user_root
     elif _usable(chosen):
         found = chosen
+        # ไดรฟ์เคยหลุดแล้วกลับมา — งานที่กรอกช่วงนั้นค้างอยู่ที่เก็บเริ่มต้น
+        # ถ้าไม่เก็บกลับมา ใบเหล่านั้นจะไม่โผล่ในงานเก่าเลยทั้งที่ไฟล์ยังอยู่
+        _reclaim_fallback(user_root, chosen)
     else:
         log.warning("work dir unavailable, falling back to default path=%s", chosen)
         found = user_root
@@ -111,6 +114,30 @@ def resolve(user_root: Path) -> Path:
         _RESOLVED.clear()
     _RESOLVED[key] = (now, found)
     return found
+
+
+def _has_work(root: Path) -> bool:
+    for name in WORK_SUBDIRS:
+        d = root / name
+        try:
+            if d.is_dir() and any(p.is_file() for p in d.iterdir()):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _reclaim_fallback(user_root: Path, target: Path) -> int:
+    """ย้ายงานที่ตกค้างที่เก็บเริ่มต้นกลับไปโฟลเดอร์ที่ผู้ใช้เลือก"""
+    user_root = Path(user_root)
+    if Path(target) == user_root or not _has_work(user_root):
+        return 0
+    moved = 0
+    for name in WORK_SUBDIRS:
+        moved += _move_tree(user_root / name, Path(target) / name)
+    if moved:
+        log.info("reclaimed work created while the folder was away count=%s", moved)
+    return moved
 
 
 def status(user_root: Path) -> dict[str, Any]:

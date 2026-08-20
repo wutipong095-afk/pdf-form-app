@@ -16,6 +16,8 @@ In the app, click **Backup** to get `pdfmarker-backup-….zip` containing:
 
 **Not included:** `machine_id` / `license.json` / `secret_key` / log files
 
+**Also not included:** the chosen work folder — a new machine gets every sheet but goes back to the default location; set it again with “Change work folder…”. This is deliberate: a path from the old machine usually does not exist on the new one.
+
 ## Restore
 
 1. Click **Restore…** and pick a ZIP

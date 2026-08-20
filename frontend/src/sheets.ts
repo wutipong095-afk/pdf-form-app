@@ -20,6 +20,7 @@ export type SheetPayload = {
   template_name?: string;
   fields?: Field[];
   printed?: string[];
+  orphan_pins?: number;
   error?: string;
 };
 

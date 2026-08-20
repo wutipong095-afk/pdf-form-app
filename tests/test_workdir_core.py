@@ -147,3 +147,63 @@ def test_resolve_is_cached_between_calls(tmp_path: Path):
         assert calls["n"] == 1
     finally:
         workdir_core._usable = original
+
+
+def test_work_created_while_the_drive_was_away_comes_back(tmp_path: Path):
+    """ไดรฟ์หลุด → กรอกงานลงที่เก็บเริ่มต้น → ไดรฟ์กลับมา งานนั้นต้องไม่หายไปจากลิสต์"""
+    root = tmp_path / "user"
+    root.mkdir()
+    dest = tmp_path / "ไดรฟ์เครือข่าย"
+    workdir_core.set_work_dir(root, str(dest))
+    (dest / "sheets" / "ใบเก่า.json").write_text("{}", encoding="utf-8")
+
+    # ไดรฟ์หลุด
+    original = workdir_core._usable
+    workdir_core._usable = lambda path: False
+    workdir_core._RESOLVED.clear()
+    try:
+        assert workdir_core.resolve(root) == root
+        # ครูยังกรอกงานต่อ — ลงที่เก็บเริ่มต้นแทน
+        (root / "sheets").mkdir(parents=True, exist_ok=True)
+        (root / "sheets" / "ใบตอนไดรฟ์หลุด.json").write_text("{}", encoding="utf-8")
+        (root / "output").mkdir(parents=True, exist_ok=True)
+        (root / "output" / "พิมพ์ตอนไดรฟ์หลุด.pdf").write_bytes(b"%PDF-x")
+    finally:
+        workdir_core._usable = original
+
+    # ไดรฟ์กลับมา
+    workdir_core._RESOLVED.clear()
+    assert workdir_core.resolve(root) == dest.resolve()
+
+    names = {p.name for p in (dest / "sheets").glob("*.json")}
+    assert names == {"ใบเก่า.json", "ใบตอนไดรฟ์หลุด.json"}, names
+    assert (dest / "output" / "พิมพ์ตอนไดรฟ์หลุด.pdf").is_file()
+    # ไม่ทิ้งสำเนาค้างไว้ที่เก็บเริ่มต้น
+    assert not list((root / "sheets").glob("*.json"))
+
+
+def test_reclaim_does_not_run_when_there_is_nothing_to_move(tmp_path: Path):
+    root = tmp_path / "user"
+    root.mkdir()
+    dest = tmp_path / "dest"
+    workdir_core.set_work_dir(root, str(dest))
+    (dest / "sheets" / "ก.json").write_text("ของจริง", encoding="utf-8")
+
+    for _ in range(3):
+        workdir_core._RESOLVED.clear()
+        assert workdir_core.resolve(root) == dest.resolve()
+    assert (dest / "sheets" / "ก.json").read_text(encoding="utf-8") == "ของจริง"
+
+
+def test_reclaim_never_overwrites_a_file_at_the_destination(tmp_path: Path):
+    root = tmp_path / "user"
+    root.mkdir()
+    dest = tmp_path / "dest"
+    workdir_core.set_work_dir(root, str(dest))
+    (dest / "sheets" / "ชนกัน.json").write_text("ของที่ปลายทาง", encoding="utf-8")
+    (root / "sheets").mkdir(parents=True, exist_ok=True)
+    (root / "sheets" / "ชนกัน.json").write_text("ของที่ตกค้าง", encoding="utf-8")
+
+    workdir_core._RESOLVED.clear()
+    workdir_core.resolve(root)
+    assert (dest / "sheets" / "ชนกัน.json").read_text(encoding="utf-8") == "ของที่ปลายทาง"

@@ -1643,9 +1643,13 @@ def sheets_duplicate(name):
     base = src.get("template_name") or src.get("title") or "sheet"
     new_name = unique_sheet_name(paths["sheets"], base)
     path = paths["sheets"] / new_name
+    named_by_hand = not bool(src.get("title_auto", True))
     try:
         body = save_sheet(path, {
             "title": src.get("title") or base,
+            # ชื่อที่ครูตั้งเองต้องติดไปกับใบใหม่ ไม่งั้นกลับไปเป็นชื่ออัตโนมัติ
+            "rename": named_by_hand,
+            "title_base": src.get("title_base") or base,
             "form_sha": src["form_sha"],
             "source_doc": src.get("source_doc") or "",
             "template_name": src.get("template_name") or "",
@@ -1660,6 +1664,17 @@ def sheets_duplicate(name):
         raise
     log.info("sheet duplicated from=%s to=%s", path.name, new_name)
     return jsonify(_sheet_response(path, body))
+
+
+def _pins_off_the_end(username: str, form_sha: str, fields: list) -> int:
+    """หมุดที่ชี้หน้าเกินจำนวนหน้าของฟอร์ม — เกิดเมื่อฟอร์มใหม่หน้าน้อยลง"""
+    try:
+        path = form_store.require_pdf(user_paths(username)["forms"], form_sha)
+        with fitz.open(path) as doc:
+            pages = doc.page_count
+    except (FileNotFoundError, FormDataError, RuntimeError, OSError):
+        return 0
+    return sum(1 for f in fields if not 0 <= int(f.get("page") or 0) < pages)
 
 
 @app.post("/api/sheets/<name>/rename")
@@ -1712,12 +1727,15 @@ def sheets_relink(name):
     if sha == old_sha:
         return jsonify(_sheet_response(path, data))
     body = save_sheet(path, {"form_sha": sha})
+    orphan = _pins_off_the_end(user, sha, body.get("fields") or [])
     freed = form_store.collect_garbage(
         user_paths(user)["forms"], sheet_core.referenced_shas(user_paths(user)["sheets"])
     )
-    log.info("sheet relinked name=%s %s -> %s freed=%s",
-             path.name, old_sha[:12], sha[:12], len(freed))
-    return jsonify(_sheet_response(path, body))
+    log.info("sheet relinked name=%s %s -> %s freed=%s orphan=%s",
+             path.name, old_sha[:12], sha[:12], len(freed), orphan)
+    payload = _sheet_response(path, body)
+    payload["orphan_pins"] = orphan
+    return jsonify(payload)
 
 
 @app.get("/api/sheets/<name>/export")
@@ -1816,12 +1834,19 @@ def fill():
         out_path = paths["output"] / out_name
         with fitz.open(src) as d:
             used = 0
+            orphan = 0
             for fld in fields:
                 val = str(fld.get("value") or "").strip()
                 if not val:
                     continue
+                pno = int(fld["page"])
+                # ฟอร์มเวอร์ชันใหม่อาจมีหน้าน้อยลง — ข้ามหมุดที่ตกขอบ
+                # ดีกว่าให้ทั้งใบล้มทั้งที่ค่าหน้าอื่นใช้ได้
+                if not 0 <= pno < d.page_count:
+                    orphan += 1
+                    continue
                 used += 1
-                page = d[int(fld["page"])]
+                page = d[pno]
                 pt = fitz.Point(float(fld["x"]), float(fld["y"]))
                 size = float(fld.get("size", 14))
                 try:
@@ -1859,8 +1884,10 @@ def fill():
             archived = archive_filled_beside(src, out_path)
         except OSError:
             log.exception("archive filled copy failed")
-    log.info("fill ok fields=%s out=%s archived=%s", used, out_name, archived or "-")
-    return jsonify({"ok": True, "file": out_name, "archived": archived})
+    if orphan:
+        log.warning("fill skipped pins off the end of the form count=%s out=%s", orphan, out_name)
+    log.info("fill ok fields=%s orphan=%s out=%s archived=%s", used, orphan, out_name, archived or "-")
+    return jsonify({"ok": True, "file": out_name, "archived": archived, "orphan_pins": orphan})
 
 
 @app.get("/download/<name>")

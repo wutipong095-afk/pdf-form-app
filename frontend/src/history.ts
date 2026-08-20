@@ -226,8 +226,10 @@ async function runSheetAction(
     if (!confirm(t("hist.relinkAsk", { name: row?.source_name || "", sheet: row?.title || name }))) {
       return;
     }
-    await relinkSheet(name, onMarkers, onRender);
+    const moved = await relinkSheet(name, onMarkers, onRender);
     setStatus(t("hist.relinked"));
+    // ฟอร์มใหม่หน้าน้อยลง — ค่าที่อยู่หน้าที่หายไปจะไม่ถูกพิมพ์ ต้องบอกก่อนที่จะเซ็นส่ง
+    if (moved.orphan_pins) alert(t("hist.orphanPins", { count: moved.orphan_pins }));
     await refreshHistory();
     return;
   }

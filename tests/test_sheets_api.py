@@ -652,3 +652,76 @@ def test_rename_needs_a_title_and_csrf(client):
                        json={"title": "x"}).status_code == 403
     assert client.post("/api/sheets/ไม่มีจริง.json/rename", headers=hdr(client),
                        json={"title": "x"}).status_code == 404
+
+
+def test_relink_to_a_shorter_form_still_prints(client, licensed):
+    """ฟอร์มใหม่หน้าน้อยลง — ค่าหน้าแรกต้องยังพิมพ์ได้ ไม่ใช่ทั้งใบล้มเป็น 500"""
+    doc = upload(client, "ใบเบิก.pdf", pages=3)
+    created = client.post("/api/sheets", headers=hdr(client), json={
+        "source_doc": doc, "title": "ใบเบิก", "template_name": "ใบเบิก",
+        "fields": [
+            {"name": "หน้า1", "page": 0, "x": 100, "y": 100, "size": 14, "value": "ก"},
+            {"name": "หน้า2", "page": 1, "x": 100, "y": 100, "size": 14, "value": "ข"},
+            {"name": "หน้า3", "page": 2, "x": 100, "y": 100, "size": 14, "value": "ค"},
+        ],
+    }).get_json()
+
+    replace_upload(client, "ใบเบิก.pdf", pages=1)
+    relinked = client.post(
+        "/api/sheets/" + created["sheet"] + "/relink", headers=hdr(client)
+    ).get_json()
+    # ต้องบอกผู้ใช้ว่ามีหมุดตกขอบกี่จุด
+    assert relinked["orphan_pins"] == 2
+
+    r = client.post("/api/fill", headers=hdr(client), json={
+        "doc": relinked["doc_id"], "sheet": created["sheet"],
+        "fields": relinked["fields"], "outname": "ใบเบิก",
+    })
+    assert r.status_code == 200, r.get_json()
+    assert r.get_json()["orphan_pins"] == 2
+    # ค่าที่กรอกไว้ยังอยู่ครบในใบงาน แค่พิมพ์ไม่ออกในฟอร์มที่สั้นลง
+    assert len(client.get("/api/sheets/" + created["sheet"]).get_json()["fields"]) == 3
+
+
+def test_fill_ignores_a_pin_pointing_past_the_last_page(client):
+    created = create_sheet(client).get_json()
+    r = client.post("/api/fill", headers=hdr(client), json={
+        "doc": created["doc_id"], "sheet": created["sheet"], "outname": "ใบลา",
+        "fields": [
+            {"name": "ปกติ", "page": 0, "x": 100, "y": 100, "size": 14, "value": "ก"},
+            {"name": "ตกขอบ", "page": 40, "x": 100, "y": 100, "size": 14, "value": "ข"},
+        ],
+    })
+    assert r.status_code == 200, r.get_json()
+    assert r.get_json()["orphan_pins"] == 1
+
+
+def test_duplicate_keeps_a_name_set_by_hand(client):
+    created = create_sheet(client).get_json()
+    client.post("/api/sheets/" + created["sheet"] + "/rename", headers=hdr(client),
+                json={"title": "ใบเบิกด่วนของ ผอ."})
+
+    dup = client.post(
+        "/api/sheets/" + created["sheet"] + "/duplicate", headers=hdr(client)
+    ).get_json()
+    assert dup["title"] == "ใบเบิกด่วนของ ผอ."
+    assert dup["title_auto"] is False
+
+    # และยังไม่ถูกออโต้เซฟทับหลังจากนั้น
+    after = client.post("/api/sheets", headers=hdr(client), json={
+        "sheet": dup["sheet"], "template_name": "demo-ใบลา", "fields": fields("คนอื่น"),
+    }).get_json()
+    assert after["title"] == "ใบเบิกด่วนของ ผอ."
+
+
+def test_duplicate_of_an_auto_named_sheet_keeps_naming_itself(client):
+    created = create_sheet(client).get_json()
+    dup = client.post(
+        "/api/sheets/" + created["sheet"] + "/duplicate", headers=hdr(client)
+    ).get_json()
+    assert dup["title_auto"] is True
+
+    after = client.post("/api/sheets", headers=hdr(client), json={
+        "sheet": dup["sheet"], "template_name": "demo-ใบลา", "fields": fields("โรงเรียนบ้านหนองแวง"),
+    }).get_json()
+    assert "โรงเรียนบ้านหนองแวง" in after["title"]
