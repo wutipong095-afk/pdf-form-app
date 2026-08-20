@@ -67,24 +67,21 @@ from license_core import (
 )
 from history_core import (
     HISTORY_LIMIT,
+    title_to_filename,
     archive_filled_beside,
     is_out_doc,
     list_history,
     out_filename_from_doc,
     unique_output_name,
 )
-from job_core import (
-    JobError,
-    extract_job_pdf,
-    is_job_doc,
-    job_filename_from_doc,
-    layout_fields,
-    list_jobs,
-    make_job_doc,
-    read_job,
-    save_job,
-    unique_job_name,
-)
+import form_store
+import fromdd_io
+import job_core
+import sheet_core
+import workdir_core
+from fields_core import FormDataError, layout_fields
+from form_store import form_sha_from_doc, is_form_doc, make_form_doc
+from sheet_core import list_sheets, save_sheet, sheet_filename, unique_sheet_name
 from profiles_core import (
     ProfilesUnreadable,
     create_profile,
@@ -288,15 +285,23 @@ def user_root(username: str) -> Path:
 
 def user_paths(username: str) -> dict:
     root = user_root(username)
+    root.mkdir(parents=True, exist_ok=True)
+    # งานของผู้ใช้ย้ายไปโฟลเดอร์ที่เลือกเองได้ ส่วนที่เหลืออยู่ใต้โฟลเดอร์ข้อมูลเสมอ
+    work = workdir_core.resolve(root)
     paths = {
         "root": root,
+        "work": work,
         "uploads": root / "uploads",
         "templates": root / "templates_json",
-        "output": root / "output",
         "jobs": root / "jobs",
+        "output": work / "output",
+        "sheets": work / "sheets",
+        "forms": work / "forms",
     }
     for p in paths.values():
         p.mkdir(parents=True, exist_ok=True)
+    # ย้าย .fromdd ของรุ่นก่อนมาเป็นใบงาน — กันด้วยไฟล์หมาย ทำครั้งเดียวต่อผู้ใช้
+    fromdd_io.ensure_migrated(paths["jobs"], paths["sheets"], paths["forms"])
     return paths
 
 
@@ -865,20 +870,16 @@ def upload():
     return jsonify({"ok": True, "name": name})
 
 
-def _job_file(username: str, doc: str) -> Path:
-    try:
-        name = job_filename_from_doc(doc)
-    except JobError as e:
-        raise ValueError(str(e)) from e
-    path = user_paths(username)["jobs"] / name
+def _sheet_file(username: str, name: str) -> Path:
+    path = user_paths(username)["sheets"] / sheet_filename(name)
     if not path.is_file() or path.stat().st_size == 0:
-        raise FileNotFoundError(t("api.jobMissing"))
+        raise FileNotFoundError(t("api.sheetMissing"))
     return path
 
 
 def _license_name_for_source(source_doc: str, fallback: str) -> str:
     src = (source_doc or "").strip()
-    if not src or is_job_doc(src) or is_out_doc(src):
+    if not src or is_form_doc(src) or is_out_doc(src):
         return fallback
     if is_lib_doc(src):
         try:
@@ -889,11 +890,9 @@ def _license_name_for_source(source_doc: str, fallback: str) -> str:
 
 
 def _pdf_path(username: str, doc: str) -> Path:
-    if is_job_doc(doc):
-        try:
-            return extract_job_pdf(_job_file(username, doc))
-        except JobError as e:
-            raise FileNotFoundError(str(e)) from e
+    if is_form_doc(doc):
+        # สแนปช็อตเก็บตาม sha ของเนื้อไฟล์ — เปิดตรง ๆ ไม่ต้องแตกแคช
+        return form_store.require_pdf(user_paths(username)["forms"], form_sha_from_doc(doc))
     if is_out_doc(doc):
         return user_paths(username)["output"] / out_filename_from_doc(doc)
     if is_lib_doc(doc):
@@ -906,11 +905,12 @@ def _pdf_path(username: str, doc: str) -> Path:
 
 
 def _resolve_open_pdf(username: str, doc: str) -> tuple[Path, str]:
-    """PDF ที่เปิดได้ + ชื่อไฟล์สำหรับเช็คไลเซนต์ (งาน .fromdd ใช้ต้นฉบับที่แพ็กไว้)"""
+    """PDF ที่เปิดได้ + ชื่อไฟล์สำหรับเช็คไลเซนต์ (สแนปช็อตใช้ชื่อต้นฉบับที่บันทึกไว้)"""
     path = _pdf_path(username, doc)
-    if is_job_doc(doc):
-        meta = read_job(_job_file(username, doc))
-        return path, _license_name_for_source(str(meta.get("source_doc") or ""), path.name)
+    if is_form_doc(doc):
+        meta = form_store.read_meta(user_paths(username)["forms"], form_sha_from_doc(doc))
+        fallback = str(meta.get("display_name") or path.name)
+        return path, _license_name_for_source(str(meta.get("source_doc") or ""), fallback)
     if is_lib_doc(doc):
         return path, path.name
     return path, Path(str(doc or path.name)).name
@@ -929,7 +929,7 @@ def pageinfo(doc):
     # doc อาจเป็น @lib/... (frontend ส่งแบบ encodeURIComponent ทั้งก้อน)
     try:
         path, lic_doc = _resolve_open_pdf(current_user(), doc)
-    except (ValueError, FileNotFoundError, JobError) as e:
+    except (ValueError, FileNotFoundError, FormDataError) as e:
         return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
@@ -968,7 +968,7 @@ def fill_font_file():
 def page_png(doc, pno):
     try:
         path, lic_doc = _resolve_open_pdf(current_user(), doc)
-    except (ValueError, FileNotFoundError, JobError) as e:
+    except (ValueError, FileNotFoundError, FormDataError) as e:
         return jsonify({"error": str(e)}), 404
     if not path.exists():
         return jsonify({"error": "not found"}), 404
@@ -998,12 +998,12 @@ def get_template(name):
 def save_template(name):
     data = request.get_json(force=True, silent=True) or {}
     doc = data.get("doc") or ""
-    if is_job_doc(doc) or is_out_doc(doc):
-        return jsonify({"error": t("api.tplFromJob")}), 400
+    if is_form_doc(doc) or is_out_doc(doc):
+        return jsonify({"error": t("api.tplFromSheet")}), 400
     try:
         data = dict(data)
         data["fields"] = layout_fields(data.get("fields") or [])
-    except JobError as e:
+    except FormDataError as e:
         return jsonify({"error": str(e)}), 400
     # ถ้ากำลังแก้เอกสารในคลัง — บันทึกเป็นชื่อ.tpl.json คู่กับ PDF
     if is_lib_doc(doc):
@@ -1193,6 +1193,11 @@ def library_browse():
         root = get_library_root(DATA_DIR)
         initial = str(root) if root else str(suggest_default_root().parent)
 
+    return _browse_start(initial)
+
+
+def _browse_start(initial: str):
+    """เปิดกล่องเลือกโฟลเดอร์นอก worker แล้วคืน job_id ให้ client มา poll"""
     global _BROWSE_ACTIVE
     with _BROWSE_LOCK:
         _browse_job_cleanup()
@@ -1219,7 +1224,7 @@ def library_browse():
                     job["cancelled"] = chosen is None
                     job["path"] = chosen
         except Exception as exc:  # noqa: BLE001 — ส่งข้อความให้ client
-            log.exception("library browse failed")
+            log.exception("folder browse failed")
             with _BROWSE_LOCK:
                 job = _BROWSE_JOBS.get(jid)
                 if job is not None:
@@ -1234,13 +1239,7 @@ def library_browse():
     return jsonify({"ok": True, "job_id": job_id, "pending": True})
 
 
-@app.get("/api/library/browse/<job_id>")
-@machine_admin_required
-def library_browse_status(job_id: str):
-    if not _paid_license():
-        return _license_required_response(t("api.libraryNeedsLicense"))
-    if not _open_folder_allowed():
-        return jsonify({"error": t("api.browseLocalOnly")}), 403
+def _browse_poll(job_id: str):
     with _BROWSE_LOCK:
         job = _BROWSE_JOBS.get(job_id)
         if job is None:
@@ -1260,6 +1259,66 @@ def library_browse_status(job_id: str):
     if payload.get("error"):
         return jsonify(payload), 500
     return jsonify(payload)
+
+
+@app.get("/api/library/browse/<job_id>")
+@machine_admin_required
+def library_browse_status(job_id: str):
+    if not _paid_license():
+        return _license_required_response(t("api.libraryNeedsLicense"))
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.browseLocalOnly")}), 403
+    return _browse_poll(job_id)
+
+
+@app.get("/api/workdir")
+@login_required
+def workdir_get():
+    return jsonify(workdir_core.status(user_root(current_user())))
+
+
+@app.post("/api/workdir/browse")
+@machine_admin_required
+def workdir_browse():
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.browseLocalOnly")}), 403
+    data = request.get_json(force=True, silent=True) or {}
+    initial = (data.get("initial") or "").strip()
+    if not initial:
+        initial = str(Path.home() / "Documents")
+    return _browse_start(initial)
+
+
+@app.get("/api/workdir/browse/<job_id>")
+@machine_admin_required
+def workdir_browse_status(job_id: str):
+    if not _open_folder_allowed():
+        return jsonify({"error": t("api.browseLocalOnly")}), 403
+    return _browse_poll(job_id)
+
+
+@app.post("/api/workdir")
+@machine_admin_required
+def workdir_set():
+    """ย้ายที่เก็บงาน — ใบงานที่มีอยู่ย้ายตามไปด้วย"""
+    data = request.get_json(force=True, silent=True) or {}
+    root = user_root(current_user())
+    try:
+        if data.get("reset"):
+            out = workdir_core.reset(root)
+        else:
+            out = workdir_core.set_work_dir(
+                root,
+                str(data.get("path") or ""),
+                # ห้ามชี้เข้าโฟลเดอร์ข้อมูล/ติดตั้งของโปรแกรมเอง
+                forbidden=(DATA_DIR, BASE),
+            )
+    except workdir_core.WorkDirError as e:
+        return jsonify({"error": str(e)}), 400
+    except OSError as e:
+        log.exception("set work dir failed")
+        return jsonify({"error": str(e)}), 400
+    return jsonify(out)
 
 
 @app.post("/api/library/root")
@@ -1405,98 +1464,332 @@ def library_get_template():
     return jsonify(data)
 
 
-def _job_payload_response(path: Path) -> dict:
-    meta = read_job(path)
+def _sheet_export_dir(paths: dict, max_age_s: float = 600.0) -> Path:
+    """ที่พักไฟล์ส่งออก/นำเข้า — กวาดของเก่าทิ้งทุกครั้ง ไม่ให้โตไปเรื่อย ๆ"""
+    d = paths["root"] / "export"
+    d.mkdir(parents=True, exist_ok=True)
+    now = time.time()
+    for p in d.iterdir():
+        try:
+            if p.is_file() and now - p.stat().st_mtime > max_age_s:
+                p.unlink()
+        except OSError:
+            pass
+    return d
+
+
+def _source_label(source_doc: str) -> str:
+    """ชื่อฟอร์มต้นฉบับแบบที่คนอ่านรู้เรื่อง — @lib|a/b.pdf → b.pdf"""
+    return _license_name_for_source(source_doc, "")
+
+
+def _live_source_sha(username: str, source_doc: str) -> Optional[str]:
+    """sha ของฟอร์มต้นฉบับตอนนี้ — None ถ้าไฟล์หายไปหรือเปิดไม่ได้"""
+    src = (source_doc or "").strip()
+    if not src or is_form_doc(src) or is_out_doc(src):
+        return None
+    try:
+        return form_store.sha_of_file(_pdf_path(username, src))
+    except (ValueError, FileNotFoundError, OSError, FormDataError):
+        return None
+
+
+def _source_state(username: str, source_doc: str, form_sha: str) -> dict:
+    """บอกว่าฟอร์มต้นฉบับยังอยู่ไหม และถูกอัปโหลดทับด้วยเวอร์ชันใหม่หรือยัง"""
+    live = _live_source_sha(username, source_doc)
     return {
-        "ok": True,
-        "file": path.name,
-        "doc_id": make_job_doc(path.name),
-        "title": meta.get("title") or path.stem,
-        "source_doc": meta.get("source_doc") or "",
-        "template_name": meta.get("template_name") or "",
-        "fields": meta.get("fields") or [],
-        "updated_at": meta.get("updated_at"),
+        "source_name": _source_label(source_doc),
+        "source_present": live is not None,
+        # ทับด้วยไฟล์คนละตัว — ไม่เปลี่ยนให้เอง ต้องให้ผู้ใช้สั่ง
+        "source_changed": bool(live and live != form_sha),
     }
 
 
-@app.post("/api/jobs")
+def _sheet_response(path: Path, data: Optional[dict] = None) -> dict:
+    data = data if data is not None else sheet_core.read_sheet(path)
+    return {
+        "ok": True,
+        "sheet": path.name,
+        "doc_id": make_form_doc(data["form_sha"]),
+        "title": data.get("title") or path.stem,
+        "title_auto": bool(data.get("title_auto", True)),
+        "form_sha": data["form_sha"],
+        "source_doc": data.get("source_doc") or "",
+        "template_name": data.get("template_name") or "",
+        "fields": data.get("fields") or [],
+        "printed": data.get("printed") or [],
+        "updated_at": data.get("updated_at"),
+        **_source_state(current_user(), str(data.get("source_doc") or ""), data["form_sha"]),
+    }
+
+
+def _snapshot_for_source(user: str, source_doc: str) -> tuple[str, str]:
+    """เก็บฟอร์มต้นฉบับเข้าคลังสแนปช็อต — คืน (sha, ชื่อที่ใช้เช็คไลเซนต์)"""
+    src, lic_doc = _resolve_open_pdf(user, source_doc)
+    if not src.is_file():
+        raise FileNotFoundError(t("api.pdfMissing"))
+    ok, lic_err = can_open_document(DATA_DIR, lic_doc, src)
+    if not ok:
+        raise PermissionError(lic_err)
+    sha = form_store.snapshot_from_file(
+        user_paths(user)["forms"], src, source_doc=source_doc, display_name=lic_doc
+    )
+    return sha, lic_doc
+
+
+@app.post("/api/sheets")
 @login_required
-def jobs_save():
+def sheets_save():
     data = request.get_json(force=True, silent=True) or {}
-    raw_job = str(data.get("job") or "").strip()
+    raw_sheet = str(data.get("sheet") or "").strip()
     source_doc = str(data.get("source_doc") or "").strip()
     title = str(data.get("title") or "").strip()
     template_name = str(data.get("template_name") or "").strip()
+    fields = data.get("fields") or []
     user = current_user()
-    paths = user_paths(user)
-    jobs_dir = paths["jobs"]
+    sheets_dir = user_paths(user)["sheets"]
 
     try:
-        if raw_job:
-            path = jobs_dir / job_filename_from_doc(raw_job)
+        if raw_sheet:
+            path = sheets_dir / sheet_filename(raw_sheet)
             if not path.is_file() or path.stat().st_size == 0:
-                return jsonify({"error": t("api.jobMissing")}), 404
-            save_job(path, {
+                return jsonify({"error": t("api.sheetMissing")}), 404
+            body = save_sheet(path, {
                 "title": title,
+                "template_name": template_name,
+                "fields": fields,
+            })
+            return jsonify(_sheet_response(path, body))
+
+        if not source_doc or is_form_doc(source_doc) or is_out_doc(source_doc):
+            return jsonify({"error": t("api.sheetNeedSource")}), 400
+        try:
+            sha, lic_doc = _snapshot_for_source(user, source_doc)
+        except PermissionError as e:
+            return _license_required_response(str(e))
+        except (ValueError, FileNotFoundError) as e:
+            return jsonify({"error": str(e)}), 404
+
+        base = template_name or title or Path(lic_doc).stem
+        name = unique_sheet_name(sheets_dir, base)
+        path = sheets_dir / name
+        try:
+            body = save_sheet(path, {
+                "title_base": title or base,
+                "form_sha": sha,
                 "source_doc": source_doc,
                 "template_name": template_name,
-                "fields": data.get("fields") or [],
+                "fields": fields,
             })
-            log.info("job updated name=%s fields=%s", path.name, len(data.get("fields") or []))
-            return jsonify(_job_payload_response(path))
-
-        if not source_doc or is_job_doc(source_doc) or is_out_doc(source_doc):
-            return jsonify({"error": t("api.jobNeedSource")}), 400
-        try:
-            src, lic_doc = _resolve_open_pdf(user, source_doc)
-        except (ValueError, FileNotFoundError, JobError) as e:
-            return jsonify({"error": str(e)}), 404
-        if not src.is_file():
-            return jsonify({"error": t("api.pdfMissing")}), 404
-        ok, lic_err = can_open_document(DATA_DIR, lic_doc, src)
-        if not ok:
-            return _license_required_response(lic_err)
-        pdf_bytes = src.read_bytes()
-        name = unique_job_name(jobs_dir, title or src.stem)
-        path = jobs_dir / name
-        try:
-            save_job(
-                path,
-                {
-                    "title": title or src.stem,
-                    "source_doc": source_doc,
-                    "template_name": template_name,
-                    "fields": data.get("fields") or [],
-                },
-                pdf_bytes=pdf_bytes,
-            )
         except Exception:
-            # unique_job_name จองชื่อไว้แล้ว — อย่าทิ้งไฟล์ 0 ไบต์ค้างไว้
+            # unique_sheet_name จองชื่อไว้แล้ว — อย่าทิ้งไฟล์ 0 ไบต์ค้างไว้
             try:
                 if path.is_file() and path.stat().st_size == 0:
                     path.unlink()
             except OSError:
                 pass
             raise
-        log.info("job created name=%s fields=%s", path.name, len(data.get("fields") or []))
-        return jsonify(_job_payload_response(path))
-    except JobError as e:
+        log.info("sheet created name=%s form=%s fields=%s", name, sha[:12], len(body["fields"]))
+        return jsonify(_sheet_response(path, body))
+    except FormDataError as e:
         return jsonify({"error": str(e)}), 400
 
 
-@app.get("/api/jobs/<name>")
+@app.get("/api/sheets/<name>")
 @login_required
-def jobs_get(name):
+def sheets_get(name):
     try:
-        path = user_paths(current_user())["jobs"] / job_filename_from_doc(name)
-    except JobError as e:
+        path = _sheet_file(current_user(), name)
+        return jsonify(_sheet_response(path))
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
         return jsonify({"error": str(e)}), 400
-    if not path.is_file():
-        return jsonify({"error": t("api.jobMissing")}), 404
+
+
+@app.delete("/api/sheets/<name>")
+@login_required
+def sheets_delete(name):
+    paths = user_paths(current_user())
     try:
-        return jsonify(_job_payload_response(path))
-    except JobError as e:
+        path = _sheet_file(current_user(), name)
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
         return jsonify({"error": str(e)}), 400
+    try:
+        path.unlink()
+    except OSError as e:
+        log.warning("sheet delete failed name=%s err=%s", path.name, e)
+        return jsonify({"error": t("api.sheetDeleteFail")}), 500
+    freed = form_store.collect_garbage(
+        paths["forms"], sheet_core.referenced_shas(paths["sheets"])
+    )
+    log.info("sheet deleted name=%s snapshots_freed=%s", path.name, len(freed))
+    return jsonify({"ok": True, "sheet": path.name, "snapshots_freed": len(freed)})
+
+
+@app.post("/api/sheets/<name>/duplicate")
+@login_required
+def sheets_duplicate(name):
+    """ทำใบใหม่จากใบนี้ — งานที่ทำบ่อยสุดคือเอาใบเดือนก่อนมาแก้ไม่กี่ช่อง"""
+    paths = user_paths(current_user())
+    try:
+        src = sheet_core.read_sheet(_sheet_file(current_user(), name))
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
+        return jsonify({"error": str(e)}), 400
+    base = src.get("template_name") or src.get("title") or "sheet"
+    new_name = unique_sheet_name(paths["sheets"], base)
+    path = paths["sheets"] / new_name
+    named_by_hand = not bool(src.get("title_auto", True))
+    try:
+        body = save_sheet(path, {
+            "title": src.get("title") or base,
+            # ชื่อที่ครูตั้งเองต้องติดไปกับใบใหม่ ไม่งั้นกลับไปเป็นชื่ออัตโนมัติ
+            "rename": named_by_hand,
+            "title_base": src.get("title_base") or base,
+            "form_sha": src["form_sha"],
+            "source_doc": src.get("source_doc") or "",
+            "template_name": src.get("template_name") or "",
+            "fields": src.get("fields") or [],
+        })
+    except Exception:
+        try:
+            if path.is_file() and path.stat().st_size == 0:
+                path.unlink()
+        except OSError:
+            pass
+        raise
+    log.info("sheet duplicated from=%s to=%s", path.name, new_name)
+    return jsonify(_sheet_response(path, body))
+
+
+def _pins_off_the_end(username: str, form_sha: str, fields: list) -> int:
+    """หมุดที่ชี้หน้าเกินจำนวนหน้าของฟอร์ม — เกิดเมื่อฟอร์มใหม่หน้าน้อยลง"""
+    try:
+        path = form_store.require_pdf(user_paths(username)["forms"], form_sha)
+        with fitz.open(path) as doc:
+            pages = doc.page_count
+    except (FileNotFoundError, FormDataError, RuntimeError, OSError):
+        return 0
+    return sum(1 for f in fields if not 0 <= int(f.get("page") or 0) < pages)
+
+
+@app.post("/api/sheets/<name>/rename")
+@login_required
+def sheets_rename(name):
+    """ตั้งชื่อใบงานเอง — หยุดตั้งชื่ออัตโนมัติจากค่าที่กรอกสำหรับใบนี้"""
+    data = request.get_json(force=True, silent=True) or {}
+    title = str(data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": t("api.sheetNeedTitle")}), 400
+    try:
+        path = _sheet_file(current_user(), name)
+        body = save_sheet(path, {"title": title, "rename": True})
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
+        return jsonify({"error": str(e)}), 400
+    log.info("sheet renamed name=%s", path.name)
+    return jsonify(_sheet_response(path, body))
+
+
+@app.post("/api/sheets/<name>/relink")
+@login_required
+def sheets_relink(name):
+    """ย้ายใบนี้ไปใช้ฟอร์มต้นฉบับเวอร์ชันปัจจุบัน — ผู้ใช้สั่งเองเท่านั้น
+
+    หมุดยังอยู่พิกัดเดิม ถ้าฟอร์มใหม่วางช่องคนละที่ ผู้ใช้ต้องเลื่อนหมุดเอง
+    ดีกว่าเปลี่ยนให้เงียบ ๆ แล้วพิมพ์ออกมาผิดช่องโดยไม่รู้ตัว
+    """
+    user = current_user()
+    try:
+        path = _sheet_file(user, name)
+        data = sheet_core.read_sheet(path)
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
+        return jsonify({"error": str(e)}), 400
+
+    source_doc = str(data.get("source_doc") or "")
+    if not source_doc:
+        return jsonify({"error": t("api.sheetNeedSource")}), 400
+    try:
+        sha, _lic = _snapshot_for_source(user, source_doc)
+    except PermissionError as e:
+        return _license_required_response(str(e))
+    except (ValueError, FileNotFoundError) as e:
+        return jsonify({"error": str(e)}), 404
+
+    old_sha = data["form_sha"]
+    if sha == old_sha:
+        return jsonify(_sheet_response(path, data))
+    body = save_sheet(path, {"form_sha": sha})
+    orphan = _pins_off_the_end(user, sha, body.get("fields") or [])
+    freed = form_store.collect_garbage(
+        user_paths(user)["forms"], sheet_core.referenced_shas(user_paths(user)["sheets"])
+    )
+    log.info("sheet relinked name=%s %s -> %s freed=%s orphan=%s",
+             path.name, old_sha[:12], sha[:12], len(freed), orphan)
+    payload = _sheet_response(path, body)
+    payload["orphan_pins"] = orphan
+    return jsonify(payload)
+
+
+@app.get("/api/sheets/<name>/export")
+@login_required
+def sheets_export(name):
+    """ส่งออกเป็น .fromdd — ไฟล์เดียวจบในตัว ส่งให้เครื่องที่ไม่มีฟอร์มได้"""
+    paths = user_paths(current_user())
+    try:
+        path = _sheet_file(current_user(), name)
+        data = sheet_core.read_sheet(path)
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
+        return jsonify({"error": str(e)}), 400
+    tmp_dir = _sheet_export_dir(paths)
+    # ชื่อไฟล์ที่ผู้ใช้จะเห็นตอนโหลด — เอาชื่อใบงาน ไม่ใช่ชื่อไฟล์ภายในที่มีแต่ตัวเลขเวลา
+    dest = tmp_dir / job_core.job_filename(
+        title_to_filename(str(data.get("title") or ""), path.stem)
+    )
+    try:
+        fromdd_io.export_fromdd(dest, paths["forms"], data)
+    except (FormDataError, FileNotFoundError, OSError) as e:
+        log.warning("sheet export failed name=%s err=%s", path.name, e)
+        return jsonify({"error": t("api.sheetExportFail")}), 400
+    return send_file(dest, as_attachment=True, download_name=dest.name)
+
+
+@app.post("/api/sheets/import")
+@login_required
+def sheets_import():
+    """นำเข้า .fromdd จากเครื่องอื่น — แตกเป็นใบงาน + สแนปช็อตฟอร์ม"""
+    paths = user_paths(current_user())
+    f = request.files.get("file")
+    if f is None or not (f.filename or "").lower().endswith(job_core.JOB_EXT):
+        return jsonify({"error": t("api.sheetImportNeedsFile")}), 400
+    staged = _sheet_export_dir(paths) / ("import-" + job_core.job_filename(Path(f.filename).stem))
+    try:
+        f.save(staged)
+        body = fromdd_io.import_fromdd(
+            paths["sheets"], paths["forms"], staged, base_name=Path(f.filename).stem
+        )
+    except FormDataError as e:
+        return jsonify({"error": str(e)}), 400
+    except OSError as e:
+        log.warning("sheet import failed err=%s", e)
+        return jsonify({"error": t("api.sheetImportFail")}), 400
+    finally:
+        try:
+            staged.unlink(missing_ok=True)
+        except OSError:
+            pass
+    path = paths["sheets"] / body["name"]
+    log.info("sheet imported name=%s", body["name"])
+    return jsonify(_sheet_response(path, body))
 
 
 @app.post("/api/fill")
@@ -1514,7 +1807,7 @@ def fill():
         return jsonify({"error": t("api.fillFromHistory")}), 400
     try:
         src, lic_doc = _resolve_open_pdf(current_user(), doc_name)
-    except (ValueError, FileNotFoundError, JobError) as e:
+    except (ValueError, FileNotFoundError, FormDataError) as e:
         return jsonify({"error": str(e)}), 404
     if not src.exists():
         return jsonify({"error": t("api.pdfMissing")}), 404
@@ -1524,13 +1817,15 @@ def fill():
         return jsonify({"error": lic_err, "license_required": True}), 402
 
     paths = user_paths(current_user())
+    sheet_name = str(data.get("sheet") or "").strip()
+    sheet_path: Optional[Path] = None
     out_base = data.get("outname") or src.stem
-    if is_job_doc(doc_name):
+    if sheet_name:
         try:
-            meta = read_job(_job_file(current_user(), doc_name))
-            out_base = data.get("outname") or meta.get("title") or src.stem
-        except (JobError, FileNotFoundError, ValueError):
-            pass
+            sheet_path = _sheet_file(current_user(), sheet_name)
+            out_base = data.get("outname") or sheet_core.read_sheet(sheet_path).get("title") or src.stem
+        except (FormDataError, FileNotFoundError, ValueError):
+            sheet_path = None
     out_path: Optional[Path] = None
     out_name = ""
 
@@ -1539,12 +1834,19 @@ def fill():
         out_path = paths["output"] / out_name
         with fitz.open(src) as d:
             used = 0
+            orphan = 0
             for fld in fields:
                 val = str(fld.get("value") or "").strip()
                 if not val:
                     continue
+                pno = int(fld["page"])
+                # ฟอร์มเวอร์ชันใหม่อาจมีหน้าน้อยลง — ข้ามหมุดที่ตกขอบ
+                # ดีกว่าให้ทั้งใบล้มทั้งที่ค่าหน้าอื่นใช้ได้
+                if not 0 <= pno < d.page_count:
+                    orphan += 1
+                    continue
                 used += 1
-                page = d[int(fld["page"])]
+                page = d[pno]
                 pt = fitz.Point(float(fld["x"]), float(fld["y"]))
                 size = float(fld.get("size", 14))
                 try:
@@ -1573,14 +1875,19 @@ def fill():
             "event_id": eid,
         }), 500
 
+    if sheet_path is not None:
+        sheet_core.note_printed(sheet_path, out_name)
+
     archived = None
     if is_lib_doc(doc_name):
         try:
             archived = archive_filled_beside(src, out_path)
         except OSError:
             log.exception("archive filled copy failed")
-    log.info("fill ok fields=%s out=%s archived=%s", used, out_name, archived or "-")
-    return jsonify({"ok": True, "file": out_name, "archived": archived})
+    if orphan:
+        log.warning("fill skipped pins off the end of the form count=%s out=%s", orphan, out_name)
+    log.info("fill ok fields=%s orphan=%s out=%s archived=%s", used, orphan, out_name, archived or "-")
+    return jsonify({"ok": True, "file": out_name, "archived": archived, "orphan_pins": orphan})
 
 
 @app.get("/download/<name>")
@@ -1600,8 +1907,17 @@ def history_list():
     q = request.args.get("q") or ""
     paths = user_paths(current_user())
     pdfs = list_history(paths["output"], q)
-    jobs = list_jobs(paths["jobs"], q)
-    files = list(jobs) + list(pdfs.get("files") or [])
+    sheets = list_sheets(paths["sheets"], q)
+    user = current_user()
+    live: dict[str, Optional[str]] = {}
+    for row in sheets:
+        src = str(row.get("source_doc") or "")
+        if src not in live:
+            live[src] = _live_source_sha(user, src)
+        row["source_name"] = _source_label(src)
+        row["source_present"] = live[src] is not None
+        row["source_changed"] = bool(live[src] and live[src] != row.get("form_sha"))
+    files = list(sheets) + list(pdfs.get("files") or [])
     files.sort(key=lambda d: (-int(d.get("mtime") or 0), str(d.get("name") or "")))
     truncated = bool(pdfs.get("truncated")) or len(files) > HISTORY_LIMIT
     files = files[:HISTORY_LIMIT]
@@ -1622,18 +1938,18 @@ def history_open():
     name = (data.get("name") or "").strip()
     kind = (data.get("kind") or "").strip().lower()
     paths = user_paths(current_user())
-    jobs_dir = paths["jobs"]
+    sheets_dir = paths["sheets"]
     output = paths["output"]
     if not name:
-        target = jobs_dir
-    elif kind == "job" or is_job_doc(name) or name.lower().endswith(".fromdd"):
+        target = sheets_dir
+    elif kind == "sheet" or name.lower().endswith(".json"):
         try:
-            fname = job_filename_from_doc(name)
-        except JobError as e:
+            fname = sheet_filename(name)
+        except FormDataError as e:
             return jsonify({"error": str(e)}), 400
-        target = jobs_dir / fname
+        target = sheets_dir / fname
         if not target.is_file():
-            return jsonify({"error": t("api.jobMissing")}), 404
+            return jsonify({"error": t("api.sheetMissing")}), 404
     else:
         try:
             fname = out_filename_from_doc(name) if is_out_doc(name) else (
@@ -1669,7 +1985,8 @@ def open_folder():
     mapping = {
         "data": DATA_DIR,
         "output": paths["output"],
-        "jobs": paths["jobs"],
+        "sheets": paths["sheets"],
+        "work": paths["work"],
         "logs": LOG_DIR,
         "uploads": paths["uploads"],
     }
@@ -1789,6 +2106,7 @@ def api_backup():
             data_dir=DATA_DIR,
             username=user or LOCAL_USER,
             user_root=paths["root"],
+            work_root=paths["work"],
             app_version=APP_VERSION,
         )
     except OSError:
@@ -1828,6 +2146,7 @@ def api_restore():
         result = restore_backup(
             raw,
             user_root=paths["root"],
+            work_root=paths["work"],
             data_dir=DATA_DIR,
             mode=mode,  # type: ignore[arg-type]
         )

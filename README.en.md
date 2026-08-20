@@ -26,7 +26,8 @@ Open http://localhost:5000 — **no login required**
 | What the app provides | Location (Windows) |
 |-----------------------|--------------------|
 | Data / license | `%LOCALAPPDATA%\PDFFormMarker\data` |
-| Job files `.fromdd` | `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\jobs` |
+| Sheets (the filled values) | Pick your own folder from the backup bar · default `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\sheets` |
+| Form snapshots (blank PDFs, one copy per form) | `%LOCALAPPDATA%\PDFFormMarker\data\users\<user>\forms` |
 | Logs | `%LOCALAPPDATA%\PDFFormMarker\logs` |
 | Bind | `127.0.0.1` only |
 

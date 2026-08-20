@@ -3,7 +3,7 @@
  */
 import { $ } from "./dom";
 import { api } from "./api";
-import { isJobDoc, isOutDoc, state } from "./state";
+import { isFormDoc, isOutDoc, state } from "./state";
 import { bindLicenseUi } from "./license";
 import { bindViewer, nudgeSelected, renderMarkers, showPage, ensureFillFont } from "./viewer";
 import { bindValues, renderList, renderValues } from "./fields";
@@ -13,8 +13,10 @@ import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import { bindHistory, notifyHistoryChanged } from "./history";
-import { bindJobSaved, saveJobNow, scheduleJobSave, startNewSheet } from "./jobs";
+import { bindSheetSaved, saveSheetNow, scheduleSheetSave, startNewSheet } from "./sheets";
 import { bindBackupUi } from "./backup";
+import { bindWorkDir } from "./workdir";
+import { renderFillResult } from "./fillResult";
 import { askFieldName, bindProfiles } from "./profiles";
 import { bindLangToggle, t } from "./i18n";
 import type { FillResponse } from "./types";
@@ -26,7 +28,7 @@ function setTab(tab: "edit" | "fill"): void {
   $("panel-" + tab).classList.add("active");
   $("pagewrap").classList.toggle("marking", tab === "edit" && !isOutDoc(state.doc));
   paintMarkers();
-  if (tab === "fill") void saveJobNow();
+  if (tab === "fill") void saveSheetNow();
 }
 
 function gotoField(i: number): void {
@@ -47,7 +49,7 @@ function delField(i: number): void {
   state.fields.splice(i, 1);
   state.selIdx = -1;
   renderAll();
-  if (state.job) scheduleJobSave();
+  if (state.sheet) scheduleSheetSave();
 }
 
 function renameField(i: number): void {
@@ -55,7 +57,7 @@ function renameField(i: number): void {
   if (n) {
     state.fields[i].name = n.trim();
     renderAll();
-    if (state.job) scheduleJobSave();
+    if (state.sheet) scheduleSheetSave();
   }
 }
 
@@ -68,7 +70,7 @@ function paintMarkers(): void {
     (i, value) => {
       state.fields[i].value = value;
       renderAll();
-      scheduleJobSave();
+      scheduleSheetSave();
     },
   );
 }
@@ -112,7 +114,7 @@ function bindTemplateSave(): void {
     }
     if (isLibDoc(tplDoc)) {
       await refreshLibrary().catch(() => undefined);
-    } else if (!isJobDoc(state.doc)) {
+    } else if (!isFormDoc(state.doc)) {
       await refreshDocs(paintMarkers, renderAll);
       ($("tplsel") as HTMLSelectElement).value = name;
     }
@@ -131,7 +133,7 @@ function bindClearAndFill(): void {
     $("chatlog").innerHTML = "";
     renderAll();
     startChat();
-    scheduleJobSave();
+    scheduleSheetSave();
   };
 
   $("makepdf").onclick = async () => {
@@ -149,28 +151,20 @@ function bindClearAndFill(): void {
       $("result").textContent = t("app.needLicense");
       return;
     }
-    await saveJobNow();
+    await saveSheetNow();
     const outname = (($("tplname") as HTMLInputElement).value || "filled").trim() || "filled";
-    // ใบใหม่หลังกดล้างค่ายังไม่ได้เปลี่ยน state.doc — สร้าง PDF จากใบที่กำลังแก้จริง
-    const fillDoc = state.job ? "@job." + state.job : state.doc;
     const res = await api("/api/fill", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ doc: fillDoc, fields: state.fields, outname }),
+      // ส่ง sheet ไปด้วยเพื่อให้ฝั่งเซิร์ฟเวอร์จำได้ว่า PDF นี้พิมพ์จากใบไหน
+      body: JSON.stringify({ doc: state.doc, fields: state.fields, outname, sheet: state.sheet }),
     });
     const r = (await res.json()) as FillResponse;
     if (r.error) {
       $("result").textContent = "❌ " + r.error;
       return;
     }
-    const result = $("result");
-    result.replaceChildren(t("app.donePrefix"));
-    const link = document.createElement("a");
-    link.href = "/download/" + encodeURIComponent(r.file!);
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.textContent = t("app.openFile", { file: r.file! });
-    result.appendChild(link);
+    renderFillResult(r);
     bub(t("app.created", { file: r.file! }), "bot");
     notifyHistoryChanged();
   };
@@ -193,7 +187,7 @@ function bindKeyboard(): void {
     } else return;
     e.preventDefault();
     paintMarkers();
-    if (state.job) scheduleJobSave();
+    if (state.sheet) scheduleSheetSave();
   });
 }
 
@@ -205,7 +199,7 @@ function bindMarking(): void {
       state.fields[state.selIdx].page = state.cur;
       state.selIdx = -1;
       renderAll();
-      if (state.job) scheduleJobSave();
+      if (state.sheet) scheduleSheetSave();
       return;
     }
     // Naming is async — the dialog offers field names already in the autofill book
@@ -215,7 +209,7 @@ function bindMarking(): void {
       if (!name) return;
       state.fields.push({ name: name.trim(), page, x, y, size, value: "" });
       renderAll();
-      if (state.job) scheduleJobSave();
+      if (state.sheet) scheduleSheetSave();
     });
   });
 }
@@ -226,7 +220,7 @@ function bindMarking(): void {
  */
 function afterProfileApply(): void {
   renderAll();
-  scheduleJobSave();
+  scheduleSheetSave();
   if (state.chatIdx < 0) return;
   const asking = state.fields[state.chatIdx];
   if (asking && (asking.value || "").trim()) ask();
@@ -241,8 +235,9 @@ function init(): void {
   });
   bindLibrary(paintMarkers, renderAll);
   bindHistory(paintMarkers, renderAll);
-  bindJobSaved(() => notifyHistoryChanged());
+  bindSheetSaved(() => notifyHistoryChanged());
   bindBackupUi(paintMarkers, renderAll);
+  bindWorkDir(() => notifyHistoryChanged());
   bindProfiles(afterProfileApply);
   bindDocs(paintMarkers, renderAll);
   bindMarking();
@@ -251,12 +246,12 @@ function init(): void {
       state.fields[i].value = value;
       paintMarkers();
       renderList(selField, renameField, delField);
-      scheduleJobSave();
+      scheduleSheetSave();
     },
     (i) => {
       state.fields[i].value = "";
       renderAll();
-      scheduleJobSave();
+      scheduleSheetSave();
     },
     gotoField,
   );
@@ -268,7 +263,7 @@ function init(): void {
     },
     () => {
       renderAll();
-      scheduleJobSave();
+      scheduleSheetSave();
     },
   );
   bindTemplateSave();

@@ -45,6 +45,21 @@ export function showPage(onMarkers: () => void): void {
   el.onload = onMarkers;
 }
 
+/** ปิดเอกสาร — ใช้เมื่อไฟล์ที่เปิดอยู่หายไปแล้ว จะได้ไม่ขอหน้าที่ 404 */
+export function closeDoc(): void {
+  state.doc = null;
+  state.pages = 0;
+  state.cur = 0;
+  const el = img();
+  el.onload = null;
+  el.removeAttribute("src");
+  $("pglabel").textContent = "";
+  wrap()
+    .querySelectorAll(".marker,.mlabel,.mvalue")
+    .forEach((n) => n.remove());
+  syncHistoryChrome();
+}
+
 export async function loadDoc(name: string, onMarkers: () => void): Promise<void> {
   const res = await api(`/api/pageinfo/${encodeURIComponent(name)}`);
   const info = (await res.json().catch(() => ({}))) as {

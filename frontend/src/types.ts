@@ -41,6 +41,8 @@ export type FillResponse = {
   ok?: boolean;
   file?: string;
   archived?: string | null;
+  /** หมุดที่ชี้หน้าเกินจำนวนหน้าของฟอร์ม — ค่าในจุดนั้นไม่ได้ลงใน PDF */
+  orphan_pins?: number;
   error?: string;
   license_required?: boolean;
 };
@@ -102,7 +104,15 @@ export type ProfileSaveResponse = {
 };
 
 export type HistoryFile = {
-  kind?: "job" | "pdf";
+  kind?: "sheet" | "pdf";
+  title?: string;
+  sheet?: string;
+  printed?: boolean;
+  filled?: number;
+  pins?: number;
+  source_name?: string;
+  source_present?: boolean;
+  source_changed?: boolean;
   name: string;
   stem: string;
   group: string;

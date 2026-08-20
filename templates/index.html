@@ -86,6 +86,15 @@
   .pick-item:hover, .pick-item.sel { background:#e7f1ff; }
   .pick-item .meta { color:#777; font-size:12px; margin-left:8px; }
   .pick-empty { padding:10px 12px; color:#777; font-size:13px; }
+  .pick-row { display:flex; align-items:stretch; border-bottom:1px solid #f3f3f3; }
+  .pick-row .pick-item { flex:1; min-width:0; border-bottom:none; }
+  .pick-row .rowact { display:flex; align-items:center; gap:4px; border:none; background:none;
+    cursor:pointer; color:#41506b; font:inherit; font-size:12px; padding:0 8px; white-space:nowrap; }
+  .pick-row .rowact:hover { color:#1a3c6e; background:#e7f1ff; }
+  .pick-row .rowact.warn { color:#c46a00; font-weight:bold; }
+  .pick-row .rowact.warn:hover { color:#8a4a00; background:#fff3e0; }
+  .pick-row .rowact.danger:hover { color:#e63946; background:#ffecec; }
+  @media (max-width: 720px) { .pick-row .rowact .lbl { display:none; } }
   #histnotice { margin:0 0 8px; padding:6px 10px; background:#fff8e1; color:#6d4c00; border-radius:6px; font-size:12px; }
   #histnotice[hidden] { display:none; }
   /* สมุดข้อมูลล่วงหน้า: ซ่อนจนกดเรียกใช้จากปุ่มใน header */
@@ -129,6 +138,16 @@
   #bakbar { padding:6px 16px; font-size:13px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #e0e0e0; background:#f3f6f3; }
   #bakbar button { background:#2e7d32; color:#fff; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font:inherit; }
   #bakbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
+  .fillwarn { margin-top:6px; padding:6px 10px; border-radius:6px; background:#fff3e0; color:#8a4a00;
+    font-size:13px; white-space:pre-line; }
+  #savestate { font-size:12px; padding:3px 10px; border-radius:12px; white-space:nowrap; }
+  #savestate.idle { background:rgba(255,255,255,.15); color:#e8eaf0; }
+  #savestate.saving { background:#fff3e0; color:#8a4a00; }
+  #savestate.saved { background:#e6f4ea; color:#1b5e20; }
+  #savestate.failed { background:#ffecec; color:#b3261e; font-weight:bold; }
+  #bakbar .workdir { font-size:12px; color:#33691e; background:#eef4e6; padding:3px 8px; border-radius:10px;
+    max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:rtl; }
+  #bakbar .workdir.warn { color:#8a4a00; background:#fff3e0; }
   #updbar { display:none; padding:8px 16px; font-size:13px; flex-wrap:wrap; gap:10px; align-items:center; border-bottom:1px solid #b3d4fc; background:#e7f1ff; color:#0b3d91; }
   #updbar.show { display:flex; }
   #updbar a { color:#0b3d91; font-weight:bold; }
@@ -142,8 +161,9 @@
   <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
   <select id="docsel"><option>{{ t('header.selectPdf') }}</option></select>
   <select id="tplsel"><option value="">{{ t('header.newTemplate') }}</option></select>
-  <input id="tplname" placeholder="{{ t('header.templateName') }}" style="width:140px">
-  <button id="savetpl">{{ t('header.saveTemplate') }}</button>
+  <input id="tplname" placeholder="{{ t('header.templateName') }}" title="{{ t('header.templateNameTitle') }}" style="width:140px">
+  <button id="savetpl" title="{{ t('header.saveTemplateTitle') }}">{{ t('header.saveTemplate') }}</button>
+  <span id="savestate" class="idle" title="">{{ t('save.idle') }}</span>
   <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
     <label for="ui-lang" style="opacity:.85">{{ t('header.langLabel') }}</label>
     <select id="ui-lang" aria-label="{{ t('header.langLabel') }}" style="min-width:auto">
@@ -196,8 +216,10 @@
 <div id="histbar" aria-hidden="true">
   <strong>{{ t('hist.title') }}</strong>
   <input type="text" id="histsearch" placeholder="{{ t('hist.searchPlaceholder') }}" style="flex:1;min-width:200px">
-  <button type="button" id="histopen" class="secondary" title="{{ t('header.outputTitle') }}">{{ t('hist.openFolder') }}</button>
+  <button type="button" id="histopen" class="secondary" title="{{ t('hist.openFolderTitle') }}">{{ t('hist.openFolder') }}</button>
   <button type="button" id="histopenfile" class="secondary">{{ t('hist.openFile') }}</button>
+  <button type="button" id="histimport" class="secondary" title="{{ t('hist.importTitle') }}">{{ t('hist.import') }}</button>
+  <input type="file" id="histimportfile" accept=".fromdd" hidden>
   <span id="histstatus">{{ t('hist.idle') }}</span>
   <button type="button" id="histhide" class="secondary" title="{{ t('hist.hideTitle') }}">{{ t('hist.hide') }}</button>
   <div id="histlist" class="picklist" role="listbox" aria-label="{{ t('hist.title') }}"></div>
@@ -232,6 +254,10 @@
 <div id="bakbar">
   <strong>{{ t('bak.title') }}</strong>
   <button type="button" id="btn-backup">{{ t('bak.backup') }}</button>
+  <span id="workdirlabel" class="workdir"></span>
+  <button type="button" id="workdirpick" class="secondary">{{ t('work.change') }}</button>
+  <button type="button" id="workdirreset" class="secondary" hidden>{{ t('work.reset') }}</button>
+  <button type="button" id="workdiropen" class="secondary">{{ t('work.open') }}</button>
   <button type="button" id="btn-restore" class="secondary">{{ t('bak.restore') }}</button>
   <input type="file" id="restore-file" accept=".zip,application/zip" hidden>
   <button type="button" id="btn-tpl-export" class="secondary">{{ t('bak.exportTpl') }}</button>
