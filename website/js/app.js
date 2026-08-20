@@ -11,7 +11,14 @@
     chatIdx: -1,
     catalog: null,
     prefix: "",
+    setupVersion: "",
   };
+
+  const I18N = window.FromDDLang;
+
+  function t(key, vars) {
+    return I18N ? I18N.t(key, vars) : key;
+  }
 
   function $(id) {
     return document.getElementById(id);
@@ -43,7 +50,7 @@
     if (!state.doc) return;
     const el = img();
     el.src = "pages/" + state.prefix + "-" + state.cur + ".png";
-    $("pglabel").textContent = "หน้า " + (state.cur + 1) + " / " + state.pages;
+    $("pglabel").textContent = t("viewer.page", { cur: state.cur + 1, pages: state.pages });
     el.onload = paintMarkers;
   }
 
@@ -76,7 +83,7 @@
       m.onclick = (ev) => {
         ev.stopPropagation();
         if (fillActive) {
-          const nv = prompt('ค่าของ "' + f.name + '":', f.value || "");
+          const nv = prompt(t("viewer.valuePrompt", { name: f.name }), f.value || "");
           if (nv !== null) {
             state.fields[i].value = nv.trim();
             renderAll();
@@ -118,15 +125,17 @@
           '">' +
           '<span class="fname" data-act="goto">📍 ' +
           escapeHtml(f.name) +
-          " <small>(หน้า " +
-          (f.page + 1) +
-          ", " +
-          f.size +
-          "pt)</small>" +
+          " <small>" +
+          escapeHtml(t("fields.pageSize", { page: f.page + 1, size: f.size })) +
+          "</small>" +
           val +
           "</span>" +
-          '<button class="del" style="color:#0077ff" data-act="rename" title="เปลี่ยนชื่อฟิลด์">✏️</button>' +
-          '<button class="del" data-act="del" title="ลบจุดนี้ทิ้ง">✕</button>' +
+          '<button class="del" style="color:#0077ff" data-act="rename" title="' +
+          escapeAttr(t("fields.renameTitle")) +
+          '">✏️</button>' +
+          '<button class="del" data-act="del" title="' +
+          escapeAttr(t("fields.deleteTitle")) +
+          '">✕</button>' +
           "</li>"
         );
       })
@@ -149,10 +158,14 @@
           i +
           '" value="' +
           escapeAttr(f.value || "") +
-          '" placeholder="— ว่าง —">' +
+          '" placeholder="' +
+          escapeAttr(t("fields.emptyPlaceholder")) +
+          '">' +
           '<button class="del" data-clear="' +
           i +
-          '" title="ล้างค่าช่องนี้">✕</button>' +
+          '" title="' +
+          escapeAttr(t("fields.clearTitle")) +
+          '">✕</button>' +
           "</div>",
       )
       .join("");
@@ -194,20 +207,20 @@
       state.chatIdx++;
     }
     if (state.chatIdx < state.fields.length) {
-      bub("กรอก: " + state.fields[state.chatIdx].name, "bot");
+      bub(t("chat.ask", { name: state.fields[state.chatIdx].name }), "bot");
     } else {
-      bub('ครบทุกช่องแล้ว ✅ กด "สร้าง PDF" ได้เลย หรือพิมพ์ แก้ [ชื่อฟิลด์] / edit [field] เพื่อแก้ค่า', "bot");
+      bub(t("chat.done"), "bot");
     }
   }
 
   function startChat() {
     if (!state.fields.length) {
-      bub("ยังไม่มีจุดที่มาร์คไว้ — กลับไปแท็บ ① ก่อนครับ", "bot");
+      bub(t("chat.noMarks"), "bot");
       return;
     }
     if (state.chatIdx === -1) {
       state.chatIdx = 0;
-      bub("มี " + state.fields.length + " ช่องให้กรอก เริ่มเลย!", "bot");
+      bub(t("chat.start", { count: state.fields.length }), "bot");
       ask();
     }
   }
@@ -224,7 +237,7 @@
       let i = q ? state.fields.findIndex((f) => f.name === q) : -1;
       if (i < 0 && q) i = state.fields.findIndex((f) => f.name.includes(q));
       if (i < 0) {
-        bub('ไม่พบฟิลด์ "' + q + '" — พิมพ์แค่บางส่วนของชื่อก็ได้ หรือแก้ในตารางด้านบน/คลิกจุดบนเอกสารได้เลย', "bot");
+        bub(t("chat.notFound", { q: q }), "bot");
         return;
       }
       state.fields[i].value = "";
@@ -355,7 +368,7 @@
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92);
     });
     if (!jpeg) {
-      $("result").textContent = "❌ สร้างภาพไม่สำเร็จ";
+      $("result").textContent = t("web.renderFail");
       return;
     }
     const buf = new Uint8Array(await jpeg.arrayBuffer());
@@ -368,16 +381,23 @@
     const blob = new Blob([pdf], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const result = $("result");
-    result.replaceChildren("เสร็จแล้ว: ");
+    result.replaceChildren(t("app.donePrefix"));
     const link = document.createElement("a");
     link.href = url;
     link.download = name;
     link.target = "_blank";
     link.rel = "noopener";
-    link.textContent = "เปิด " + name;
+    link.textContent = t("app.openFile", { file: name });
     result.appendChild(link);
-    bub("สร้างไฟล์ " + name + " เรียบร้อย 🎉", "bot");
+    bub(t("app.created", { file: name }), "bot");
     link.click();
+  }
+
+  /* The empty first entry of a select — relabelled when the language changes. */
+  function placeholderOption(key) {
+    const opt = new Option(t(key), "");
+    opt.dataset.i18n = key;
+    return opt;
   }
 
   async function initCatalog() {
@@ -385,8 +405,8 @@
     state.catalog = await res.json();
     const docsel = $("docsel");
     const tplsel = $("tplsel");
-    docsel.replaceChildren(new Option("— เลือก PDF —", ""));
-    tplsel.replaceChildren(new Option("— เทมเพลตใหม่ —", ""));
+    docsel.replaceChildren(placeholderOption("header.selectPdf"));
+    tplsel.replaceChildren(placeholderOption("header.newTemplate"));
     state.catalog.docs.forEach((d) => {
       docsel.add(new Option(d.id, d.id));
       if (d.template) tplsel.add(new Option(d.template, d.template));
@@ -431,7 +451,7 @@
         state.fields[state.selIdx].page = state.cur;
         state.selIdx = -1;
       } else {
-        const name = prompt("ชื่อข้อมูลของจุดนี้ (เช่น ชื่อผู้เบิก):");
+        const name = prompt(t("app.markNamePrompt"));
         if (!name) return;
         const size = parseFloat($("fsize").value) || 14;
         state.fields.push({ name: name.trim(), page: state.cur, x, y, size, value: "" });
@@ -445,13 +465,13 @@
       const i = Number(li.dataset.i);
       const act = target.closest("[data-act]") && target.closest("[data-act]").dataset.act;
       if (act === "rename") {
-        const n = prompt("ชื่อใหม่ของฟิลด์:", state.fields[i].name);
+        const n = prompt(t("app.renamePrompt"), state.fields[i].name);
         if (n) {
           state.fields[i].name = n.trim();
           renderAll();
         }
       } else if (act === "del") {
-        if (!confirm('ลบจุด "' + state.fields[i].name + '" ทิ้ง?')) return;
+        if (!confirm(t("app.deleteConfirm", { name: state.fields[i].name }))) return;
         state.fields.splice(i, 1);
         state.selIdx = -1;
         renderAll();
@@ -485,7 +505,7 @@
       if (e.key === "Enter") handleChat();
     });
     $("clearvals").onclick = () => {
-      if (!confirm("ล้างค่าที่กรอกไว้ทั้งหมด เพื่อเริ่มกรอกรอบใหม่? (จุดที่มาร์คไว้ยังอยู่ครบ)")) return;
+      if (!confirm(t("app.clearConfirm"))) return;
       state.fields.forEach((f) => {
         f.value = "";
       });
@@ -498,14 +518,14 @@
     $("savetpl").onclick = () => {
       const name = $("tplname").value.trim();
       if (!state.doc || !name) {
-        alert("เลือก PDF และตั้งชื่อเทมเพลตก่อน");
+        alert(t("app.needPdfAndName"));
         return;
       }
       localStorage.setItem(tplKey(name), JSON.stringify({ doc: state.doc, fields: state.fields }));
       const tplsel = $("tplsel");
       if (![...tplsel.options].some((o) => o.value === name)) tplsel.add(new Option(name, name));
       tplsel.value = name;
-      alert('บันทึกเทมเพลต "' + name + '" แล้ว (' + state.fields.length + " จุด)");
+      alert(t("web.saveOk", { name: name, count: state.fields.length }));
     };
     $("docsel").onchange = async (e) => {
       const v = e.target.value;
@@ -527,7 +547,7 @@
       void loadTemplate(v);
     };
     $("upfile").onchange = () => {
-      alert("โหมดทดลองบนเว็บอัปโหลด PDF ภายนอกไม่ได้ — ใช้ใบลาหรือฟอร์มตัวอย่าง หรือติดตั้งโปรแกรมบนเครื่องเพื่อกรอกฟอร์มโรงเรียน");
+      alert(t("web.uploadBlocked"));
       $("upfile").value = "";
     };
     window.addEventListener("resize", paintMarkers);
@@ -549,6 +569,43 @@
     });
   }
 
+  function paintSetupLink() {
+    const a = $("setup-link");
+    if (!a) return;
+    a.textContent = state.setupVersion
+      ? t("web.downloadSetupVer", { version: state.setupVersion })
+      : t("web.downloadSetup");
+  }
+
+  /* Home goes to the landing page in the language being read. */
+  function paintLangLinks() {
+    const home = $("homelink");
+    if (home) home.href = I18N && I18N.current() === "en" ? "en.html" : "index.html";
+    const toggle = $("langtoggle");
+    if (toggle && I18N) toggle.href = "?lang=" + I18N.other();
+  }
+
+  function bindLang() {
+    if (!I18N) return;
+    const toggle = $("langtoggle");
+    if (toggle) {
+      toggle.onclick = (e) => {
+        e.preventDefault();
+        I18N.setLang(I18N.other());
+      };
+    }
+    I18N.onChange(() => {
+      paintLangLinks();
+      paintSetupLink();
+      showPage();
+      /* Bubbles already sent are in the old language — start the chat over. */
+      state.chatIdx = -1;
+      $("chatlog").innerHTML = "";
+      renderAll();
+      if ($("panel-fill").classList.contains("active")) startChat();
+    });
+  }
+
   fetch("/releases/latest.json", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
     .then((data) => {
@@ -556,10 +613,15 @@
       const a = $("setup-link");
       a.href = data.setup_url;
       a.hidden = false;
-      if (data.version) a.textContent = "ดาวน์โหลด Setup v" + data.version;
+      state.setupVersion = data.version || "";
+      paintSetupLink();
     })
     .catch(() => {});
 
+  if (I18N) I18N.applyStatic();
+  paintLangLinks();
+  paintSetupLink();
   bind();
+  bindLang();
   void initCatalog();
 })();

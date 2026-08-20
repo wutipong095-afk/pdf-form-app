@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const SETUP_FALLBACK = "releases/FromDD-Setup-0.3.1.exe";
+  const SETUP_FALLBACK = "releases/FromDD-Setup-0.3.2.exe";
 
   function bindSetupLinks() {
     const nodes = document.querySelectorAll("[data-setup]");
@@ -35,15 +35,53 @@
    */
   const YOUTUBE_ID = "";
 
+  /* Captions follow the language of the page the player sits on. */
+  const EN = document.documentElement.lang === "en";
+
   const DURATION = 198;
   const SCENES = [
-    { t: 0, src: "pages/yt-thumb.png", caption: "สอนใช้ PDF Form Marker (FromDD) ใน 3 นาที" },
-    { t: 18, src: "pages/leave-0.png", caption: "เปิดโปรแกรม แล้วเลือกใบลา.pdf จากรายการเอกสาร" },
-    { t: 48, src: "pages/leave-0.png", caption: "แท็บ ① มาร์คจุด — คลิกบนเส้นปะเพื่อปักจุดแดง" },
-    { t: 88, src: "pages/demo-form-0.png", caption: "สลับแท็บ ② กรอกข้อมูล ตอบแชทหรือพิมพ์ในตาราง" },
-    { t: 130, src: "pages/leave-0.png", caption: "ข้อความทับบนฟอร์มทันที แล้วกดสร้าง PDF" },
-    { t: 158, src: "pages/demo-form-0.png", caption: "เปิดงานเก่า ค้นหาไฟล์ที่กรอกแล้วโดยไม่ต้องไล่ใน Explorer" },
-    { t: 180, src: "pages/yt-thumb.png", caption: "โปรแกรมเต็มใช้ออฟไลน์บนเครื่องโรงเรียน" },
+    {
+      t: 0,
+      src: "pages/yt-thumb.png",
+      th: "สอนใช้ PDF Form Marker (FromDD) ใน 3 นาที",
+      en: "PDF Form Marker (FromDD) in 3 minutes",
+    },
+    {
+      t: 18,
+      src: "pages/leave-0.png",
+      th: "เปิดโปรแกรม แล้วเลือกใบลา.pdf จากรายการเอกสาร",
+      en: "Open the app and pick a form from the document list",
+    },
+    {
+      t: 48,
+      src: "pages/leave-0.png",
+      th: "แท็บ ① มาร์คจุด — คลิกบนเส้นปะเพื่อปักจุดแดง",
+      en: "Tab ① Mark fields — click the dotted line to drop a red pin",
+    },
+    {
+      t: 88,
+      src: "pages/demo-form-0.png",
+      th: "สลับแท็บ ② กรอกข้อมูล ตอบแชทหรือพิมพ์ในตาราง",
+      en: "Switch to tab ② Fill data — answer in chat or type in the table",
+    },
+    {
+      t: 130,
+      src: "pages/leave-0.png",
+      th: "ข้อความทับบนฟอร์มทันที แล้วกดสร้าง PDF",
+      en: "Text sits on the form right away, then click Create PDF",
+    },
+    {
+      t: 158,
+      src: "pages/demo-form-0.png",
+      th: "เปิดงานเก่า ค้นหาไฟล์ที่กรอกแล้วโดยไม่ต้องไล่ใน Explorer",
+      en: "Reopen past work — find a filled file without digging through Explorer",
+    },
+    {
+      t: 180,
+      src: "pages/yt-thumb.png",
+      th: "โปรแกรมเต็มใช้ออฟไลน์บนเครื่องโรงเรียน",
+      en: "The full app runs offline on the PC at work",
+    },
   ];
 
   function $(id) {
@@ -72,7 +110,7 @@
       "https://www.youtube-nocookie.com/embed/" +
       encodeURIComponent(YOUTUBE_ID) +
       "?rel=0";
-    frame.title = "สอนใช้ PDF Form Marker";
+    frame.title = EN ? "PDF Form Marker walkthrough" : "สอนใช้ PDF Form Marker";
     frame.allow =
       "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
     frame.allowFullscreen = true;
@@ -98,7 +136,7 @@
     const img = $("yt-img");
     if (img.getAttribute("src") !== scene.src) img.src = scene.src;
     const cap = $("yt-caption");
-    cap.textContent = scene.caption;
+    cap.textContent = EN ? scene.en : scene.th;
     cap.classList.toggle("show", playing || t > 0);
     $("yt-played").style.width = (t / DURATION) * 100 + "%";
     $("yt-time").textContent = fmt(t) + " / " + fmt(DURATION);
