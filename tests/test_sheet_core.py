@@ -89,7 +89,7 @@ def test_corrupt_and_foreign_json_rejected(tmp_path: Path):
         sheet_core.read_sheet(bad)
     foreign = tmp_path / "f.json"
     foreign.write_text(json.dumps({"kind": "something-else"}), encoding="utf-8")
-    with pytest.raises(FormDataError, match="not a FromDD sheet"):
+    with pytest.raises(FormDataError, match="not a FormDD sheet"):
         sheet_core.read_sheet(foreign)
 
 
@@ -158,3 +158,19 @@ def test_rename_sticks_and_stops_auto_naming(tmp_path: Path):
         "fields": [{"name": "ก", "page": 0, "x": 1, "y": 2, "size": 14, "value": "คนอื่น"}],
     })
     assert sheet_core.read_sheet(path)["title"] == "งานด่วนของ ผอ."
+
+
+def test_legacy_fromdd_sheet_kind_still_reads(tmp_path: Path):
+    """ใบงานที่เซฟไว้ก่อนเปลี่ยนชื่อโปรแกรมต้องยังอ่านได้"""
+    path = tmp_path / "old.json"
+    sheet_core.save_sheet(path, {
+        "title": "ใบเบิก", "form_sha": SHA, "source_doc": "ใบเบิก.pdf",
+        "template_name": "ใบเบิก", "fields": sample_fields(),
+    })
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["kind"] = "fromdd-sheet"
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    got = sheet_core.read_sheet(path)
+    assert got["form_sha"] == SHA
+    assert got["fields"][0]["value"] == "โรงเรียนวัดตัวอย่าง"

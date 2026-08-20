@@ -1,4 +1,4 @@
-# นโยบายไลเซนต์และซัพพอร์ต FromDD
+# นโยบายไลเซนต์และซัพพอร์ต FormDD
 
 English: [SUPPORT.en.md](SUPPORT.en.md)  
 แผนขาย: [SALES_LICENSE_PLAN.md](SALES_LICENSE_PLAN.md)  
@@ -29,7 +29,7 @@ Setup **ชุดเดียว** ทั้งทดลองและตัว
 
 ## ช่องทางออกคีย์ (ชั่วคราว)
 
-ลูกค้าส่งรหัสเครื่อง 16 ตัวมาที่ **fromdd@xambrain.com**  
+ลูกค้าส่งรหัสเครื่อง 16 ตัวมาที่ **formdd@xambrain.com**  
 ผู้ขายรัน `python scripts/gen_license.py <รหัส>`  
 - ไทย: `--days 1825`
 - ต่างประเทศ: `--days 3650`

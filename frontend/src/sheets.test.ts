@@ -242,7 +242,7 @@ describe("ลบใบงาน", () => {
   });
 });
 
-describe("นำเข้า .fromdd", () => {
+describe("นำเข้า .formdd", () => {
   it("ส่งไฟล์เป็น multipart แล้วเปิดใบที่ได้", async () => {
     mocks.apiJson.mockResolvedValue({
       sheet: "นำเข้า.json",
@@ -251,7 +251,7 @@ describe("นำเข้า .fromdd", () => {
       source_doc: "ใบเบิก.pdf",
       fields: [pin()],
     });
-    const file = new File([new Uint8Array([80, 75, 3, 4])], "ใบเบิก.fromdd");
+    const file = new File([new Uint8Array([80, 75, 3, 4])], "ใบเบิก.formdd");
 
     const r = await sheets.importSheet(file, onMarkers, onRender);
 

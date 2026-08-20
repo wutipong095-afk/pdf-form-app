@@ -10,10 +10,10 @@ from datetime import date
 from pathlib import Path
 
 _SETUP_NAME_RE = re.compile(
-    r"^(?:FromDD|PDFFormMarker)-Setup-(\d+\.\d+\.\d+(?:\.\d+)?)\.exe$",
+    r"^(?:FormDD|PDFFormMarker)-Setup-(\d+\.\d+\.\d+(?:\.\d+)?)\.exe$",
     re.IGNORECASE,
 )
-_DEFAULT_URL_BASE = "https://fromdd.xambrain.com/releases"
+_DEFAULT_URL_BASE = "https://formdd.xambrain.com/releases"
 
 
 def sha256_file(path: Path) -> str:
@@ -31,7 +31,7 @@ def version_from_filename(name: str) -> str:
     m = _SETUP_NAME_RE.fullmatch(name)
     if not m:
         raise SystemExit(
-            f"ชื่อไฟล์ต้องเป็น FromDD-Setup-x.y.z.exe (หรือ PDFFormMarker-Setup-x.y.z.exe): {name}"
+            f"ชื่อไฟล์ต้องเป็น FormDD-Setup-x.y.z.exe (หรือ PDFFormMarker-Setup-x.y.z.exe): {name}"
         )
     return m.group(1)
 
@@ -67,7 +67,7 @@ def write_meta(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Write latest.json and SHA256SUMS.txt next to a Setup.exe")
-    parser.add_argument("setup", type=Path, help="Path to FromDD-Setup-x.y.z.exe")
+    parser.add_argument("setup", type=Path, help="Path to FormDD-Setup-x.y.z.exe")
     parser.add_argument("--url-base", default=_DEFAULT_URL_BASE)
     parser.add_argument("--notes", default="")
     parser.add_argument("--published-at", default="")

@@ -24,7 +24,7 @@ def main() -> None:
     html = (
         '<p style="font-size:40px">สอนใช้</p>'
         '<p style="font-size:34px;color:#ffb84d">PDF Form Marker</p>'
-        '<p style="font-size:22px;color:#cccccc">FromDD ใน 3 นาที</p>'
+        '<p style="font-size:22px;color:#cccccc">FormDD ใน 3 นาที</p>'
         '<p style="font-size:16px;color:#999999">มาร์คจุด · กรอกแชท · สร้าง PDF</p>'
     )
     page.insert_htmlbox(fitz.Rect(560, 180, 1220, 560), html, css=css)

@@ -5,7 +5,7 @@
 แอปเช็กเวอร์ชันจากไฟล์ `latest.json` บนเว็บผู้ขาย  
 ถ้าเน็ตไม่ได้ หรือยังไม่ตั้ง URL — ใช้งานปกติ ไม่ขึ้น error
 
-โฮสต์หลักของ FromDD: `https://fromdd.xambrain.com/releases/latest.json`  
+โฮสต์หลักของ FormDD: `https://formdd.xambrain.com/releases/latest.json`  
 ชุดติดตั้งใส่ `update_feed.url` ให้อัตโนมัติ
 
 ## สิ่งที่ลูกค้าเห็น
@@ -17,10 +17,10 @@
 ## ผู้ขายต้องเตรียม
 
 1. บิวด์แล้วได้ออกมาที่ `dist/installer/`:
-   - `FromDD-Setup-x.y.z.exe` (ห้ามใช้ชื่อ `FromDD-Setup.exe` แล้วทับ)
+   - `FormDD-Setup-x.y.z.exe` (ห้ามใช้ชื่อ `FormDD-Setup.exe` แล้วทับ)
    - `latest.json` (มี `sha256` / `size`)
    - `SHA256SUMS.txt`
-2. อัปโหลด **ไฟล์ .exe ใหม่** ไปที่ `/var/www/fromdd/releases/` — **ห้ามทับ** `FromDD-Setup-x.y.z.exe` ของรุ่นเก่า
+2. อัปโหลด **ไฟล์ .exe ใหม่** ไปที่ `/var/www/formdd/releases/` — **ห้ามทับ** `FormDD-Setup-x.y.z.exe` ของรุ่นเก่า
 3. อัปโหลด `latest.json` ทับตัวเดิม (ไฟล์นี้ชี้รุ่นใหม่ได้)
 4. สร้าง GitHub Release คู่ทุกครั้ง (สำเนา + ประวัติ) — ดูด้านล่าง
 
@@ -29,7 +29,7 @@
 ```json
 {
   "version": "0.3.1",
-  "setup_url": "https://fromdd.xambrain.com/releases/FromDD-Setup-0.3.1.exe",
+  "setup_url": "https://formdd.xambrain.com/releases/FormDD-Setup-0.3.1.exe",
   "sha256": "abcdef....64 hex....",
   "size": 34603008,
   "published_at": "2026-08-13",
@@ -38,7 +38,7 @@
 ```
 
 - `version` ต้องใหม่กว่าในแอป (เทียบแบบ semver ตัวเลข)
-- `setup_url` ต้องเป็น HTTPS และชื่อไฟล์ต้องตรงเวอร์ชัน เช่น `FromDD-Setup-0.3.1.exe`
+- `setup_url` ต้องเป็น HTTPS และชื่อไฟล์ต้องตรงเวอร์ชัน เช่น `FormDD-Setup-0.3.1.exe`
 - `sha256` จำเป็นถ้าจะให้แอปติดตั้งจากปุ่มในแอป (ตรวจก่อนรัน)
 - `size` แนะนำ — ถ้ามี แอปจะเทียบขนาดไฟล์ด้วย
 - ตัวอย่างเต็ม: `docs/latest.example.json` / `website/releases/latest.example.json`
@@ -50,17 +50,17 @@
 ถูก:
 
 ```text
-FromDD-Setup-0.3.0.exe
-FromDD-Setup-0.3.1.exe
-FromDD-Setup-0.4.0.exe
+FormDD-Setup-0.3.0.exe
+FormDD-Setup-0.3.1.exe
+FormDD-Setup-0.4.0.exe
 ```
 
-ไม่ถูก: `FromDD-Setup.exe` หรือ `PDFFormMarker-Setup.exe` แล้วเอาไฟล์ใหม่ไปทับ
+ไม่ถูก: `FormDD-Setup.exe` หรือ `PDFFormMarker-Setup.exe` แล้วเอาไฟล์ใหม่ไปทับ
 
 ถ้าลูกค้าบอกว่า “0.3.0 มีปัญหา” ต้องย้อนไปตรวจ installer ตัวนั้นได้  
 `latest.json` เท่านั้นที่เปลี่ยนไปชี้รุ่นใหม่
 
-ชื่อภายใน repo / โฟลเดอร์ติดตั้งยังเป็น `PDFFormMarker` ได้ (`PDFFormMarker.exe`, `%LOCALAPPDATA%\PDFFormMarker`) — สิ่งที่ลูกค้าดาวน์โหลดคือ **FromDD**
+ชื่อภายใน repo / โฟลเดอร์ติดตั้งยังเป็น `PDFFormMarker` ได้ (`PDFFormMarker.exe`, `%LOCALAPPDATA%\PDFFormMarker`) — สิ่งที่ลูกค้าดาวน์โหลดคือ **FormDD**
 
 ## Caddy (แคช)
 
@@ -68,23 +68,23 @@ FromDD-Setup-0.4.0.exe
 /releases/latest.json
 Cache-Control: no-cache
 
-/releases/FromDD-Setup-0.3.0.exe
+/releases/FormDD-Setup-0.3.0.exe
 Cache-Control: public, max-age=31536000, immutable
 ```
 
 หลักการ: `latest.json` เปลี่ยนบ่อย · `.exe` ตามเวอร์ชันไม่ควรเปลี่ยนอีกเลย  
-ตัวอย่าง config: `website/Caddyfile.fromdd`
+ตัวอย่าง config: `website/Caddyfile.formdd`
 
 แอปดึง feed ด้วย `Cache-Control: no-cache` และ timeout ~3 วินาที
 
 ## GitHub Releases (ทำทุกครั้ง — สำเนา ไม่ใช่โฮสต์หลัก)
 
-เว็บหลักยังเป็น `fromdd.xambrain.com`  
-ทุกครั้งที่ปล่อยรุ่น ให้สร้าง GitHub Release คู่ด้วย เช่น tag `v0.3.1` ชื่อ **FromDD v0.3.1**
+เว็บหลักยังเป็น `formdd.xambrain.com`  
+ทุกครั้งที่ปล่อยรุ่น ให้สร้าง GitHub Release คู่ด้วย เช่น tag `v0.3.1` ชื่อ **FormDD v0.3.1**
 
 Assets:
 
-- `FromDD-Setup-0.3.1.exe`
+- `FormDD-Setup-0.3.1.exe`
 - `SHA256SUMS.txt`
 
 ประโยชน์: ประวัติ, tag, release notes, binary สำรอง, หลักฐานว่าเวอร์ชันนั้นเคยถูกปล่อย, ดาวน์โหลดสำรองถ้า VPS มีปัญหา
@@ -93,21 +93,21 @@ Assets:
 
 ```powershell
 gh release create v0.3.1 `
-  dist/installer/FromDD-Setup-0.3.1.exe `
+  dist/installer/FormDD-Setup-0.3.1.exe `
   dist/installer/SHA256SUMS.txt `
-  --title "FromDD v0.3.1" `
+  --title "FormDD v0.3.1" `
   --notes-file CHANGELOG.md
 ```
 
-อย่าให้ GitHub เป็น URL ใน `latest.json` เป็นค่าเริ่มต้น — ชี้ที่ fromdd.xambrain.com
+อย่าให้ GitHub เป็น URL ใน `latest.json` เป็นค่าเริ่มต้น — ชี้ที่ formdd.xambrain.com
 
 ## คีย์และของลับ — ห้ามอยู่บนเว็บสาธารณะ
 
-`/var/www/fromdd` ใส่ได้: HTML, CSS, JS, installer, `latest.json`
+`/var/www/formdd` ใส่ได้: HTML, CSS, JS, installer, `latest.json`
 
 ห้ามวาง: `private.key`, `license-master.key`, `gen_license.py`, `.env`, ฐานข้อมูลลูกค้า
 
-ถ้ามี Activate ออนไลน์ในอนาคต ให้แยกเป็น `api.fromdd.xambrain.com` (หรือ `/api` ผ่าน reverse proxy)  
+ถ้ามี Activate ออนไลน์ในอนาคต ให้แยกเป็น `api.formdd.xambrain.com` (หรือ `/api` ผ่าน reverse proxy)  
 private key อยู่ใน environment/secret ของ backend เท่านั้น
 
 ## พฤติกรรมเทคนิค

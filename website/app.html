@@ -3,65 +3,70 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PDF Form Marker — FromDD (ทดลองบนเว็บ)</title>
+<title>PDF Form Marker — FormDD (ทดลองบนเว็บ)</title>
 <meta name="description" content="ทดลอง PDF Form Marker บนเว็บ: มาร์คจุด กรอกใบลา และสร้าง PDF">
-<link rel="canonical" href="https://fromdd.xambrain.com/app.html">
+<link rel="canonical" href="https://formdd.xambrain.com/app.html">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/app.css">
+<!-- The markup below is Thai. When another language is asked for, hold the page
+     back rather than let the Thai wording paint and then flip. -->
+<style>html.i18n-pending body{visibility:hidden}</style>
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <header>
   <h1>📄 PDF Form Marker</h1>
   <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
-  <select id="docsel"><option>— เลือก PDF —</option></select>
-  <select id="tplsel"><option value="">— เทมเพลตใหม่ —</option></select>
-  <input id="tplname" placeholder="ชื่อเทมเพลต" style="width:140px">
-  <button type="button" id="savetpl">💾 บันทึกเทมเพลต</button>
+  <select id="docsel"><option data-i18n="header.selectPdf">— เลือก PDF —</option></select>
+  <select id="tplsel"><option value="" data-i18n="header.newTemplate">— เทมเพลตใหม่ —</option></select>
+  <input id="tplname" data-i18n-ph="header.templateName" placeholder="ชื่อเทมเพลต" style="width:140px">
+  <button type="button" id="savetpl" data-i18n="header.saveTemplate">💾 บันทึกเทมเพลต</button>
   <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
-    <a href="index.html" style="color:#fff;font-weight:bold">หน้าแรก</a>
-    <span id="appver" style="opacity:.75;font-size:12px">เว็บทดลอง</span>
-    <span id="who">เครื่องนี้</span>
+    <a href="index.html" id="homelink" data-i18n="web.home" style="color:#fff;font-weight:bold">หน้าแรก</a>
+    <a href="?lang=en" id="langtoggle" data-i18n="web.langOther" data-i18n-title="web.langOtherTitle" data-i18n-other-lang lang="en" style="color:#fff">English</a>
+    <span id="appver" data-i18n="web.demoTag" style="opacity:.75;font-size:12px">เว็บทดลอง</span>
+    <span id="who" data-i18n="header.thisMachine">เครื่องนี้</span>
   </span>
 </header>
 <div id="licbar" class="warn">
-  <span id="licmsg">โหมดทดลองบนเว็บ — ใช้ได้เฉพาะใบลาและฟอร์มตัวอย่าง · อัปโหลด PDF โรงเรียนได้เมื่อติดตั้งโปรแกรมบนเครื่อง</span>
-  <a id="setup-link" href="releases/FromDD-Setup-0.3.2.exe">ดาวน์โหลด Setup</a>
+  <span id="licmsg" data-i18n="web.licMsg">โหมดทดลองบนเว็บ — ใช้ได้เฉพาะใบลาและฟอร์มตัวอย่าง · อัปโหลด PDF โรงเรียนได้เมื่อติดตั้งโปรแกรมบนเครื่อง</span>
+  <a id="setup-link" href="releases/FormDD-Setup-0.3.2.exe">ดาวน์โหลด Setup</a>
 </div>
 <main>
   <div id="viewer">
     <div class="pgnav">
       <button type="button" id="prev">◀</button>
-      <span id="pglabel">หน้า - / -</span>
+      <span id="pglabel" data-i18n="viewer.pageIdle">หน้า - / -</span>
       <button type="button" id="next">▶</button>
-      <span class="hint" id="fonthint">ฟอนต์ทับ: Leelawadee UI</span>
+      <span class="hint" id="fonthint" data-i18n="web.fontHint">ฟอนต์ทับ: Leelawadee UI</span>
     </div>
     <div id="pagewrap" class="marking">
-      <img id="pageimg" alt="เลือก PDF ก่อน">
+      <img id="pageimg" data-i18n-alt="fill.pageAlt" alt="เลือก PDF ก่อน">
     </div>
   </div>
   <div id="side">
     <div id="tabs">
-      <button type="button" id="tab-edit" class="active">① มาร์คจุด</button>
-      <button type="button" id="tab-fill">② กรอกข้อมูล (แชท)</button>
+      <button type="button" id="tab-edit" class="active" data-i18n="tabs.edit">① มาร์คจุด</button>
+      <button type="button" id="tab-fill" data-i18n="tabs.fill">② กรอกข้อมูล (แชท)</button>
     </div>
     <div id="panel-edit" class="panel active">
-      <p class="hint">คลิก<b>บนเส้นปะพอดี</b>ตรงจุดเริ่มต้นของช่องว่าง → ตัวอักษรจะ "นั่งทับ" บนจุดที่ปัก (จุด = เส้นฐานตัวอักษร)</p>
-      <p class="hint">🎯 จูนละเอียด: คลิกเลือกจุด (เป็นสีน้ำเงิน) แล้วกดลูกศร ↑↓←→ ขยับทีละ 0.5pt · Shift+ลูกศร = 5pt · Esc = เลิกเลือก</p>
-      <label>ขนาดตัวอักษร (pt): <input type="number" id="fsize" value="14" style="width:60px"></label>
+      <p class="hint" data-i18n-html="edit.hint1">คลิก<b>บนเส้นปะพอดี</b>ตรงจุดเริ่มต้นของช่องว่าง → ตัวอักษรจะ "นั่งทับ" บนจุดที่ปัก (จุด = เส้นฐานตัวอักษร)</p>
+      <p class="hint" data-i18n-html="edit.hint2">🎯 จูนละเอียด: คลิกเลือกจุด (เป็นสีน้ำเงิน) แล้วกดลูกศร ↑↓←→ ขยับทีละ 0.5pt · Shift+ลูกศร = 5pt · Esc = เลิกเลือก</p>
+      <label><span data-i18n="edit.fontSize">ขนาดตัวอักษร (pt):</span> <input type="number" id="fsize" value="14" style="width:60px"></label>
       <ul id="fieldlist"></ul>
-      <p class="hint">คลิกชื่อฟิลด์เพื่อเลือก แล้วคลิกตำแหน่งใหม่บนเอกสารเพื่อย้ายจุด · ✕ = ลบ</p>
+      <p class="hint" data-i18n-html="edit.hint3">คลิกชื่อฟิลด์เพื่อเลือก แล้วคลิกตำแหน่งใหม่บนเอกสารเพื่อย้ายจุด · ✕ = ลบ</p>
     </div>
     <div id="panel-fill" class="panel">
-      <p class="hint">✏️ แก้ค่าได้ 3 ทาง: พิมพ์ในตารางนี้ · <b>คลิกจุดสีแดงบนเอกสาร</b> · หรือตอบแชทด้านล่าง · ✕ = ล้างค่าช่องนั้น</p>
+      <p class="hint" data-i18n-html="fill.hint1">✏️ แก้ค่าได้ 3 ทาง: พิมพ์ในตารางนี้ · <b>คลิกจุดสีแดงบนเอกสาร</b> · หรือตอบแชทด้านล่าง · ✕ = ล้างค่าช่องนั้น</p>
       <div id="valuelist"></div>
-      <button class="btn" id="clearvals" style="background:#888; margin-bottom:8px" type="button">🧹 ล้างค่าทั้งหมด (เริ่มรอบใหม่)</button>
+      <button class="btn" id="clearvals" data-i18n="fill.clearAll" style="background:#888; margin-bottom:8px" type="button">🧹 ล้างค่าทั้งหมด (เริ่มรอบใหม่)</button>
       <div id="chatlog"></div>
       <div id="chatrow">
-        <input id="chatinput" placeholder="พิมพ์คำตอบแล้วกด Enter…">
-        <button class="btn" id="chatsend" type="button">ส่ง</button>
+        <input id="chatinput" data-i18n-ph="fill.chatPlaceholder" placeholder="พิมพ์คำตอบแล้วกด Enter…">
+        <button class="btn" id="chatsend" data-i18n="fill.send" type="button">ส่ง</button>
       </div>
-      <p class="hint">พิมพ์ <b>-</b> เพื่อเว้นว่าง · <b>แก้ [ชื่อฟิลด์]</b> เพื่อแก้ค่า</p>
-      <button class="btn orange" id="makepdf" type="button">🖨️ สร้าง PDF</button>
+      <p class="hint" data-i18n-html="fill.hint2">พิมพ์ <b>-</b> เพื่อเว้นว่าง · <b>แก้ [ชื่อฟิลด์]</b> หรือ <b>edit [field]</b> เพื่อแก้ค่า</p>
+      <button class="btn orange" id="makepdf" data-i18n="fill.makePdf" type="button">🖨️ สร้าง PDF</button>
       <div id="result"></div>
     </div>
   </div>

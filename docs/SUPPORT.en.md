@@ -1,4 +1,4 @@
-# FromDD license and support policy
+# FormDD license and support policy
 
 Thai: [SUPPORT.md](SUPPORT.md)  
 Sales plan: [SALES_LICENSE_PLAN.md](SALES_LICENSE_PLAN.md)  
@@ -29,7 +29,7 @@ Site: [website/pricing.html](../website/pricing.html) · [website/pricing.en.htm
 
 ## Issuing keys (temporary)
 
-Customer emails the 16-character machine ID to **fromdd@xambrain.com**.  
+Customer emails the 16-character machine ID to **formdd@xambrain.com**.  
 Vendor: `python scripts/gen_license.py <id>`  
 - Thailand: `--days 1825`
 - International: `--days 3650`

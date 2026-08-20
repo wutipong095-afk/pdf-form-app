@@ -1,4 +1,4 @@
-"""สะพานระหว่างไฟล์ .fromdd กับใบงาน — นำเข้า ส่งออก และย้ายข้อมูลเก่า"""
+"""สะพานระหว่างไฟล์ .formdd กับใบงาน — นำเข้า ส่งออก และย้ายข้อมูลเก่า"""
 from __future__ import annotations
 
 import logging
@@ -12,17 +12,18 @@ from fields_core import FormDataError
 
 log = logging.getLogger(__name__)
 
-MIGRATED_MARKER = ".migrated-from-fromdd"
+MIGRATED_MARKER = ".migrated-from-formdd"
+LEGACY_MIGRATED_MARKER = ".migrated-from-fromdd"  # หมายของรุ่นก่อนเปลี่ยนชื่อ
 
 
-def import_fromdd(
+def import_formdd(
     sheets_dir: Path,
     forms_dir: Path,
     src: Path,
     *,
     base_name: str = "",
 ) -> dict[str, Any]:
-    """แตก .fromdd เป็นใบงาน + สแนปช็อตฟอร์ม — คืน payload ของใบที่สร้าง"""
+    """แตก .formdd เป็นใบงาน + สแนปช็อตฟอร์ม — คืน payload ของใบที่สร้าง"""
     src = Path(src)
     meta = job_core.read_job(src)
     pdf_bytes = job_core.read_job_pdf_bytes(src)
@@ -60,8 +61,8 @@ def import_fromdd(
     return payload
 
 
-def export_fromdd(dest: Path, forms_dir: Path, sheet: dict[str, Any]) -> Path:
-    """แพ็กใบงาน + สแนปช็อตกลับเป็น .fromdd ไฟล์เดียวจบในตัว"""
+def export_formdd(dest: Path, forms_dir: Path, sheet: dict[str, Any]) -> Path:
+    """แพ็กใบงาน + สแนปช็อตกลับเป็น .formdd ไฟล์เดียวจบในตัว"""
     dest = Path(dest)
     pdf = form_store.require_pdf(forms_dir, str(sheet.get("form_sha") or ""))
     job_core.write_job(
@@ -80,7 +81,7 @@ def export_fromdd(dest: Path, forms_dir: Path, sheet: dict[str, Any]) -> Path:
 
 
 def migrate_jobs_dir(jobs_dir: Path, sheets_dir: Path, forms_dir: Path) -> dict[str, int]:
-    """ย้าย .fromdd ที่ค้างอยู่ไปเป็นใบงาน — ทำครั้งเดียวต่อผู้ใช้ ไม่ลบไฟล์เดิม
+    """ย้าย .formdd ที่ค้างอยู่ไปเป็นใบงาน — ทำครั้งเดียวต่อผู้ใช้ ไม่ลบไฟล์เดิม
 
     ไฟล์เดิมเก็บไว้เฉย ๆ เผื่อผู้ใช้อยากได้กลับ — เป็นฟอร์แมตส่งออกอยู่แล้ว
     """
@@ -88,11 +89,14 @@ def migrate_jobs_dir(jobs_dir: Path, sheets_dir: Path, forms_dir: Path) -> dict[
     done = {"moved": 0, "failed": 0}
     if not jobs_dir.is_dir():
         return done
-    for src in sorted(jobs_dir.glob("*" + job_core.JOB_EXT)):
+    stale = sorted(jobs_dir.glob("*" + job_core.JOB_EXT)) + sorted(
+        jobs_dir.glob("*" + job_core.LEGACY_JOB_EXT)
+    )
+    for src in stale:
         try:
             if src.stat().st_size == 0:
                 continue
-            import_fromdd(sheets_dir, forms_dir, src, base_name=src.stem)
+            import_formdd(sheets_dir, forms_dir, src, base_name=src.stem)
             done["moved"] += 1
         except (FormDataError, OSError) as e:
             done["failed"] += 1
@@ -116,15 +120,16 @@ def ensure_migrated(jobs_dir: Path, sheets_dir: Path, forms_dir: Path) -> None:
     """ทำครั้งเดียวต่อผู้ใช้ — กันด้วยไฟล์หมายไว้ ไม่ใช่การสแกนซ้ำทุกรีเควสต์
 
     หมายไว้ที่รากของผู้ใช้ ไม่ใช่ใน sheets/ เพราะกู้คืนแบบแทนที่ล้าง sheets/ ทิ้ง
-    แล้วจะย้าย .fromdd เดิมซ้ำอีกรอบจนได้ใบงานซ้ำ
+    แล้วจะย้าย .formdd เดิมซ้ำอีกรอบจนได้ใบงานซ้ำ
     """
-    marker = Path(jobs_dir).parent / MIGRATED_MARKER
-    if marker.exists():
+    root = Path(jobs_dir).parent
+    marker = root / MIGRATED_MARKER
+    if marker.exists() or (root / LEGACY_MIGRATED_MARKER).exists():
         return
     Path(sheets_dir).mkdir(parents=True, exist_ok=True)
     done = migrate_jobs_dir(jobs_dir, sheets_dir, forms_dir)
     if done["moved"] or done["failed"]:
-        log.info("migrated fromdd jobs moved=%s failed=%s", done["moved"], done["failed"])
+        log.info("migrated formdd jobs moved=%s failed=%s", done["moved"], done["failed"])
     try:
         marker.write_text("", encoding="utf-8")
     except OSError:

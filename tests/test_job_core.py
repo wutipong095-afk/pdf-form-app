@@ -1,4 +1,4 @@
-"""ไฟล์ .fromdd — ฟอร์แมตส่งออก/นำเข้า และตัวอ่านไฟล์รุ่นก่อน"""
+"""ไฟล์ .formdd — ฟอร์แมตส่งออก/นำเข้า และตัวอ่านไฟล์รุ่นก่อน"""
 from __future__ import annotations
 
 import json
@@ -88,7 +88,7 @@ def test_incomplete_and_foreign_archives_rejected(tmp_path: Path):
     extra = tmp_path / ("d" + JOB_EXT)
     with zipfile.ZipFile(extra, "w") as zf:
         zf.writestr("form.pdf", pdf_bytes())
-        zf.writestr("job.json", json.dumps({"kind": "fromdd-job", "fields": []}))
+        zf.writestr("job.json", json.dumps({"kind": "formdd-job", "fields": []}))
         zf.writestr("payload.exe", b"MZ")
     with pytest.raises(JobError, match="unexpected members"):
         read_job(extra)
@@ -109,3 +109,22 @@ def test_writing_a_non_pdf_is_rejected(tmp_path: Path):
             title="x", source_doc="", template_name="", fields=[],
         ))
     assert not list(tmp_path.glob("*" + JOB_EXT))
+
+
+def test_legacy_fromdd_name_and_kind_still_open(tmp_path: Path):
+    """ไฟล์ที่เซฟไว้ก่อนเปลี่ยนชื่อโปรแกรมต้องยังเปิดได้ ไม่ใช่ error"""
+    assert job_filename("ใบลา.fromdd") == "ใบลา" + JOB_EXT
+
+    path = make(tmp_path / "old.fromdd")
+    with zipfile.ZipFile(path) as zf:
+        parts = {n: zf.read(n) for n in zf.namelist()}
+    meta = json.loads(parts["job.json"].decode("utf-8"))
+    meta["kind"] = "fromdd-job"
+    parts["job.json"] = json.dumps(meta, ensure_ascii=False).encode("utf-8")
+    with zipfile.ZipFile(path, "w") as zf:
+        for name, raw in parts.items():
+            zf.writestr(name, raw)
+
+    got = read_job(path)
+    assert got["title"] == "ใบลา"
+    assert read_job_pdf_bytes(path).startswith(b"%PDF-")

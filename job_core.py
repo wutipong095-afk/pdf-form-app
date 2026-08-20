@@ -1,4 +1,4 @@
-"""ไฟล์ .fromdd — ZIP ของ PDF ต้นฉบับเปล่า + ค่าที่กรอก
+"""ไฟล์ .formdd — ZIP ของ PDF ต้นฉบับเปล่า + ค่าที่กรอก
 
 ตั้งแต่มีคลังสแนปช็อต (form_store) + ใบงาน (sheet_core) ฟอร์แมตนี้ไม่ใช่ที่เก็บ
 งานประจำวันอีกแล้ว แต่เป็นฟอร์แมต **ส่งออก/นำเข้า** สำหรับส่งใบงานให้เครื่องอื่น
@@ -16,10 +16,12 @@ from typing import Any
 from fields_core import FormDataError, normalize_fields
 from history_core import safe_stem
 
-JOB_EXT = ".fromdd"
+JOB_EXT = ".formdd"
+LEGACY_JOB_EXT = ".fromdd"  # ชื่อเดิมก่อนเปลี่ยนชื่อโปรแกรม — ยังเปิดได้
 FORM_PDF = "form.pdf"
 JOB_JSON = "job.json"
-JOB_KIND = "fromdd-job"
+JOB_KIND = "formdd-job"
+LEGACY_JOB_KIND = "fromdd-job"  # ไฟล์ที่เซฟไว้ก่อนเปลี่ยนชื่อ
 JOB_VERSION = 1
 MAX_PDF_BYTES = 64 * 1024 * 1024
 MAX_JSON_BYTES = 1024 * 1024
@@ -31,8 +33,12 @@ def job_filename(name: str) -> str:
     body = str(name or "").replace("\\", "/").split("/")[-1]
     if not body:
         raise JobError("invalid job file name")
-    stem = body[: -len(JOB_EXT)] if body.lower().endswith(JOB_EXT) else body
-    return safe_stem(stem) + JOB_EXT
+    low = body.lower()
+    for ext in (JOB_EXT, LEGACY_JOB_EXT):
+        if low.endswith(ext):
+            body = body[: -len(ext)]
+            break
+    return safe_stem(body) + JOB_EXT
 
 
 def _zip_names(zf: zipfile.ZipFile) -> set[str]:
@@ -69,8 +75,8 @@ def _read_payload_bytes(raw: bytes) -> dict[str, Any]:
         data = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         raise JobError("job.json is not valid JSON") from e
-    if not isinstance(data, dict) or data.get("kind") != JOB_KIND:
-        raise JobError("not a FromDD job file")
+    if not isinstance(data, dict) or data.get("kind") not in (JOB_KIND, LEGACY_JOB_KIND):
+        raise JobError("not a FormDD job file")
     data["fields"] = normalize_fields(data.get("fields") or [])
     data["title"] = str(data.get("title") or "").strip()[:120] or "job"
     data["title_base"] = str(data.get("title_base") or "").strip()[:120]

@@ -253,7 +253,7 @@ describe("ปุ่มในแถว", () => {
 });
 
 
-describe("นำเข้า .fromdd", () => {
+describe("นำเข้า .formdd", () => {
   function choose(name: string): void {
     const input = document.getElementById("histimportfile") as HTMLInputElement;
     // jsdom ไม่มี DataTransfer — วาง FileList จำลองลงไปตรง ๆ
@@ -269,7 +269,7 @@ describe("นำเข้า .fromdd", () => {
     expect(click).toHaveBeenCalled();
   });
 
-  it("ไฟล์ที่ไม่ใช่ .fromdd ถูกปฏิเสธตั้งแต่ฝั่งเบราว์เซอร์", async () => {
+  it("ไฟล์ที่ไม่ใช่ .formdd ถูกปฏิเสธตั้งแต่ฝั่งเบราว์เซอร์", async () => {
     const alertSpy = vi.fn();
     vi.stubGlobal("alert", alertSpy);
     choose("ใบเบิก.pdf");
@@ -277,8 +277,16 @@ describe("นำเข้า .fromdd", () => {
     expect(mocks.importSheet).not.toHaveBeenCalled();
   });
 
-  it("ไฟล์ .fromdd ถูกส่งไปนำเข้า", async () => {
+  it("ไฟล์ .formdd ถูกส่งไปนำเข้า", async () => {
     mocks.importSheet.mockResolvedValue({ sheet: "ใหม่.json", title: "ใบเบิก — สมชาย" });
+    mocks.apiJson.mockResolvedValue({ count: 0, truncated: false, files: [], open_folder_enabled: true });
+    choose("ใบเบิก.formdd");
+    await vi.waitFor(() => expect(mocks.importSheet).toHaveBeenCalled());
+    expect((mocks.importSheet.mock.calls[0][0] as File).name).toBe("ใบเบิก.formdd");
+  });
+
+  it("ไฟล์ .fromdd ของรุ่นก่อนเปลี่ยนชื่อยังนำเข้าได้", async () => {
+    mocks.importSheet.mockResolvedValue({ sheet: "ใหม่.json", title: "ใบเบิก" });
     mocks.apiJson.mockResolvedValue({ count: 0, truncated: false, files: [], open_folder_enabled: true });
     choose("ใบเบิก.fromdd");
     await vi.waitFor(() => expect(mocks.importSheet).toHaveBeenCalled());

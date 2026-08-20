@@ -1,4 +1,4 @@
-"""สร้าง PDF + PNG หน้าเดโมให้เว็บ FromDD หน้าตาเดียวกับโปรแกรม"""
+"""สร้าง PDF + PNG หน้าเดโมให้เว็บ FormDD หน้าตาเดียวกับโปรแกรม"""
 from __future__ import annotations
 
 import json
@@ -82,7 +82,7 @@ def make_leave() -> tuple[Path, list[dict]]:
     page.draw_rect(fitz.Rect(0, 0, 595, 70), color=NAVY, fill=NAVY)
     _text(page, (40, 32), "ใบลา", 20, (1, 1, 1))
     _text(page, (40, 52), "PDF Form Marker", 11, (1, 1, 1))
-    _text(page, (400, 45), "FromDD", 14, (1, 1, 1))
+    _text(page, (400, 45), "FormDD", 14, (1, 1, 1))
 
     fields: list[dict] = []
 
@@ -144,7 +144,7 @@ def make_leave() -> tuple[Path, list[dict]]:
     _text(page, (70, 680), "จึงเรียนมาเพื่อโปรดพิจารณา")
     _text(page, (340, 720), "ลงชื่อผู้ลา")
     blank("ผู้ลา", 340, 760, 520)
-    _text(page, (40, 810), "ทดลองบนเว็บ FromDD — ข้อมูลอยู่ในเครื่องคุณ", 9, (0.45, 0.45, 0.45))
+    _text(page, (40, 810), "ทดลองบนเว็บ FormDD — ข้อมูลอยู่ในเครื่องคุณ", 9, (0.45, 0.45, 0.45))
 
     doc.save(path)
     doc.close()

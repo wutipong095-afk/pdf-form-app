@@ -75,7 +75,7 @@ from history_core import (
     unique_output_name,
 )
 import form_store
-import fromdd_io
+import formdd_io
 import job_core
 import sheet_core
 import workdir_core
@@ -300,8 +300,8 @@ def user_paths(username: str) -> dict:
     }
     for p in paths.values():
         p.mkdir(parents=True, exist_ok=True)
-    # ย้าย .fromdd ของรุ่นก่อนมาเป็นใบงาน — กันด้วยไฟล์หมาย ทำครั้งเดียวต่อผู้ใช้
-    fromdd_io.ensure_migrated(paths["jobs"], paths["sheets"], paths["forms"])
+    # ย้าย .formdd ของรุ่นก่อนมาเป็นใบงาน — กันด้วยไฟล์หมาย ทำครั้งเดียวต่อผู้ใช้
+    formdd_io.ensure_migrated(paths["jobs"], paths["sheets"], paths["forms"])
     return paths
 
 
@@ -1741,7 +1741,7 @@ def sheets_relink(name):
 @app.get("/api/sheets/<name>/export")
 @login_required
 def sheets_export(name):
-    """ส่งออกเป็น .fromdd — ไฟล์เดียวจบในตัว ส่งให้เครื่องที่ไม่มีฟอร์มได้"""
+    """ส่งออกเป็น .formdd — ไฟล์เดียวจบในตัว ส่งให้เครื่องที่ไม่มีฟอร์มได้"""
     paths = user_paths(current_user())
     try:
         path = _sheet_file(current_user(), name)
@@ -1756,7 +1756,7 @@ def sheets_export(name):
         title_to_filename(str(data.get("title") or ""), path.stem)
     )
     try:
-        fromdd_io.export_fromdd(dest, paths["forms"], data)
+        formdd_io.export_formdd(dest, paths["forms"], data)
     except (FormDataError, FileNotFoundError, OSError) as e:
         log.warning("sheet export failed name=%s err=%s", path.name, e)
         return jsonify({"error": t("api.sheetExportFail")}), 400
@@ -1766,15 +1766,16 @@ def sheets_export(name):
 @app.post("/api/sheets/import")
 @login_required
 def sheets_import():
-    """นำเข้า .fromdd จากเครื่องอื่น — แตกเป็นใบงาน + สแนปช็อตฟอร์ม"""
+    """นำเข้า .formdd จากเครื่องอื่น — แตกเป็นใบงาน + สแนปช็อตฟอร์ม"""
     paths = user_paths(current_user())
     f = request.files.get("file")
-    if f is None or not (f.filename or "").lower().endswith(job_core.JOB_EXT):
+    name = (f.filename or "").lower() if f is not None else ""
+    if not name.endswith((job_core.JOB_EXT, job_core.LEGACY_JOB_EXT)):
         return jsonify({"error": t("api.sheetImportNeedsFile")}), 400
     staged = _sheet_export_dir(paths) / ("import-" + job_core.job_filename(Path(f.filename).stem))
     try:
         f.save(staged)
-        body = fromdd_io.import_fromdd(
+        body = formdd_io.import_formdd(
             paths["sheets"], paths["forms"], staged, base_name=Path(f.filename).stem
         )
     except FormDataError as e:
