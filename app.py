@@ -67,6 +67,7 @@ from license_core import (
 )
 from history_core import (
     HISTORY_LIMIT,
+    title_to_filename,
     archive_filled_beside,
     is_out_doc,
     list_history,
@@ -1661,6 +1662,25 @@ def sheets_duplicate(name):
     return jsonify(_sheet_response(path, body))
 
 
+@app.post("/api/sheets/<name>/rename")
+@login_required
+def sheets_rename(name):
+    """ตั้งชื่อใบงานเอง — หยุดตั้งชื่ออัตโนมัติจากค่าที่กรอกสำหรับใบนี้"""
+    data = request.get_json(force=True, silent=True) or {}
+    title = str(data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": t("api.sheetNeedTitle")}), 400
+    try:
+        path = _sheet_file(current_user(), name)
+        body = save_sheet(path, {"title": title, "rename": True})
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except FormDataError as e:
+        return jsonify({"error": str(e)}), 400
+    log.info("sheet renamed name=%s", path.name)
+    return jsonify(_sheet_response(path, body))
+
+
 @app.post("/api/sheets/<name>/relink")
 @login_required
 def sheets_relink(name):
@@ -1713,7 +1733,10 @@ def sheets_export(name):
     except FormDataError as e:
         return jsonify({"error": str(e)}), 400
     tmp_dir = _sheet_export_dir(paths)
-    dest = tmp_dir / job_core.job_filename(path.stem)
+    # ชื่อไฟล์ที่ผู้ใช้จะเห็นตอนโหลด — เอาชื่อใบงาน ไม่ใช่ชื่อไฟล์ภายในที่มีแต่ตัวเลขเวลา
+    dest = tmp_dir / job_core.job_filename(
+        title_to_filename(str(data.get("title") or ""), path.stem)
+    )
     try:
         fromdd_io.export_fromdd(dest, paths["forms"], data)
     except (FormDataError, FileNotFoundError, OSError) as e:

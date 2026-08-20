@@ -588,3 +588,67 @@ def test_work_folder_needs_csrf(client, tmp_path):
     r = client.post("/api/workdir", headers={"Content-Type": "application/json"},
                     json={"path": str(tmp_path / "x")})
     assert r.status_code == 403
+
+
+def download_name(resp) -> str:
+    """ชื่อไฟล์ที่เบราว์เซอร์จะใช้ — Flask เข้ารหัสชื่อที่ไม่ใช่ ASCII ตาม RFC 5987"""
+    import urllib.parse
+
+    disp = resp.headers["Content-Disposition"]
+    marker = "filename*=UTF-8''"
+    if marker in disp:
+        return urllib.parse.unquote(disp.split(marker, 1)[1].split(";")[0].strip())
+    return disp.split("filename=", 1)[1].split(";")[0].strip().strip('"')
+
+
+def test_export_filename_uses_the_sheet_name(client):
+    created = create_sheet(client).get_json()
+    assert created["title"] == "ใบลา — โรงเรียนวัดตัวอย่าง"
+
+    r = client.get("/api/sheets/" + created["sheet"] + "/export")
+    assert r.status_code == 200
+    # ชื่อใบ ไม่ใช่ชื่อไฟล์ภายในที่มีแต่ตัวเลขเวลา และตัวคั่นไม่รุงรัง
+    assert download_name(r) == "ใบลา-โรงเรียนวัดตัวอย่าง.fromdd"
+
+
+def test_rename_sticks_and_drives_the_export_name(client):
+    created = create_sheet(client).get_json()
+    r = client.post("/api/sheets/" + created["sheet"] + "/rename", headers=hdr(client),
+                    json={"title": "ใบลา ส่งเขต ครูสมชาย"})
+    assert r.status_code == 200, r.get_json()
+    body = r.get_json()
+    assert body["title"] == "ใบลา ส่งเขต ครูสมชาย"
+    # ค่าที่กรอกต้องอยู่ครบ — เปลี่ยนชื่อไม่ใช่การล้างใบ
+    assert body["fields"][0]["value"] == "โรงเรียนวัดตัวอย่าง"
+
+    exported = client.get("/api/sheets/" + created["sheet"] + "/export")
+    assert download_name(exported) == "ใบลา-ส่งเขต-ครูสมชาย.fromdd"
+
+    row = next(f for f in client.get("/api/history").get_json()["files"]
+               if f.get("sheet") == created["sheet"])
+    assert row["title"] == "ใบลา ส่งเขต ครูสมชาย"
+
+
+def test_autosave_does_not_undo_a_rename(client):
+    created = create_sheet(client).get_json()
+    client.post("/api/sheets/" + created["sheet"] + "/rename", headers=hdr(client),
+                json={"title": "ชื่อที่ครูตั้งเอง"})
+
+    body = client.post("/api/sheets", headers=hdr(client), json={
+        "sheet": created["sheet"],
+        "template_name": "demo-ใบลา",
+        "fields": fields("โรงเรียนบ้านหนองแวง"),
+    }).get_json()
+    assert body["title"] == "ชื่อที่ครูตั้งเอง"
+    assert body["fields"][0]["value"] == "โรงเรียนบ้านหนองแวง"
+
+
+def test_rename_needs_a_title_and_csrf(client):
+    created = create_sheet(client).get_json()
+    assert client.post("/api/sheets/" + created["sheet"] + "/rename", headers=hdr(client),
+                       json={"title": "   "}).status_code == 400
+    assert client.post("/api/sheets/" + created["sheet"] + "/rename",
+                       headers={"Content-Type": "application/json"},
+                       json={"title": "x"}).status_code == 403
+    assert client.post("/api/sheets/ไม่มีจริง.json/rename", headers=hdr(client),
+                       json={"title": "x"}).status_code == 404

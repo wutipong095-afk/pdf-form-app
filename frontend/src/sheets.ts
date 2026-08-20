@@ -218,6 +218,20 @@ export async function importSheet(
   return r;
 }
 
+/** ตั้งชื่อใบงานเอง — ชื่อนี้ใช้ทั้งในลิสต์ ตอนค้นหา และเป็นชื่อไฟล์ตอนส่งออก */
+export async function renameSheet(name: string, title: string): Promise<SheetPayload> {
+  const r = await apiJson<SheetPayload>(
+    "/api/sheets/" + encodeURIComponent(name) + "/rename",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    },
+  );
+  if (state.sheet === name) setSaveState("saved", r.title || r.sheet);
+  return r;
+}
+
 /** ย้ายใบงานไปใช้ฟอร์มต้นฉบับเวอร์ชันปัจจุบัน แล้วโหลดสแนปช็อตใหม่ขึ้นจอ */
 export async function relinkSheet(
   name: string,

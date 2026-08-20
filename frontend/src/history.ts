@@ -11,6 +11,7 @@ import {
   importSheet,
   openSheet,
   relinkSheet,
+  renameSheet,
 } from "./sheets";
 import { t } from "./i18n";
 import type { HistoryFile, HistoryStatus } from "./types";
@@ -73,10 +74,11 @@ const ACTION_GLYPH: Record<string, string> = {
   dup: "⧉",
   export: "⤓",
   relink: "⟳",
+  rename: "✎",
 };
 
 function actionButton(
-  act: "dup" | "export" | "del" | "relink",
+  act: "dup" | "export" | "del" | "relink" | "rename",
   label: string,
   name: string,
 ): HTMLButtonElement {
@@ -131,6 +133,7 @@ function fillList(files: HistoryFile[]): void {
       row.appendChild(btn);
       if (kind === "sheet") {
         if (f.source_changed) row.appendChild(actionButton("relink", t("hist.relink"), f.name));
+        row.appendChild(actionButton("rename", t("hist.rename"), f.name));
         row.appendChild(actionButton("dup", t("hist.duplicate"), f.name));
         row.appendChild(actionButton("export", t("hist.export"), f.name));
         row.appendChild(actionButton("del", t("hist.delete"), f.name));
@@ -195,6 +198,15 @@ async function runSheetAction(
 ): Promise<void> {
   if (act === "export") {
     window.location.href = "/api/sheets/" + encodeURIComponent(name) + "/export";
+    return;
+  }
+  if (act === "rename") {
+    const row = rowFor(name);
+    const next = prompt(t("hist.renamePrompt"), row?.title || "");
+    if (next === null || !next.trim()) return;
+    await renameSheet(name, next.trim());
+    setStatus(t("hist.renamed"));
+    await refreshHistory();
     return;
   }
   if (act === "dup") {
@@ -291,7 +303,12 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
     if (action?.dataset.sheet) {
       const act = action.dataset.act || "";
       void runSheetAction(act, action.dataset.sheet, onMarkers, onRender).catch((err) => {
-        const fallback = act === "relink" ? t("hist.relinkFail") : t("hist.deleteFail");
+        const fallback =
+          act === "relink"
+            ? t("hist.relinkFail")
+            : act === "rename"
+              ? t("hist.renameFail")
+              : t("hist.deleteFail");
         alert(err instanceof Error ? err.message : fallback);
       });
       return;

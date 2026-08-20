@@ -18,12 +18,26 @@ FILLED_FOLDER_NAMES = frozenset({FILLED_FOLDER_NAME, "filled"})
 HISTORY_LIMIT = 300
 
 _SAFE_STEM = re.compile(r"[^\w\-ก-๙]", re.UNICODE)
+_RUN_OF_SEPARATORS = re.compile(r"[\s_\-\u2013\u2014]+")
 _ISO_DATE_SUFFIX = re.compile(r"-\d{4}-\d{2}-\d{2}$")
 _STAMP_SUFFIX = re.compile(r"-\d{8}-\d{6}(?:-\d+)?$")
 
 
 def safe_stem(name: str) -> str:
     return _SAFE_STEM.sub("_", name or "") or "filled"
+
+
+def title_to_filename(title: str, fallback: str = "") -> str:
+    """«ใบลา — โรงเรียนวัดตัวอย่าง» → «ใบลา-โรงเรียนวัดตัวอย่าง»
+
+    safe_stem แปลงช่องว่างกับขีดยาวเป็นขีดล่างทีละตัว ได้ชื่อรุงรังอย่าง
+    «ใบลา___โรงเรียน» — ยุบตัวคั่นที่ติดกันให้เหลือขีดเดียว
+    """
+    raw = str(title or "").strip() or str(fallback or "").strip()
+    cleaned = _RUN_OF_SEPARATORS.sub("-", safe_stem(raw)).strip("-_")
+    if cleaned:
+        return cleaned[:100].strip("-_") or safe_stem(fallback)
+    return safe_stem(fallback)
 
 
 def is_out_doc(doc: str | None) -> bool:

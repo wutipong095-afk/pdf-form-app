@@ -148,7 +148,11 @@
     "importing": "Importing…",
     "imported": "Imported “{name}”",
     "importFail": "Import failed",
-    "importWrongType": "The file must be a .fromdd"
+    "importWrongType": "The file must be a .fromdd",
+    "rename": "Rename sheet",
+    "renamePrompt": "Sheet name (also used as the export filename):",
+    "renamed": "Renamed",
+    "renameFail": "Could not rename"
   },
   "markdlg": {
     "ok": "Add pin",
@@ -351,7 +355,8 @@
     "sheetExportFail": "Could not export the sheet",
     "sheetImportNeedsFile": "Choose a .fromdd file to import",
     "sheetImportFail": "Could not import the sheet",
-    "tplFromSheet": "Save templates from the original form, not from a sheet or printed PDF"
+    "tplFromSheet": "Save templates from the original form, not from a sheet or printed PDF",
+    "sheetNeedTitle": "Give the sheet a name first"
   },
   "license": {
     "demoMissing": "Canonical demo file missing in the app: {path} — incomplete install/package",

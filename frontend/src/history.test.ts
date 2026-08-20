@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   duplicateSheet: vi.fn(),
   deleteSheet: vi.fn(),
   relinkSheet: vi.fn(),
+  renameSheet: vi.fn(),
   importSheet: vi.fn(),
   clearActiveSheet: vi.fn(),
 }));
@@ -21,6 +22,7 @@ vi.mock("./sheets", () => ({
   duplicateSheet: mocks.duplicateSheet,
   deleteSheet: mocks.deleteSheet,
   relinkSheet: mocks.relinkSheet,
+  renameSheet: mocks.renameSheet,
   importSheet: mocks.importSheet,
   clearActiveSheet: mocks.clearActiveSheet,
 }));
@@ -134,12 +136,12 @@ describe("ลิสต์งานเก่า", () => {
     await showRows([sheetRow({ source_changed: true })]);
     const row = rowFor("ใบเบิก — สมชาย");
     expect(row.textContent).toContain("hist.formChanged");
-    expect(actions(row)).toEqual(["relink", "dup", "export", "del"]);
+    expect(actions(row)).toEqual(["relink", "rename", "dup", "export", "del"]);
   });
 
   it("ฟอร์มไม่เปลี่ยน → ไม่มีปุ่มย้าย", async () => {
     await showRows([sheetRow()]);
-    expect(actions(rowFor("ใบเบิก — สมชาย"))).toEqual(["dup", "export", "del"]);
+    expect(actions(rowFor("ใบเบิก — สมชาย"))).toEqual(["rename", "dup", "export", "del"]);
   });
 
   it("ฟอร์มต้นฉบับหายไป → บอกไว้ แต่ยังไม่ชวนให้ย้าย", async () => {
@@ -208,7 +210,33 @@ describe("ปุ่มในแถว", () => {
     expect(onRender).toHaveBeenCalled();
     expect(mocks.openSheet).not.toHaveBeenCalled();
   });
+
+  it("เปลี่ยนชื่อใบงาน — เติมชื่อเดิมไว้ให้แก้", async () => {
+    const promptSpy = vi.fn().mockReturnValue("ใบเบิก ส่งเขต");
+    vi.stubGlobal("prompt", promptSpy);
+    mocks.renameSheet.mockResolvedValue({ sheet: "ใบเบิก-20260819.json" });
+    await showRows([sheetRow()]);
+
+    rowFor("ใบเบิก — สมชาย").querySelector<HTMLButtonElement>('[data-act="rename"]')!.click();
+    await vi.waitFor(() =>
+      expect(mocks.renameSheet).toHaveBeenCalledWith("ใบเบิก-20260819.json", "ใบเบิก ส่งเขต"),
+    );
+    expect(promptSpy.mock.calls[0][1]).toBe("ใบเบิก — สมชาย");
+  });
+
+  it("ยกเลิกหรือใส่ชื่อว่าง แล้วไม่เปลี่ยนอะไร", async () => {
+    vi.stubGlobal("prompt", vi.fn().mockReturnValue(null));
+    await showRows([sheetRow()]);
+    rowFor("ใบเบิก — สมชาย").querySelector<HTMLButtonElement>('[data-act="rename"]')!.click();
+
+    vi.stubGlobal("prompt", vi.fn().mockReturnValue("   "));
+    rowFor("ใบเบิก — สมชาย").querySelector<HTMLButtonElement>('[data-act="rename"]')!.click();
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mocks.renameSheet).not.toHaveBeenCalled();
+  });
 });
+
 
 describe("นำเข้า .fromdd", () => {
   function choose(name: string): void {
