@@ -84,11 +84,17 @@ function actionButton(
 ): HTMLButtonElement {
   const b = document.createElement("button");
   b.type = "button";
-  b.className = "del" + (act === "relink" ? " warn" : "");
+  b.className = "rowact" + (act === "relink" ? " warn" : act === "del" ? " danger" : "");
   b.dataset.act = act;
   b.dataset.sheet = name;
   b.title = label;
-  b.textContent = ACTION_GLYPH[act];
+  // สัญลักษณ์อย่างเดียวเดาไม่ออก — ⧉ ⤓ ⟳ ไม่มีใครรู้ว่าคืออะไรถ้าไม่เอาเมาส์ไปจ่อ
+  // และบนแท็บเล็ตจ่อไม่ได้เลย
+  b.append(ACTION_GLYPH[act]);
+  const text = document.createElement("span");
+  text.className = "lbl";
+  text.textContent = label;
+  b.appendChild(text);
   return b;
 }
 

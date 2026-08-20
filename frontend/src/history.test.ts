@@ -132,6 +132,21 @@ describe("ลิสต์งานเก่า", () => {
     expect(row.textContent).toContain("hist.draftTag");
   });
 
+  it("ปุ่มทุกปุ่มมีข้อความกำกับ ไม่ใช่สัญลักษณ์ล้วน", async () => {
+    await showRows([sheetRow({ source_changed: true })]);
+    const buttons = [
+      ...rowFor("ใบเบิก — สมชาย").querySelectorAll<HTMLButtonElement>("button[data-act]"),
+    ];
+    expect(buttons.length).toBe(5);
+    for (const b of buttons) {
+      const label = b.querySelector(".lbl");
+      // ⧉ ⤓ ⟳ เดาไม่ออกถ้าไม่มีคำกำกับ และบนแท็บเล็ตจ่อเมาส์ดู title ไม่ได้
+      expect(label, `ปุ่ม ${b.dataset.act} ไม่มีข้อความ`).not.toBeNull();
+      expect((label!.textContent || "").length).toBeGreaterThan(0);
+      expect(b.title.length).toBeGreaterThan(0);
+    }
+  });
+
   it("ฟอร์มต้นฉบับเปลี่ยน → เตือนและมีปุ่มให้ย้าย", async () => {
     await showRows([sheetRow({ source_changed: true })]);
     const row = rowFor("ใบเบิก — สมชาย");

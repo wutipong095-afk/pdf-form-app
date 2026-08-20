@@ -88,11 +88,13 @@
   .pick-empty { padding:10px 12px; color:#777; font-size:13px; }
   .pick-row { display:flex; align-items:stretch; border-bottom:1px solid #f3f3f3; }
   .pick-row .pick-item { flex:1; min-width:0; border-bottom:none; }
-  .pick-row .del { border:none; background:none; cursor:pointer; color:#8a94a6; font-size:14px; padding:0 8px; }
-  .pick-row .del:hover { color:#1a3c6e; background:#e7f1ff; }
-  .pick-row .del[data-act="del"]:hover { color:#e63946; background:#ffecec; }
-  .pick-row .del.warn { color:#c46a00; }
-  .pick-row .del.warn:hover { color:#8a4a00; background:#fff3e0; }
+  .pick-row .rowact { display:flex; align-items:center; gap:4px; border:none; background:none;
+    cursor:pointer; color:#41506b; font:inherit; font-size:12px; padding:0 8px; white-space:nowrap; }
+  .pick-row .rowact:hover { color:#1a3c6e; background:#e7f1ff; }
+  .pick-row .rowact.warn { color:#c46a00; font-weight:bold; }
+  .pick-row .rowact.warn:hover { color:#8a4a00; background:#fff3e0; }
+  .pick-row .rowact.danger:hover { color:#e63946; background:#ffecec; }
+  @media (max-width: 720px) { .pick-row .rowact .lbl { display:none; } }
   #histnotice { margin:0 0 8px; padding:6px 10px; background:#fff8e1; color:#6d4c00; border-radius:6px; font-size:12px; }
   #histnotice[hidden] { display:none; }
   /* สมุดข้อมูลล่วงหน้า: ซ่อนจนกดเรียกใช้จากปุ่มใน header */
@@ -157,8 +159,8 @@
   <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
   <select id="docsel"><option>{{ t('header.selectPdf') }}</option></select>
   <select id="tplsel"><option value="">{{ t('header.newTemplate') }}</option></select>
-  <input id="tplname" placeholder="{{ t('header.templateName') }}" style="width:140px">
-  <button id="savetpl">{{ t('header.saveTemplate') }}</button>
+  <input id="tplname" placeholder="{{ t('header.templateName') }}" title="{{ t('header.templateNameTitle') }}" style="width:140px">
+  <button id="savetpl" title="{{ t('header.saveTemplateTitle') }}">{{ t('header.saveTemplate') }}</button>
   <span id="savestate" class="idle" title="">{{ t('save.idle') }}</span>
   <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
     <label for="ui-lang" style="opacity:.85">{{ t('header.langLabel') }}</label>
@@ -212,7 +214,7 @@
 <div id="histbar" aria-hidden="true">
   <strong>{{ t('hist.title') }}</strong>
   <input type="text" id="histsearch" placeholder="{{ t('hist.searchPlaceholder') }}" style="flex:1;min-width:200px">
-  <button type="button" id="histopen" class="secondary" title="{{ t('header.outputTitle') }}">{{ t('hist.openFolder') }}</button>
+  <button type="button" id="histopen" class="secondary" title="{{ t('hist.openFolderTitle') }}">{{ t('hist.openFolder') }}</button>
   <button type="button" id="histopenfile" class="secondary">{{ t('hist.openFile') }}</button>
   <button type="button" id="histimport" class="secondary" title="{{ t('hist.importTitle') }}">{{ t('hist.import') }}</button>
   <input type="file" id="histimportfile" accept=".fromdd" hidden>

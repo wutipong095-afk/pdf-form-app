@@ -15,13 +15,13 @@
   "header": {
     "selectPdf": "— Select PDF —",
     "newTemplate": "— New template —",
-    "templateName": "Template name",
+    "templateName": "Form name",
     "saveTemplate": "💾 Save template",
     "library": "Document library",
     "libraryTitle": "Show/hide document library bar",
     "hideLibrary": "Hide library",
     "history": "Completed work",
-    "historyTitle": "Search and reopen saved sheets",
+    "historyTitle": "Sheets you have filled — reopen to edit and print again",
     "hideHistory": "Hide completed work",
     "profiles": "Autofill book",
     "profilesTitle": "Show/hide the autofill book bar",
@@ -34,7 +34,9 @@
     "thisMachine": "This PC",
     "langLabel": "Language",
     "langTh": "ไทย",
-    "langEn": "English"
+    "langEn": "English",
+    "saveTemplateTitle": "Saves the pin positions only, to reuse on the next sheet — filled values are already saved as a sheet",
+    "templateNameTitle": "Name of this form — used for the template and as the starting name of a sheet"
   },
   "lic": {
     "checking": "Checking license…",
@@ -152,7 +154,8 @@
     "rename": "Rename sheet",
     "renamePrompt": "Sheet name (also used as the export filename):",
     "renamed": "Renamed",
-    "renameFail": "Could not rename"
+    "renameFail": "Could not rename",
+    "openFolderTitle": "Open the folder holding your sheets in Explorer"
   },
   "markdlg": {
     "ok": "Add pin",
@@ -211,13 +214,13 @@
     "markDatalistHint": "Type a new name, or pick one from the autofill book"
   },
   "bak": {
-    "title": "Backup / templates",
-    "backup": "Backup",
-    "restore": "Restore…",
+    "title": "Backup / move machine",
+    "backup": "Back up everything",
+    "restore": "Restore from a backup…",
     "exportTpl": "Export template",
     "importTpl": "Import template…",
     "formpack": "Install form pack v1",
-    "hint": "See docs/BACKUP.en.md — a new PC needs a new license key",
+    "hint": "Backup = everything in one ZIP for moving machines · your filled work is already saved automatically",
     "downloadFail": "Download failed",
     "backupFail": "Backup failed",
     "restoreOk": "Restored ({mode})\nWrote {written} files · skipped {skipped}\n{note}",
