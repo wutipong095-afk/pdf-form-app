@@ -16,6 +16,7 @@ import { bindHistory, notifyHistoryChanged } from "./history";
 import { bindSheetSaved, saveSheetNow, scheduleSheetSave, startNewSheet } from "./sheets";
 import { bindBackupUi } from "./backup";
 import { bindWorkDir } from "./workdir";
+import { renderFillResult } from "./fillResult";
 import { askFieldName, bindProfiles } from "./profiles";
 import { bindLangToggle, t } from "./i18n";
 import type { FillResponse } from "./types";
@@ -163,14 +164,7 @@ function bindClearAndFill(): void {
       $("result").textContent = "❌ " + r.error;
       return;
     }
-    const result = $("result");
-    result.replaceChildren(t("app.donePrefix"));
-    const link = document.createElement("a");
-    link.href = "/download/" + encodeURIComponent(r.file!);
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.textContent = t("app.openFile", { file: r.file! });
-    result.appendChild(link);
+    renderFillResult(r);
     bub(t("app.created", { file: r.file! }), "bot");
     notifyHistoryChanged();
   };

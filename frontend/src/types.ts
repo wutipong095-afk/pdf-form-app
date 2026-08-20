@@ -41,6 +41,8 @@ export type FillResponse = {
   ok?: boolean;
   file?: string;
   archived?: string | null;
+  /** หมุดที่ชี้หน้าเกินจำนวนหน้าของฟอร์ม — ค่าในจุดนั้นไม่ได้ลงใน PDF */
+  orphan_pins?: number;
   error?: string;
   license_required?: boolean;
 };
