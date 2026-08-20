@@ -14,7 +14,7 @@
     setupVersion: "",
   };
 
-  const I18N = window.FromDDLang;
+  const I18N = window.FormDDLang;
 
   function t(key, vars) {
     return I18N ? I18N.t(key, vars) : key;
@@ -259,7 +259,7 @@
   }
 
   function tplKey(name) {
-    return "fromdd-web-tpl:" + name;
+    return "formdd-web-tpl:" + name;
   }
 
   async function loadTemplate(name) {

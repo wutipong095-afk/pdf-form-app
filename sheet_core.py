@@ -17,7 +17,8 @@ from fields_core import FormDataError, first_value, normalize_fields
 from history_core import HISTORY_LIMIT, form_group, safe_stem
 
 SHEET_EXT = ".json"
-SHEET_KIND = "fromdd-sheet"
+SHEET_KIND = "formdd-sheet"
+LEGACY_SHEET_KIND = "fromdd-sheet"  # ใบงานที่เซฟไว้ก่อนเปลี่ยนชื่อ
 SHEET_VERSION = 1
 MAX_SHEET_BYTES = 4 * 1024 * 1024
 MAX_TITLE_LEN = 120
@@ -106,8 +107,8 @@ def read_sheet(path: Path) -> dict[str, Any]:
         raise FileNotFoundError("sheet not found") from e
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
         raise SheetError("could not read sheet file") from e
-    if not isinstance(data, dict) or data.get("kind") != SHEET_KIND:
-        raise SheetError("not a FromDD sheet")
+    if not isinstance(data, dict) or data.get("kind") not in (SHEET_KIND, LEGACY_SHEET_KIND):
+        raise SheetError("not a FormDD sheet")
     data["fields"] = normalize_fields(data.get("fields") or [])
     data["title"] = str(data.get("title") or "").strip()[:MAX_TITLE_LEN] or "sheet"
     data["title_base"] = str(data.get("title_base") or "").strip()[:MAX_TITLE_LEN]

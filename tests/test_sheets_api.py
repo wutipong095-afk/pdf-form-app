@@ -212,7 +212,7 @@ def test_export_and_import_round_trip(client):
     assert body["form_sha"] == created["form_sha"]
 
 
-def test_import_rejects_a_non_fromdd_file(client):
+def test_import_rejects_a_non_formdd_file(client):
     r = client.post(
         "/api/sheets/import",
         headers={"X-CSRF-Token": client._tok},
@@ -303,12 +303,12 @@ def test_missing_snapshot_is_404_not_500(client):
     assert client.get("/api/pageinfo/" + created["doc_id"]).status_code == 404
 
 
-def test_legacy_fromdd_files_are_migrated_on_first_use(client, tmp_path):
-    """ผู้ใช้รุ่นก่อนมี .fromdd อยู่ — ต้องโผล่เป็นใบงานเองโดยไม่ต้องทำอะไร"""
+def test_legacy_formdd_files_are_migrated_on_first_use(client, tmp_path):
+    """ผู้ใช้รุ่นก่อนมี .formdd อยู่ — ต้องโผล่เป็นใบงานเองโดยไม่ต้องทำอะไร"""
     user_root = next(p for p in tmp_path.iterdir() if p.is_dir())
     jobs = user_root / "jobs"
     jobs.mkdir(parents=True, exist_ok=True)
-    for marker in user_root.glob(".migrated-from-fromdd"):
+    for marker in user_root.glob(".migrated-from-formdd"):
         marker.unlink()
 
     src = A._pdf_path("local", "demo-leave.pdf")
@@ -317,7 +317,7 @@ def test_legacy_fromdd_files_are_migrated_on_first_use(client, tmp_path):
         title="ใบลาเก่า", source_doc="demo-leave.pdf", template_name="ใบลาเก่า",
         fields=fields("ของเดิม"),
     ))
-    (user_root / ".migrated-from-fromdd").unlink(missing_ok=True)
+    (user_root / ".migrated-from-formdd").unlink(missing_ok=True)
 
     st = client.get("/api/history").get_json()
     rows = [f for f in st["files"] if f.get("kind") == "sheet"]
@@ -525,7 +525,7 @@ def test_work_folder_defaults_to_the_program_data_folder(client):
 
 def test_sheets_land_in_the_chosen_folder(client, tmp_path):
     created = create_sheet(client).get_json()
-    dest = tmp_path / "Documents" / "FromDD"
+    dest = tmp_path / "Documents" / "FormDD"
 
     r = client.post("/api/workdir", headers=hdr(client), json={"path": str(dest)})
     assert r.status_code == 200, r.get_json()
@@ -608,7 +608,7 @@ def test_export_filename_uses_the_sheet_name(client):
     r = client.get("/api/sheets/" + created["sheet"] + "/export")
     assert r.status_code == 200
     # ชื่อใบ ไม่ใช่ชื่อไฟล์ภายในที่มีแต่ตัวเลขเวลา และตัวคั่นไม่รุงรัง
-    assert download_name(r) == "ใบลา-โรงเรียนวัดตัวอย่าง.fromdd"
+    assert download_name(r) == "ใบลา-โรงเรียนวัดตัวอย่าง.formdd"
 
 
 def test_rename_sticks_and_drives_the_export_name(client):
@@ -622,7 +622,7 @@ def test_rename_sticks_and_drives_the_export_name(client):
     assert body["fields"][0]["value"] == "โรงเรียนวัดตัวอย่าง"
 
     exported = client.get("/api/sheets/" + created["sheet"] + "/export")
-    assert download_name(exported) == "ใบลา-ส่งเขต-ครูสมชาย.fromdd"
+    assert download_name(exported) == "ใบลา-ส่งเขต-ครูสมชาย.formdd"
 
     row = next(f for f in client.get("/api/history").get_json()["files"]
                if f.get("sheet") == created["sheet"])

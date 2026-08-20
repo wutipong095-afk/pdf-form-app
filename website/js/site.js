@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const SETUP_FALLBACK = "releases/FromDD-Setup-0.3.2.exe";
+  const SETUP_FALLBACK = "releases/FormDD-Setup-0.3.2.exe";
 
   function bindSetupLinks() {
     const nodes = document.querySelectorAll("[data-setup]");
@@ -43,8 +43,8 @@
     {
       t: 0,
       src: "pages/yt-thumb.png",
-      th: "สอนใช้ PDF Form Marker (FromDD) ใน 3 นาที",
-      en: "PDF Form Marker (FromDD) in 3 minutes",
+      th: "สอนใช้ PDF Form Marker (FormDD) ใน 3 นาที",
+      en: "PDF Form Marker (FormDD) in 3 minutes",
     },
     {
       t: 18,

@@ -3,11 +3,11 @@
 (function () {
   "use strict";
 
-  const STORE = "fromdd-web-lang";
+  const STORE = "formdd-web-lang";
 
   const STR = {
     th: {
-      "meta.appTitle": "PDF Form Marker — FromDD (ทดลองบนเว็บ)",
+      "meta.appTitle": "PDF Form Marker — FormDD (ทดลองบนเว็บ)",
       "header.selectPdf": "— เลือก PDF —",
       "header.newTemplate": "— เทมเพลตใหม่ —",
       "header.templateName": "ชื่อเทมเพลต",
@@ -68,7 +68,7 @@
       "app.needPdfAndName": "เลือก PDF และตั้งชื่อเทมเพลตก่อน",
     },
     en: {
-      "meta.appTitle": "PDF Form Marker — FromDD (browser demo)",
+      "meta.appTitle": "PDF Form Marker — FormDD (browser demo)",
       "header.selectPdf": "— Select PDF —",
       "header.newTemplate": "— New template —",
       "header.templateName": "Form name",
@@ -210,7 +210,7 @@
     listeners.forEach((fn) => fn(v));
   }
 
-  window.FromDDLang = {
+  window.FormDDLang = {
     t: t,
     applyStatic: applyStatic,
     setLang: setLang,

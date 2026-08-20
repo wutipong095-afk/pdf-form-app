@@ -22,10 +22,10 @@ _DOWNLOAD_TIMEOUT_S = 180.0
 _MAX_SETUP_BYTES = 200 * 1024 * 1024
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SETUP_NAME_RE = re.compile(
-    r"^(?:FromDD|PDFFormMarker)-Setup-(\d+\.\d+\.\d+(?:\.\d+)?)\.exe$",
+    r"^(?:FormDD|FromDD|PDFFormMarker)-Setup-(\d+\.\d+\.\d+(?:\.\d+)?)\.exe$",
     re.IGNORECASE,
 )
-_UA = f"FromDD/{APP_VERSION}"
+_UA = f"FormDD/{APP_VERSION}"
 
 
 class UpdateInstallError(Exception):

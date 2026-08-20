@@ -146,14 +146,14 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup failed (exit $LASTEXITCODE)"
 }
 
-$Setup = Get-ChildItem (Join-Path $Root "dist\installer\FromDD-Setup-*.exe") |
+$Setup = Get-ChildItem (Join-Path $Root "dist\installer\FormDD-Setup-*.exe") |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 if (-not $Setup) {
-    throw "Inno finished but FromDD-Setup-*.exe was not found under dist\installer\"
+    throw "Inno finished but FormDD-Setup-*.exe was not found under dist\installer\"
 }
 & $Python (Join-Path $Root "scripts\write_release_meta.py") $Setup.FullName
 Write-Host ""
 Write-Host "Done: $($Setup.FullName)" -ForegroundColor Green
 Write-Host "Meta:  dist\installer\latest.json  +  SHA256SUMS.txt"
-Write-Host "Upload the versioned .exe as a new file. Do not overwrite an older FromDD-Setup-x.y.z.exe."
+Write-Host "Upload the versioned .exe as a new file. Do not overwrite an older FormDD-Setup-x.y.z.exe."

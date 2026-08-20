@@ -7,7 +7,7 @@ Linux and macOS have separate desktop packages for users who want a frozen app w
 
 | Platform | Script | Main artifact |
 |----------|--------|----------------|
-| Windows | `scripts/build_windows.ps1` | `dist/installer/FromDD-Setup-<ver>.exe` |
+| Windows | `scripts/build_windows.ps1` | `dist/installer/FormDD-Setup-<ver>.exe` |
 | Linux | `scripts/build_linux.sh` | `dist/installer/PDFFormMarker-<ver>-linux-<arch>.tar.gz` |
 | macOS | `scripts/build_macos.sh` | `dist/PDFFormMarker.app` + `dist/installer/PDFFormMarker-<ver>-macos.dmg` |
 

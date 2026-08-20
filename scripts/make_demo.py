@@ -128,7 +128,7 @@ def make_leave() -> Path:
     thai = "th" if _fontfile() else "helv"
     _text(page, (40, 32), "ใบลา" if thai == "th" else "Leave request", 20, (1, 1, 1), fontname=thai)
     _text(page, (40, 52), "PDF Form Marker", 11, (1, 1, 1), fontname="helv")
-    page.insert_text((400, 45), "FromDD", fontsize=14, color=(1, 1, 1), fontname="helv")
+    page.insert_text((400, 45), "FormDD", fontsize=14, color=(1, 1, 1), fontname="helv")
 
     fields: list[dict] = []
 
@@ -182,7 +182,7 @@ def make_leave() -> Path:
     _text(
         page,
         (40, 800),
-        "แบบตัวอย่างใน FromDD — ทดลองได้โดยไม่ต้องมีไลเซนต์",
+        "แบบตัวอย่างใน FormDD — ทดลองได้โดยไม่ต้องมีไลเซนต์",
         9,
         (0.5, 0.5, 0.5),
         fontname=thai,
@@ -200,7 +200,7 @@ def make_request() -> Path:
     page = doc.new_page(width=595, height=842)
     page.draw_rect(fitz.Rect(0, 0, 595, 70), color=NAVY, fill=NAVY)
     page.insert_text((40, 32), "Leave / request form", fontsize=20, color=(1, 1, 1), fontname="helv")
-    page.insert_text((40, 52), "PDF Form Marker — FromDD sample", fontsize=11, color=(1, 1, 1), fontname="helv")
+    page.insert_text((40, 52), "PDF Form Marker — FormDD sample", fontsize=11, color=(1, 1, 1), fontname="helv")
 
     fields: list[dict] = []
 
@@ -253,7 +253,7 @@ def make_request() -> Path:
 
     page.insert_text(
         (40, 800),
-        "Sample form bundled with FromDD. Trial use does not require a license.",
+        "Sample form bundled with FormDD. Trial use does not require a license.",
         fontsize=9,
         fontname="helv",
         color=(0.5, 0.5, 0.5),

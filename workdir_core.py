@@ -1,7 +1,7 @@
 """โฟลเดอร์เก็บงานของผู้ใช้ — เลือกเองได้ว่าจะให้ใบงานไปอยู่ที่ไหน
 
 ค่าเริ่มต้นคือใต้โฟลเดอร์ข้อมูลของโปรแกรม ซึ่งผู้ใช้มองไม่เห็นจาก Explorer
-ตั้งค่าใหม่ได้ เช่น Documents\\FromDD หรือไดรฟ์ส่วนกลางของโรงเรียน
+ตั้งค่าใหม่ได้ เช่น Documents\\FormDD หรือไดรฟ์ส่วนกลางของโรงเรียน
 
 เก็บค่าไว้ที่ <user_root>/workdir.json — แยกต่อผู้ใช้ ไม่ปนกัน
 """
@@ -72,7 +72,7 @@ def _usable(path: Path) -> bool:
         path.mkdir(parents=True, exist_ok=True)
     except OSError:
         return False
-    probe = path / ".fromdd-write-test"
+    probe = path / ".formdd-write-test"
     try:
         probe.write_text("", encoding="utf-8")
         probe.unlink()

@@ -1,14 +1,14 @@
-# Caddy example — fromdd.xambrain.com
+# Caddy example — formdd.xambrain.com
 # วางเป็นไซต์แยก อย่าทับ config ของ shed.xambrain.com
 #
-# /var/www/fromdd ใส่ได้เฉพาะของสาธารณะ:
-#   HTML / CSS / JS / รูป / FromDD-Setup-x.y.z.exe / latest.json / SHA256SUMS.txt
+# /var/www/formdd ใส่ได้เฉพาะของสาธารณะ:
+#   HTML / CSS / JS / รูป / FormDD-Setup-x.y.z.exe / latest.json / SHA256SUMS.txt
 # ห้ามวางในโฟลเดอร์นี้:
 #   private key, license-master.key, gen_license.py, .env, ฐานข้อมูลลูกค้า
-# คีย์ออกไลเซนต์อยู่ที่ backend (env/secret) เช่น api.fromdd.xambrain.com ในอนาคต
+# คีย์ออกไลเซนต์อยู่ที่ backend (env/secret) เช่น api.formdd.xambrain.com ในอนาคต
 
-fromdd.xambrain.com {
-	root * /var/www/fromdd
+formdd.xambrain.com {
+	root * /var/www/formdd
 	file_server
 	encode gzip
 	header {
@@ -20,7 +20,7 @@ fromdd.xambrain.com {
 	@latest path /releases/latest.json
 	header @latest Cache-Control "no-cache"
 
-	# ไฟล์ตามเวอร์ชันเป็น immutable — ห้ามทับ FromDD-Setup-x.y.z.exe เดิม
+	# ไฟล์ตามเวอร์ชันเป็น immutable — ห้ามทับ FormDD-Setup-x.y.z.exe เดิม
 	@setup path /releases/*.exe
 	header @setup Cache-Control "public, max-age=31536000, immutable"
 }

@@ -1,4 +1,4 @@
-FromDD — โปรแกรมกรอกฟอร์ม PDF สำหรับโรงเรียน
+FormDD — โปรแกรมกรอกฟอร์ม PDF สำหรับโรงเรียน
 (ภายในเครื่อง: PDF Form Marker)
 
 หลังติดตั้ง:
@@ -17,7 +17,7 @@ FromDD — โปรแกรมกรอกฟอร์ม PDF สำหรั�
 
 --------------------------------------------------
 
-FromDD — PDF form filler for schools
+FormDD — PDF form filler for schools
 (internal name: PDF Form Marker)
 
 After install:

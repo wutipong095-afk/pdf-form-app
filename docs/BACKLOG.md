@@ -13,11 +13,11 @@
 | # | งาน | หมายเหตุ |
 |---|-----|----------|
 | A1 | Merge / ปล่อยฟีเจอร์แจ้งอัปเดต | ทำแล้ว (PR #10) — บิวด์คู่กับ 0.1.9 + hardening |
-| A2 | ตั้งโฮสต์อัปเดตบน VPS | โค้ดพร้อมแล้ว: `/releases/latest.json` + `FromDD-Setup-x.y.z.exe` · SHA-256 · `update_feed.url` ในชุดติดตั้ง — รออัปโหลด VPS |
+| A2 | ตั้งโฮสต์อัปเดตบน VPS | โค้ดพร้อมแล้ว: `/releases/latest.json` + `FormDD-Setup-x.y.z.exe` · SHA-256 · `update_feed.url` ในชุดติดตั้ง — รออัปโหลด VPS |
 | A3 | แพ็กฟอร์มทดลอง (ฟรี) | ทำแล้วเฟส 1 — `demo-form.pdf` / `demo-leave.pdf` / `demo-request.pdf` ตรวจ hash |
 | A4 | ล็อกโหมดฟรี | ทำแล้วเฟส 1 — ไม่มีไลเซนต์ห้ามอัปโหลด / คลัง / แพ็กฟอร์ม / เปิด PDF นอกแพ็ก |
 | A5 | คู่มือภาษาไทยสั้น | หน้าเว็บมีขั้นตอน 5 ข้อแล้ว · วิดีโอสั้น (CP7) ยังเป็นคลิปตัวอย่าง |
-| A6 | นโยบายซัพพอร์ตชัด | ทำแล้วเฟส 2 — [SUPPORT.md](SUPPORT.md) · ย้ายเครื่อง 2 ครั้ง/ปี · อีเมล fromdd@xambrain.com |
+| A6 | นโยบายซัพพอร์ตชัด | ทำแล้วเฟส 2 — [SUPPORT.md](SUPPORT.md) · ย้ายเครื่อง 2 ครั้ง/ปี · อีเมล formdd@xambrain.com |
 | A7 | Pilot ≥ 2 โรงเรียน | CP6 — ใช้จริง 1 สัปดาห์ + เก็บ log/feedback |
 
 ---
@@ -52,8 +52,8 @@
 
 | # | งาน | หมายเหตุ |
 |---|-----|----------|
-| D1 | อัปโหลด Setup + `latest.json` บน VPS จริง | โฮสต์หลัก fromdd.xambrain.com · GitHub Release **ทำทุกครั้ง** เป็นสำเนา (`FromDD-Setup-x.y.z.exe` + `SHA256SUMS.txt`) |
-| D2 | ใส่ `update_feed.url` ในชุดที่ส่งลูกค้า | ทำแล้ว — ชี้ `https://fromdd.xambrain.com/releases/latest.json` |
+| D1 | อัปโหลด Setup + `latest.json` บน VPS จริง | โฮสต์หลัก formdd.xambrain.com · GitHub Release **ทำทุกครั้ง** เป็นสำเนา (`FormDD-Setup-x.y.z.exe` + `SHA256SUMS.txt`) |
+| D2 | ใส่ `update_feed.url` ในชุดที่ส่งลูกค้า | ทำแล้ว — ชี้ `https://formdd.xambrain.com/releases/latest.json` |
 | D3 | ดาวน์โหลดแล้วเปิด Setup ให้เอง | ทำแล้ว — ตรวจ SHA-256 ก่อนรัน · ถ้าฟีดไม่มี hash จะไม่รันไฟล์ |
 | D4 | (ยังไม่ทำ) อัปเดตเงียบทั้งก้อน | ไม่เร่ง — เสี่ยงกับโรงเรียนออฟไลน์ |
 
@@ -83,7 +83,7 @@
 
 ## ลำดับแนะนำทำต่อ
 
-1. บิวด์/ปล่อย Setup 0.3.1 เป็น `FromDD-Setup-0.3.1.exe` แล้ววางบน VPS `/releases/` (ห้ามทับรุ่น 0.3.0) + GitHub Release คู่  
+1. บิวด์/ปล่อย Setup 0.3.1 เป็น `FormDD-Setup-0.3.1.exe` แล้ววางบน VPS `/releases/` (ห้ามทับรุ่น 0.3.0) + GitHub Release คู่  
 2. ตั้ง VPS `/releases/` + ทดสอบจากเน็ตภายนอก (A2 / D1) — ปุ่มดาวน์โหลดบนเว็บชี้ไฟล์นี้ · Caddy: `latest.json` no-cache, `.exe` immutable  
 3. **เฟส 1** แพ็กทดลอง + ล็อกอัปโหลด/คลังตอนไม่มีไลเซนต์ — ทำแล้ว  
 4. **เฟส 2** เว็บดาวน์โหลด + หน้า Pricing + นโยบาย A6 — ทำแล้วใน `website/` + [SUPPORT.md](SUPPORT.md)  

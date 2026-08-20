@@ -281,7 +281,8 @@ export function bindHistory(onMarkers: () => void, onRender: () => void): void {
     const file = picker.files?.[0];
     picker.value = "";
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".fromdd")) {
+    // .fromdd คือนามสกุลเดิมก่อนเปลี่ยนชื่อโปรแกรม — ยังนำเข้าได้
+    if (!/\.(formdd|fromdd)$/.test(file.name.toLowerCase())) {
       alert(t("hist.importWrongType"));
       return;
     }

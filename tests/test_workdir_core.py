@@ -36,7 +36,7 @@ def test_set_moves_existing_work_along(tmp_path: Path):
     (root / "forms" / "abc.pdf").write_bytes(b"%PDF-1")
     (root / "output" / "พิมพ์แล้ว.pdf").write_bytes(b"%PDF-2")
 
-    dest = tmp_path / "Documents" / "FromDD"
+    dest = tmp_path / "Documents" / "FormDD"
     out = workdir_core.set_work_dir(root, str(dest))
 
     assert out["moved"] == 3
@@ -52,7 +52,7 @@ def test_set_moves_existing_work_along(tmp_path: Path):
 def test_reset_moves_the_work_back(tmp_path: Path):
     root = tmp_path / "user"
     root.mkdir()
-    dest = tmp_path / "Documents" / "FromDD"
+    dest = tmp_path / "Documents" / "FormDD"
     workdir_core.set_work_dir(root, str(dest))
     (dest / "sheets" / "ก.json").write_text("{}", encoding="utf-8")
 
@@ -78,7 +78,7 @@ def test_never_overwrites_a_file_already_there(tmp_path: Path):
 def test_refuses_the_program_folder(tmp_path: Path):
     root = tmp_path / "user"
     root.mkdir()
-    program = tmp_path / "Program Files" / "FromDD"
+    program = tmp_path / "Program Files" / "FormDD"
     program.mkdir(parents=True)
     with pytest.raises(WorkDirError, match="program folder"):
         workdir_core.set_work_dir(root, str(program / "data"), forbidden=(program,))

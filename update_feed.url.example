@@ -1,3 +1,3 @@
 # คัดลอกเป็น update_feed.url (ข้าง PDFFormMarker.exe หรือ %LOCALAPPDATA%\PDFFormMarker\)
-# ชุดติดตั้ง FromDD ใส่ไฟล์นี้ให้อัตโนมัติแล้ว
-https://fromdd.xambrain.com/releases/latest.json
+# ชุดติดตั้ง FormDD ใส่ไฟล์นี้ให้อัตโนมัติแล้ว
+https://formdd.xambrain.com/releases/latest.json
