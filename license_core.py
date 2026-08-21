@@ -25,7 +25,17 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from envutil import BASE, env_bool, is_frozen
 from i18n_core import t
 
-DEFAULT_SUPPORT_DAYS = 1825
+# อายุคีย์ที่ขายได้ (ปี → วัน) — ไทยเลือกแถว 1/3/5/10 · ต่างประเทศใช้ 10
+LICENSE_TERM_DAYS: dict[int, int] = {
+    1: 365,
+    3: 1095,
+    5: 1825,
+    10: 3650,
+}
+# เพดานอายุคีย์ = แถวที่ยาวสุดที่ขาย คีย์ที่ออกแล้ว revoke ไม่ได้ (แอปออฟไลน์ล้วน)
+# พิมพ์ --days เกินหนึ่งครั้งจึงเท่ากับที่นั่งฟรีถาวร และเลขโตพอจะทำ date overflow
+MAX_ISSUE_DAYS = max(LICENSE_TERM_DAYS.values())
+TERM_CHOICES_TEXT = "{" + ",".join(str(y) for y in sorted(LICENSE_TERM_DAYS)) + "}"
 KEY_PREFIX = "PFM2"
 # แพ็กทดลองทางการ — ตรวจด้วย hash เนื้อไฟล์ ไม่ใช่แค่ชื่อ
 DEMO_DOC_NAME = "demo-form.pdf"
@@ -239,14 +249,44 @@ def _b64url_decode(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + pad)
 
 
+def days_for_term_years(years: int) -> int:
+    """แปลงอายุที่ขาย (ปี) เป็นจำนวนวันในคีย์"""
+    try:
+        return LICENSE_TERM_DAYS[years]
+    except KeyError:
+        allowed = ", ".join(str(y) for y in sorted(LICENSE_TERM_DAYS))
+        raise ValueError(f"อายุคีย์ต้องเป็น {allowed} ปี") from None
+
+
+def resolve_issue_days(term: Optional[int], days: Optional[int]) -> int:
+    """ต้องส่ง --term หรือ --days อย่างใดอย่างหนึ่ง — ไม่มีค่าเริ่มต้น"""
+    if (term is None) == (days is None):
+        raise ValueError(f"ระบุอย่างใดอย่างหนึ่ง: --term {TERM_CHOICES_TEXT} หรือ --days")
+    if term is not None:
+        return days_for_term_years(term)
+    if days is None or days < 0:
+        raise ValueError("--days ต้องเป็น 0 หรือมากกว่า (0 = ย้ายเครื่องในวันหมดอายุ UTC)")
+    if days > MAX_ISSUE_DAYS:
+        raise ValueError(
+            f"--days ต้องไม่เกิน {MAX_ISSUE_DAYS} (แถวที่ยาวสุดที่ขาย) "
+            f"แต่ได้ {days} - คีย์ที่ออกแล้วเพิกถอนไม่ได้"
+        )
+    return days
+
+
 def issue_license_key(
     machine_id: str,
-    days: int = DEFAULT_SUPPORT_DAYS,
+    *,
+    days: int,
     private_key: Optional[Ed25519PrivateKey] = None,
 ) -> str:
     mid = machine_id.strip().upper()
     if not re.fullmatch(r"[0-9A-F]{16}", mid):
         raise ValueError(t("license.machineHex"))
+    if not isinstance(days, int) or isinstance(days, bool) or days < 0:
+        raise ValueError("จำนวนวัน (days) ต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป")
+    if days > MAX_ISSUE_DAYS:
+        raise ValueError(f"จำนวนวัน (days) ต้องไม่เกิน {MAX_ISSUE_DAYS}")
     exp_dt = datetime.now(timezone.utc) + timedelta(days=days)
     exp = exp_dt.strftime("%Y%m%d")
     priv = private_key or load_private_key()

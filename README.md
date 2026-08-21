@@ -120,7 +120,7 @@ docker compose up -d --build
 
 ```bash
 python scripts/gen_keypair.py          # ครั้งแรกเท่านั้น
-python scripts/gen_license.py <รหัสเครื่อง16ตัว>
+python scripts/gen_license.py <รหัสเครื่อง16ตัว> --term 5
 ```
 
 ห้าม commit / ห้ามใส่ Docker: `keys/ed25519_private.pem`
