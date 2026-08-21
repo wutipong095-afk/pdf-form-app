@@ -10,7 +10,15 @@
     "submit": "Sign in",
     "hint": "After sign-in you get a demo form to try immediately",
     "badCredentials": "Invalid username or password",
-    "tooMany": "Too many login attempts. Please wait and try again."
+    "tooMany": "Too many login attempts. Please wait and try again.",
+    "or": "or",
+    "google": "Sign in with Google",
+    "googleNotConfigured": "Google sign-in is not configured",
+    "googleFailed": "Google sign-in failed. Please try again.",
+    "googleDenied": "Google sign-in was cancelled",
+    "googleNoEmail": "This Google account has no verified email",
+    "googleDomainDenied": "This email domain is not allowed",
+    "googleSignupClosed": "Google sign-up is currently closed"
   },
   "header": {
     "selectPdf": "— Select PDF —",
