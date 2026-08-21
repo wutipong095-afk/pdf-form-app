@@ -1,0 +1,3 @@
+﻿issued_at,product,org,email,machine_id,days,amount_thb,paid_ref,transfer_no,replaces,note
+2026-01-15,FormDD,โรงเรียนวัดตัวอย่าง,krusomchai@example.ac.th,0123456789abcdef,1825,500,SLIP-000000,0,,ตัวอย่าง — ลบแถวนี้ทิ้งในไฟล์จริง
+2026-06-02,FormDD,โรงเรียนวัดตัวอย่าง,krusomchai@example.ac.th,fedcba9876543210,1825,0,ย้ายเครื่อง,1,0123456789abcdef,ตัวอย่างการย้ายเครื่องครั้งที่ 1

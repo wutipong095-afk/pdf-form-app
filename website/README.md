@@ -3,9 +3,10 @@
 แผนดาวน์โหลดชุดเดียว + ราคา + Activate: [docs/SALES_LICENSE_PLAN.md](../docs/SALES_LICENSE_PLAN.md)  
 นโยบายซัพพอร์ต: [docs/SUPPORT.md](../docs/SUPPORT.md)
 
-- `index.html` — หน้าแรกภาษาไทย + คลิปสอน + ปุ่มดาวน์โหลด
-- `en.html` — หน้าแรกภาษาอังกฤษ
-- `pricing.html` / `pricing.en.html` — ราคาไทย (บาท) และต่างประเทศ (USD) คนละหน้า
+- `index.html` — หน้าแรกภาษาไทย: ปักฟอร์มครั้งเดียว กรอกซ้ำ ข้อมูลอยู่ในเครื่อง
+- `en.html` — หน้าแรกภาษาอังกฤษ (จุดขายเดียวกัน, ราคา $49 จ่ายครั้งเดียว)
+- `pricing.html` — ราคาไทย 1/3/5/10 ปี + คิวอาร์พร้อมเพย์ (`img/promptpay-qr.png` ต้องอยู่ในเรป ห้าม deploy ขาดไฟล์นี้)
+- `pricing.en.html` — Personal $49 / School $99–149 / Org จาก $249 ไม่โชว์ราคาบาท
 - `app.html` — ทดลองมาร์คจุด / กรอกใบลา ในเบราว์เซอร์
 
 ดาวน์โหลดชี้ไปที่ `releases/FormDD-Setup-*.exe` (ห้ามใช้ชื่อ `FormDD-Setup.exe` แล้วทับ)  

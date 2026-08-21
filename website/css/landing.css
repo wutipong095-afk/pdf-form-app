@@ -255,6 +255,8 @@ img { max-width: 100%; display: block; }
 }
 .price-table th { background: #eef2f8; color: var(--navy-deep); }
 .price-table .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-table .recommend td { background: #f4f8ff; }
+.price-table .recommend .num { font-weight: 700; }
 .price-note { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
 
 .panel-card {
@@ -280,3 +282,14 @@ img { max-width: 100%; display: block; }
   .howto { grid-template-columns: 1fr; }
   .nav a:not(.btn):not(.lang) { display: none; }
 }
+
+.pay-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin: 4px 0 8px; }
+.pay-qr {
+  width: 280px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.pay-info { flex: 1 1 16rem; min-width: 0; }
+.pay-info p { margin: 0 0 8px; }

@@ -112,7 +112,7 @@ In-app **Document library** bar: set a root folder → auto scaffold `01-กา�
 
 ---
 
-## License (one-time purchase, 1 machine, ~5 years support)
+## License (1 machine; term is in the key)
 
 - Verified with **Ed25519**: the app ships only `license_public.pem` — customers cannot mint keys
 - Machine ID persisted in `DATA_DIR/machine_id`

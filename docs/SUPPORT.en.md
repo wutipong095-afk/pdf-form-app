@@ -12,13 +12,14 @@ With a key: the customer’s own PDFs. No reinstall.
 
 ## Price (on the sales pages, not in the app)
 
-| Channel | Price | Key term |
-|---------|-------|----------|
-| Thailand | ~THB 490 / computer | ~5 years |
-| International | US$69 / computer (PPP US$49) | ~10 years |
+| Channel | What we sell | Notes |
+|---------|--------------|-------|
+| International store (English pages) | US$49 Personal one-time; School/Small Team US$99–149 (5–10 PCs); Organization from US$249 | Do not advertise 10 years. Updates while the key is valid (expiry on the license bar). Do not promise a 5-year feature cutoff until the update feed can be gated. |
+| Thailand store (Thai pages only) | see [SUPPORT.md](SUPPORT.md) | Do not publish baht prices on English pages. |
 
-Sold per computer. Volume discount when an organization buys several.  
-Site: [website/pricing.html](../website/pricing.html) · [website/pricing.en.html](../website/pricing.en.html)
+English site: Personal is the default. Teams pick a seat pack or email a count.  
+Thai quotes default to the **5-year** row if the buyer does not pick a term.  
+Site: [website/pricing.en.html](../website/pricing.en.html) · [website/pricing.html](../website/pricing.html) (Thai)
 
 ## Moving to a new PC
 
@@ -31,8 +32,10 @@ Site: [website/pricing.html](../website/pricing.html) · [website/pricing.en.htm
 
 Customer emails the 16-character machine ID to **formdd@xambrain.com**.  
 Vendor: `python scripts/gen_license.py <id>`  
-- Thailand: `--days 1825`
-- International: `--days 3650`
+- Thailand: `--days 365` / `1095` / `1825` / `3650` matching the paid term
+- International: `--days 3650` (internal; public copy: updates while the key is valid; expiry on the license bar)
+
+Log every issued key in [LICENSE_REGISTRY.md](LICENSE_REGISTRY.md) or the quota for PC replacement cannot be enforced.
 
 Do not promise instant keys on the website until the Activate page exists.
 
@@ -40,6 +43,6 @@ Do not promise instant keys on the website until the Activate page exists.
 
 - Install / activate / PC replacement within quota
 - Sample forms and a short guide
-- Setup update notices when `latest.json` is published
+- Setup update notices when `latest.json` is published (same feed for every valid key)
 
 Not in scope: per-print billing, site licenses, monthly subscriptions, hosting customer PDFs.
