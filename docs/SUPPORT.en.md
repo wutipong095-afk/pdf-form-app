@@ -31,9 +31,11 @@ Site: [website/pricing.en.html](../website/pricing.en.html) · [website/pricing.
 ## Issuing keys (temporary)
 
 Customer emails the 16-character machine ID to **formdd@xambrain.com**.  
-Vendor: `python scripts/gen_license.py <id>`  
-- Thailand: `--days 365` / `1095` / `1825` / `3650` matching the paid term
-- International: `--days 3650` (internal; public copy: updates while the key is valid; expiry on the license bar)
+Vendor: `python scripts/gen_license.py <id> --term {1|3|5|10}`  
+- Thailand: `--term 1` / `3` / `5` / `10` matching the paid term
+- International: `--term 10` (internal; public copy: updates while the key is valid; expiry on the license bar)
+- PC replacement carrying leftover days: `--days N` (N = days left on the old key; use `0` on the UTC expiry calendar day). Do not use `--term` here, or the new key gets a full sold period.
+- The script has no silent 5-year default — every invocation must pass either `--term` or `--days`.
 
 Log every issued key in [LICENSE_REGISTRY.md](LICENSE_REGISTRY.md) or the quota for PC replacement cannot be enforced.
 

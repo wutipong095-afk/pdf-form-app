@@ -133,7 +133,7 @@ Issue keys (vendor machine with private key only):
 
 ```bash
 python scripts/gen_keypair.py          # first time only
-python scripts/gen_license.py <16-char-machine-id>
+python scripts/gen_license.py <16-char-machine-id> --term 10
 ```
 
 Do not commit / do not put in Docker: `keys/ed25519_private.pem`

@@ -58,4 +58,4 @@ jobs:
       - name: Build image
         run: docker build -t pdf-form-app:ci .
       - name: Import smoke test
-        run: docker run --rm pdf-form-app:ci python -c "import app; print('ok', app.APP_VERSION)"
+        run: docker run --rm -e ADMIN_PASSWORD=ci-smoke-not-default pdf-form-app:ci python -c "import app; print('ok', app.APP_VERSION)"
