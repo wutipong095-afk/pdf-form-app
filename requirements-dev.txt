@@ -1,0 +1,3 @@
+# ใช้ตอนรันเทส / CI — ไม่ใส่ใน Docker หรือชุดติดตั้งลูกค้า
+-r requirements.txt
+pytest>=8.0

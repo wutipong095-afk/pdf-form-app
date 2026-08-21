@@ -89,7 +89,10 @@ Assets:
 
 This gives history, tags, notes, a backup binary, proof that version shipped, and a download fallback if the VPS is down.
 
-Example:
+With GitHub Actions, tag `v0.3.1` and the **Release** workflow packs the installer and creates the GitHub Release.  
+Uploading `FormDD-Setup-x.y.z.exe` plus `latest.json` to the VPS is still manual (GitHub is not the primary host).
+
+Create by hand:
 
 ```powershell
 gh release create v0.3.1 `

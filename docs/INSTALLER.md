@@ -76,5 +76,8 @@
 อัปโหลดไฟล์ใหม่ + ทับแค่ `latest.json` บน `formdd.xambrain.com`  
 สร้าง GitHub Release คู่ทุกครั้ง (`FormDD-Setup-x.y.z.exe` + `SHA256SUMS.txt`)
 
+บน GitHub: ติดแท็ก `v0.3.2` (ต้องตรง `APP_VERSION` ใน `envutil.py`) แล้ว workflow **Release** จะแพ็กด้วย `scripts/build_windows.ps1` และสร้าง Release ให้  
+รันมือได้จากแท็บ Actions → Release → Run workflow (ได้ artifact สำหรับอัปโหลด VPS โดยยังไม่เปิด Release)
+
 รายละเอียด SHA-256, แคช Caddy, และของที่ห้ามวางใน `/var/www/formdd`: [UPDATE.md](UPDATE.md)
 
