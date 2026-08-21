@@ -77,5 +77,8 @@ Versioned `.exe` files are immutable — never overwrite `FormDD-Setup-0.3.2.exe
 Upload the new file and only replace `latest.json` on `formdd.xambrain.com`.  
 Also create a GitHub Release every time (`FormDD-Setup-x.y.z.exe` + `SHA256SUMS.txt`).
 
+On GitHub, tag `v0.3.2` (must match `APP_VERSION` in `envutil.py`); the **Release** workflow runs `scripts/build_windows.ps1` and creates the GitHub Release.  
+You can also run it from Actions → Release → Run workflow (artifacts for the VPS upload, no GitHub Release until you push a tag).
+
 SHA-256, Caddy cache headers, and what must not live under `/var/www/formdd`: [UPDATE.en.md](UPDATE.en.md)
 

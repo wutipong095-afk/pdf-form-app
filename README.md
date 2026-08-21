@@ -63,6 +63,16 @@ npm run build    # → static/js/app.js
 npm run dev      # พัฒนา UI ที่ :5173 (ต้องรัน python app.py คู่กัน)
 ```
 
+## CI / CD
+
+GitHub Actions รัน `pytest` + เทส/บิวด์ frontend + ตรวจ Docker ทุก PR และทุก push เข้า `master`  
+ปล่อยรุ่น: ติดแท็ก `v0.3.2` (ต้องตรง `APP_VERSION`) จะแพ็ก `FormDD-Setup-*.exe` แล้วเปิด GitHub Release เป็นสำเนา — โฮสต์หลักยังเป็น `formdd.xambrain.com` ([docs/UPDATE.md](docs/UPDATE.md))
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
 ---
 
 ## โหมดนักพัฒนา / หลายผู้ใช้

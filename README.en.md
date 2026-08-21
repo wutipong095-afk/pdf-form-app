@@ -64,6 +64,16 @@ npm run dev      # UI on :5173 (run python app.py alongside)
 
 Locale catalogs: [`locales/th.json`](locales/th.json), [`locales/en.json`](locales/en.json)
 
+## CI / CD
+
+GitHub Actions runs `pytest`, frontend tests/build, and a Docker smoke test on every PR and every push to `master`.  
+To ship: tag `v0.3.2` (must match `APP_VERSION`). That builds `FormDD-Setup-*.exe` and opens a GitHub Release as a copy — the primary host stays `formdd.xambrain.com` ([docs/UPDATE.en.md](docs/UPDATE.en.md)).
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
 ---
 
 ## Developer / multi-user mode

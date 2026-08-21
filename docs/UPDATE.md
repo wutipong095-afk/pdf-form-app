@@ -89,7 +89,10 @@ Assets:
 
 ประโยชน์: ประวัติ, tag, release notes, binary สำรอง, หลักฐานว่าเวอร์ชันนั้นเคยถูกปล่อย, ดาวน์โหลดสำรองถ้า VPS มีปัญหา
 
-ตัวอย่าง:
+ถ้าใช้ GitHub Actions: ติดแท็ก `v0.3.1` แล้ว workflow **Release** จะแพ็กและสร้าง Release ให้อัตโนมัติ  
+อัปโหลด `FormDD-Setup-x.y.z.exe` + `latest.json` ไป VPS ยังทำมือ (โฮสต์หลักไม่ใช่ GitHub)
+
+สร้างมือ:
 
 ```powershell
 gh release create v0.3.1 `
