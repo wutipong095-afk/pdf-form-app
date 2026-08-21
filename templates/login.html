@@ -29,6 +29,21 @@
     background: #ffb84d; color: #222; font: inherit; font-weight: bold; cursor: pointer;
   }
   button:hover { filter: brightness(1.05); }
+  .or {
+    margin: 18px 0 0; text-align: center; color: #888; font-size: 13px;
+    position: relative;
+  }
+  .or::before, .or::after {
+    content: ""; position: absolute; top: 50%; width: 38%; height: 1px; background: #e2e2e2;
+  }
+  .or::before { left: 0; }
+  .or::after { right: 0; }
+  a.google {
+    display: block; width: 100%; margin-top: 12px; padding: 11px; border-radius: 8px;
+    border: 1px solid #ccd; background: #fff; color: #222; text-align: center;
+    text-decoration: none; font: inherit; font-weight: bold;
+  }
+  a.google:hover { background: #f6f8fb; }
   .err {
     background: #fde8e8; color: #b00020; padding: 10px 12px; border-radius: 8px;
     font-size: 14px; margin-bottom: 12px;
@@ -36,11 +51,11 @@
   .hint { margin-top: 16px; font-size: 12px; color: #888; line-height: 1.45; }
   .langrow { display:flex; justify-content:flex-end; margin-bottom: 8px; font-size: 13px; gap: 6px; align-items:center; color:#555; }
   .langrow select { font: inherit; padding: 2px 6px; border-radius: 6px; border: 1px solid #ccc; }
+  .card form { margin: 0; }
 </style>
 </head>
 <body>
-  <form class="card" method="post" action="{{ url_for('login', next=request.args.get('next', '')) }}">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+  <div class="card">
     <div class="langrow">
       <label for="ui-lang">{{ t('header.langLabel') }}</label>
       <select id="ui-lang" aria-label="{{ t('header.langLabel') }}"
@@ -52,12 +67,19 @@
     <h1>PDF Form Marker</h1>
     <p class="sub">{{ t('login.subtitle') }}</p>
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
-    <label for="username">{{ t('login.username') }}</label>
-    <input id="username" name="username" autocomplete="username" required autofocus>
-    <label for="password">{{ t('login.password') }}</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" required>
-    <button type="submit">{{ t('login.submit') }}</button>
+    <form method="post" action="{{ url_for('login', next=request.args.get('next', '')) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <label for="username">{{ t('login.username') }}</label>
+      <input id="username" name="username" autocomplete="username" required autofocus>
+      <label for="password">{{ t('login.password') }}</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">{{ t('login.submit') }}</button>
+    </form>
+    {% if google_enabled %}
+    <p class="or">{{ t('login.or') }}</p>
+    <a class="google" href="{{ url_for('google_login', next=request.args.get('next', '')) }}">{{ t('login.google') }}</a>
+    {% endif %}
     <p class="hint">{{ t('login.hint') }}</p>
-  </form>
+  </div>
 </body>
 </html>
