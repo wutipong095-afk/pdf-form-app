@@ -20,3 +20,7 @@ dist/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# ทะเบียนคีย์ลูกค้า — เรปเป็นสาธารณะ ห้าม commit ของจริง
+license-registry.csv
+/sales/

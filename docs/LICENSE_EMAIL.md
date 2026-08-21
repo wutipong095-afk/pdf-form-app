@@ -2,7 +2,8 @@
 
 ใช้ตอนลูกค้าส่งรหัสเครื่องมาหลังชำระเงิน  
 ออกคีย์: `python scripts/gen_license.py <รหัส16ตัว>`  
-ไทย `--days 1825` · ต่างประเทศ `--days 3650`
+ไทย `--days` ตามอายุที่จ่าย: 1 ปี `365` · 3 ปี `1095` · 5 ปี `1825` · 10 ปี `3650`  
+ต่างประเทศ `--days 3650` (อย่าเขียนในอีเมลว่า 10 ปี — บอกจ่ายครั้งเดียว อัปเดตตราบที่คีย์ยังใช้ได้ วันหมดอายุอยู่ที่แถบไลเซนต์)
 
 อย่าใส่ private key ในอีเมล และอย่าขอให้ลูกค้าส่ง `license.json` จากเครื่องเก่า
 
@@ -83,6 +84,7 @@ How to activate:
 3. You can use your own PDFs immediately. No reinstall.
 
 This key is bound to this computer.
+This copy works until the expiry date in the license bar, including Setup updates while the key is valid.
 Replacing a retired PC: up to 2 times per year — email the new machine ID.
 
 FormDD
