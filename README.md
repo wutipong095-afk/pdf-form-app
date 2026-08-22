@@ -86,15 +86,6 @@ ADMIN_PASSWORD=changeme
 SESSION_COOKIE_SECURE=false
 ```
 
-เข้าสู่ระบบด้วย Google (สมัครอัตโนมัติเมื่อเข้าครั้งแรก) — ใช้คู่กับโหมดหลายผู้ใช้:
-
-```env
-AUTH_REQUIRED=true
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-# GOOGLE_ALLOWED_DOMAINS=school.ac.th
-```
-
 Deploy ด้วย Docker + Caddy (โหมดขั้นสูง / นักพัฒนา — **ไม่ใช่**เส้นทางหลักสำหรับโรงเรียน): ดู [DEPLOY.md](DEPLOY.md)
 
 ```bash
@@ -119,7 +110,6 @@ docker compose up -d --build
 |------|----------|
 | `app.py` | API + PDF + logging |
 | `library_core.py` | สแกน/ดัชนีคลังเอกสาร |
-| `oauth_core.py` | บัญชี Google OAuth (`DATA_DIR/oauth_users.json`) |
 | `logging_setup.py` | ไฟล์ log หมุนเวียน |
 | `templates/` | HTML (login + แอป) |
 | `frontend/` | TypeScript UI (Vite) |

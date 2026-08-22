@@ -77,8 +77,6 @@ hiddenimports = [
     "backup_core",
     "update_core",
     "i18n_core",
-    "oauth_core",
-    "authlib",
     "cryptography",
     "cryptography.hazmat.primitives.asymmetric.ed25519",
     "fitz",

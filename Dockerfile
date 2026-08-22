@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py backup_core.py envutil.py fields_core.py form_store.py formdd_io.py \
      history_core.py i18n_core.py job_core.py library_core.py license_core.py \
-     logging_setup.py oauth_core.py profiles_core.py sheet_core.py update_core.py \
-     workdir_core.py license_public.pem .
+     logging_setup.py profiles_core.py sheet_core.py update_core.py workdir_core.py \
+     license_public.pem .
 COPY fonts ./fonts
 COPY locales ./locales
 COPY templates ./templates

@@ -30,9 +30,6 @@ nano .env
 | `DOMAIN` | โดเมนจริง เช่น `forms.example.com` |
 | `SESSION_COOKIE_SECURE` | `true` |
 | `AUTH_REQUIRED` | Docker ตั้ง `true` ให้อยู่แล้ว (บังคับ login) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ถ้าใส่ จะมีปุ่มเข้าสู่ระบบด้วย Google และสมัครอัตโนมัติครั้งแรก |
-| `GOOGLE_ALLOWED_DOMAINS` | บน Docker บังคับเมื่อใช้ Google (เช่น `school.ac.th`) เว้นแต่ `GOOGLE_ALLOW_PUBLIC=true` |
-| `GOOGLE_REDIRECT_URI` | ไม่บังคับ — ใส่ `https://โดเมน/auth/google/callback` ถ้า callback ชี้ผิด |
 
 หลายผู้ใช้:
 
@@ -74,9 +71,7 @@ docker compose ps
 docker compose logs -f app
 ```
 
-ล็อกอินด้วยบัญชีจาก `.env` หรือปุ่ม **เข้าสู่ระบบด้วย Google** (ถ้าตั้ง `GOOGLE_CLIENT_ID`) → ควรเห็น `demo-form.pdf` + เทมเพลต `demo-ใบเบิก` ทันที
-
-ใน Google Cloud Console ใส่ Authorized redirect URI เป็น `https://โดเมนของคุณ/auth/google/callback`
+ล็อกอินด้วยบัญชีจาก `.env` → ควรเห็น `demo-form.pdf` + เทมเพลต `demo-ใบเบิก` ทันที
 
 ## หมายเหตุความปลอดภัย
 

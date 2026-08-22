@@ -1,8 +1,6 @@
 # Changelog
 
 ## Unreleased
-- เข้าสู่ระบบ / สมัครสมาชิกด้วย Google OAuth ในโหมดหลายผู้ใช้ (`AUTH_REQUIRED`) — บัญชีใหม่เก็บใน `DATA_DIR/oauth_users.json`
-- Google OAuth: ล็อกไฟล์ข้าม worker, จำกัด `next=` หลัง login, ไม่ล็อกอีเมลเต็ม, บนเน็ตบังคับ `GOOGLE_ALLOWED_DOMAINS` (หรือ `GOOGLE_ALLOW_PUBLIC`)
 - เปลี่ยนชื่อโปรแกรมจาก **FromDD** เป็น **FormDD** — ชื่อเดิมสะกดสลับและไม่มีความหมาย ทั้งที่โปรแกรมคือตัวกรอก *form* · เปลี่ยนตาม: โดเมน `formdd.xambrain.com`, อีเมลออกคีย์ `formdd@xambrain.com`, ตัวติดตั้ง `FormDD-Setup-x.y.z.exe`, นามสกุลไฟล์ส่งออก `.formdd`
 - ของเดิมยังใช้ได้ทั้งหมด — เปิดไฟล์ `.fromdd`, อ่านใบงานและไฟล์ที่มีคีย์ `fromdd-job` / `fromdd-sheet`, ย้ายข้อมูลของรุ่นก่อนไม่ซ้ำรอบ และยังรู้จักตัวติดตั้งชื่อเดิม `FromDD-Setup-*.exe` ตอนเช็กอัปเดต
 - รุ่น 0.3.2 ลงไปด้านล่างเป็นประวัติของชื่อเดิม ไม่ได้เขียนย้อน
