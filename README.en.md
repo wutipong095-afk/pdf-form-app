@@ -87,15 +87,6 @@ ADMIN_PASSWORD=changeme
 SESSION_COOKIE_SECURE=false
 ```
 
-Google sign-in (creates an account on first login) — multi-user mode:
-
-```env
-AUTH_REQUIRED=true
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-# GOOGLE_ALLOWED_DOMAINS=school.ac.th
-```
-
 Docker + Caddy deploy (advanced — **not** the main school path): see [DEPLOY.md](DEPLOY.md)
 
 ```bash
@@ -122,7 +113,6 @@ In-app **Document library** bar: set a root folder → auto scaffold `01-กา�
 | `i18n_core.py` | UI locale helper |
 | `locales/` | `th.json` / `en.json` string catalogs |
 | `library_core.py` | Library scan/index |
-| `oauth_core.py` | Google OAuth accounts (`DATA_DIR/oauth_users.json`) |
 | `logging_setup.py` | Rotating log files |
 | `templates/` | HTML (login + app) |
 | `frontend/` | TypeScript UI (Vite) |

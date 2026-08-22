@@ -110,20 +110,6 @@ from library_core import (
     tpl_beside_pdf,
 )
 from logging_setup import get_logger, init_logging
-from oauth_core import (
-    OAuthUsersUnreadable,
-    allowed_email_domains,
-    email_domain,
-    email_domain_allowed,
-    find_google_username,
-    google_configured,
-    google_oauth_enabled,
-    google_public_signup_allowed,
-    google_signup_allowed,
-    parse_google_userinfo,
-    safe_login_next,
-    upsert_google_user,
-)
 from update_core import UpdateInstallError, check_for_update, download_and_verify_setup
 
 load_dotenv()
@@ -435,51 +421,6 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 if os.environ.get("SESSION_COOKIE_SECURE", "").lower() in ("1", "true", "yes"):
     app.config["SESSION_COOKIE_SECURE"] = True
-if env_bool("TRUST_X_FORWARDED_FOR"):
-    from werkzeug.middleware.proxy_fix import ProxyFix
-
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
-oauth = None
-_google_oauth_ready = False
-
-
-def _init_google_oauth() -> bool:
-    """ลงทะเบียน Authlib เมื่อมี client id/secret — เรียกซ้ำได้"""
-    global oauth, _google_oauth_ready
-    if _google_oauth_ready:
-        return True
-    if not google_configured():
-        return False
-    from authlib.integrations.flask_client import OAuth
-
-    oauth = OAuth(app)
-    oauth.register(
-        name="google",
-        client_id=os.environ.get("GOOGLE_CLIENT_ID", "").strip(),
-        client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", "").strip(),
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={"scope": "openid email profile"},
-    )
-    _google_oauth_ready = True
-    return True
-
-
-def google_authorize_redirect(redirect_uri: str):
-    _init_google_oauth()
-    return oauth.google.authorize_redirect(redirect_uri)
-
-
-def google_authorize_access_token():
-    _init_google_oauth()
-    return oauth.google.authorize_access_token()
-
-
-def _google_redirect_uri() -> str:
-    explicit = os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
-    if explicit:
-        return explicit
-    return url_for("google_callback", _external=True)
 
 
 @app.context_processor
@@ -676,7 +617,7 @@ def _security_headers(response):
         "Content-Security-Policy",
         "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
         "script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; "
-        "frame-ancestors 'none'; form-action 'self' https://accounts.google.com",
+        "frame-ancestors 'none'; form-action 'self'",
     )
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     response.headers.setdefault("Cache-Control", "no-store")
@@ -696,7 +637,11 @@ def login():
     if request.method == "POST":
         client_key = _client_log_client_key()
         if not _login_attempt_allowed(client_key):
-            return _render_login(error=t("login.tooMany"), status=429)
+            return render_template(
+                "login.html",
+                error=t("login.tooMany"),
+                csrf_token=_csrf_token(),
+            ), 429
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
         hashed = USERS.get(username)
@@ -707,127 +652,13 @@ def login():
             _clear_login_attempts(client_key)
             seed_demo_for_user(username)
             log.info("login ok user=%s", username)
-            return redirect(_safe_next_url())
+            nxt = request.args.get("next") or url_for("index")
+            if not nxt.startswith("/") or nxt.startswith("//"):
+                nxt = url_for("index")
+            return redirect(nxt)
         log.warning("login failed user=%s", username or "(empty)")
         error = t("login.badCredentials")
-    return _render_login(error=error)
-
-
-def _render_login(error=None, status=200):
-    html_out = render_template(
-        "login.html",
-        error=error,
-        csrf_token=_csrf_token(),
-        google_enabled=google_oauth_enabled(AUTH_REQUIRED),
-    )
-    if status == 200:
-        return html_out
-    return html_out, status
-
-
-def _safe_next_url() -> str:
-    return safe_login_next(request.args.get("next"), url_for("index"))
-
-
-def _stash_login_next() -> None:
-    nxt = safe_login_next(request.args.get("next") or "", "")
-    if nxt:
-        session["login_next"] = nxt
-    else:
-        session.pop("login_next", None)
-
-
-def _take_login_next() -> str:
-    return safe_login_next(session.get("login_next"), url_for("index"))
-
-
-def _record_login_failure() -> bool:
-    """คืน False เมื่อเกินเพดาน — ใช้กับ callback ที่ล้ม ไม่นับแค่คลิกเริ่ม Google"""
-    return _login_attempt_allowed(_client_log_client_key())
-
-
-@app.get("/auth/google")
-def google_login():
-    if not AUTH_REQUIRED:
-        ensure_local_session()
-        return redirect(url_for("index"))
-    if current_user():
-        return redirect(url_for("index"))
-    if not google_configured():
-        return _render_login(error=t("login.googleNotConfigured"))
-    _stash_login_next()
-    try:
-        return google_authorize_redirect(_google_redirect_uri())
-    except Exception:
-        log.warning("google oauth redirect failed", exc_info=True)
-        if not _record_login_failure():
-            return _render_login(error=t("login.tooMany"), status=429)
-        return _render_login(error=t("login.googleFailed"))
-
-
-@app.get("/auth/google/callback")
-def google_callback():
-    if not AUTH_REQUIRED:
-        ensure_local_session()
-        return redirect(url_for("index"))
-    if current_user():
-        return redirect(url_for("index"))
-    if not google_configured():
-        return _render_login(error=t("login.googleNotConfigured"))
-    if request.args.get("error"):
-        log.warning("google oauth denied error=%s", request.args.get("error"))
-        if request.args.get("error") != "access_denied" and not _record_login_failure():
-            return _render_login(error=t("login.tooMany"), status=429)
-        return _render_login(error=t("login.googleDenied"))
-    try:
-        token = google_authorize_access_token()
-        info = parse_google_userinfo(token)
-    except Exception:
-        log.warning("google oauth token exchange failed", exc_info=True)
-        if not _record_login_failure():
-            return _render_login(error=t("login.tooMany"), status=429)
-        return _render_login(error=t("login.googleFailed"))
-    if not info["sub"] or not info["email"] or not info["verified"]:
-        if not _record_login_failure():
-            return _render_login(error=t("login.tooMany"), status=429)
-        return _render_login(error=t("login.googleNoEmail"))
-    if not email_domain_allowed(info["email"]):
-        log.warning("google oauth domain denied domain=%s", email_domain(info["email"]) or "-")
-        if not _record_login_failure():
-            return _render_login(error=t("login.tooMany"), status=429)
-        return _render_login(error=t("login.googleDomainDenied"))
-    try:
-        existing = find_google_username(DATA_DIR, info["sub"])
-        if not existing and not google_signup_allowed():
-            if not _record_login_failure():
-                return _render_login(error=t("login.tooMany"), status=429)
-            return _render_login(error=t("login.googleSignupClosed"))
-        username = upsert_google_user(
-            DATA_DIR,
-            sub=info["sub"],
-            email=info["email"],
-            display_name=info["name"],
-            reserved=set(USERS.keys()) | ADMIN_USERS | {LOCAL_USER},
-            safe_name=safe_name,
-        )
-    except OAuthUsersUnreadable:
-        log.exception("oauth_users.json unreadable")
-        if not _record_login_failure():
-            return _render_login(error=t("login.tooMany"), status=429)
-        return _render_login(error=t("login.googleFailed"))
-    except ValueError:
-        if not _record_login_failure():
-            return _render_login(error=t("login.tooMany"), status=429)
-        return _render_login(error=t("login.googleNoEmail"))
-    nxt = _take_login_next()
-    session.clear()
-    session["user"] = username
-    session["auth_provider"] = "google"
-    _csrf_token()
-    _clear_login_attempts(_client_log_client_key())
-    seed_demo_for_user(username)
-    log.info("google login ok user=%s", username)
-    return redirect(nxt)
+    return render_template("login.html", error=error, csrf_token=_csrf_token())
 
 
 @app.post("/logout")
@@ -2494,21 +2325,6 @@ def create_app():
     if not AUTH_REQUIRED:
         seed_demo_for_user(LOCAL_USER)
         log.info("school mode: local user=%s (no login)", LOCAL_USER)
-    elif google_configured():
-        log.info(
-            "google oauth enabled signup=%s allowlist=%s",
-            google_signup_allowed(),
-            ",".join(allowed_email_domains()) or "(any)",
-        )
-        if (
-            _bind_host() not in ("127.0.0.1", "localhost", "::1")
-            and not allowed_email_domains()
-            and not google_public_signup_allowed()
-        ):
-            raise RuntimeError(
-                "Refusing network Google OAuth without GOOGLE_ALLOWED_DOMAINS; "
-                "set an email domain allowlist or GOOGLE_ALLOW_PUBLIC=true"
-            )
     return app
 
 
