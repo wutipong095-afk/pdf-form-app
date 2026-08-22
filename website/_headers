@@ -1,0 +1,16 @@
+# Cloudflare Pages — กติกาเดียวกับ Caddyfile.formdd
+#
+# กฎที่ path ซ้อนกันจะถูก "ต่อค่าด้วยคอมมา" ไม่ใช่ทับกัน — ถ้าเขียน /releases/*
+# คลุมไว้แล้วมากำหนด /releases/latest.json ซ้ำ จะได้ Cache-Control สองชุดต่อกัน
+# แล้วพังทั้งคู่ กฎในไฟล์นี้จึงต้องไม่ซ้อน path กันเอง
+#
+# ตัวติดตั้ง .exe ไม่ได้อยู่บนโฮสต์นี้ — ไฟล์ ~33 MB เกินเพดาน 25 MiB ต่อไฟล์ของ
+# Pages ตัวติดตั้งอยู่บน GitHub Releases และ latest.json ชี้ไปที่นั่น
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# แอปและปุ่มดาวน์โหลดอ่านไฟล์นี้ตรวจอัปเดต — ห้ามแคช
+/releases/latest.json
+  Cache-Control: public, max-age=0, must-revalidate

@@ -52,6 +52,17 @@ jobs:
         shell: pwsh
         run: .\scripts\build_windows.ps1
 
+      - name: Point latest.json at the GitHub release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist/installer/FormDD-Setup-*.exe |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if (-not $setup) { throw "FormDD-Setup-*.exe not found" }
+          python scripts/write_release_meta.py $setup.FullName `
+            --url-base "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -74,8 +85,26 @@ jobs:
           if (-not $setup) { throw "FormDD-Setup-*.exe not found" }
           $sums = "dist/installer/SHA256SUMS.txt"
           if (-not (Test-Path $sums)) { throw "SHA256SUMS.txt not found" }
+          $feed = "dist/installer/latest.json"
+          if (-not (Test-Path $feed)) { throw "latest.json not found" }
           gh release create "${{ github.ref_name }}" `
             $setup.FullName `
             $sums `
+            $feed `
             --title "FormDD ${{ github.ref_name }}" `
             --generate-notes
+
+      - name: Publish the update feed to the site
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          git checkout -B master origin/master
+          Copy-Item dist/installer/latest.json website/releases/latest.json -Force
+          git add website/releases/latest.json
+          $changed = git status --porcelain website/releases/latest.json
+          if (-not $changed) { Write-Host "latest.json unchanged"; exit 0 }
+          git commit -m "Publish latest.json for ${{ github.ref_name }}"
+          git push origin master

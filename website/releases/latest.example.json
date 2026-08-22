@@ -1,8 +1,8 @@
 {
   "version": "0.3.2",
-  "setup_url": "https://formdd.xambrain.com/releases/FormDD-Setup-0.3.2.exe",
+  "setup_url": "https://github.com/wutipong095-afk/pdf-form-app/releases/download/v0.3.2/FormDD-Setup-0.3.2.exe",
   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "size": 34603008,
   "published_at": "2026-08-20",
-  "notes": "แทนที่ sha256/size ด้วยค่าจาก dist/installer/latest.json หลัง build"
+  "notes": "ตัวอย่างรูปแบบเท่านั้น — ไฟล์จริง release.yml เขียนให้ตอนตัดแท็ก อย่าแก้มือ"
 }
