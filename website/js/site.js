@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const SETUP_FALLBACK = "releases/FormDD-Setup-0.3.2.exe";
+  const SETUP_FALLBACK = "https://github.com/wutipong095-afk/pdf-form-app/releases/latest";
 
   function bindSetupLinks() {
     const nodes = document.querySelectorAll("[data-setup]");

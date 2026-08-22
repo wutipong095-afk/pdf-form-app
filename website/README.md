@@ -9,12 +9,12 @@
 - `pricing.en.html` — Personal $49 / School $99–149 / Org จาก $249 ไม่โชว์ราคาบาท
 - `app.html` — ทดลองมาร์คจุด / กรอกใบลา ในเบราว์เซอร์
 
-ดาวน์โหลดชี้ไปที่ `releases/FormDD-Setup-*.exe` (ห้ามใช้ชื่อ `FormDD-Setup.exe` แล้วทับ)  
-ถ้ามี `releases/latest.json` ปุ่มจะอัปเดต URL ตาม `setup_url` (มี `sha256` / `size` — คัดลอกจาก `releases/latest.example.json` หรือไฟล์ที่ build เขียนให้)
+ปุ่มดาวน์โหลดชี้หน้า `releases/latest` ของ GitHub เป็นค่าตั้งต้น — ชี้รุ่นล่าสุดเสมอ ไม่ค้างเวอร์ชัน  
+ถ้ามี `releases/latest.json` ปุ่มจะสลับเป็นลิงก์ตรงไป asset บน GitHub พร้อมเลขเวอร์ชัน — ไฟล์นั้น workflow เขียนให้ ห้ามแก้มือ ดู [releases/README.md](releases/README.md)
 
 `latest.json` ต้องไม่ถูกแคชนาน — กติกานี้อยู่ใน `_headers` (โฮสต์ปัจจุบัน) และ `Caddyfile.formdd` (อ้างอิงตอนรันบน VPS)
 
-GitHub Release สร้างคู่ทุกครั้งเป็นสำเนา — โฮสต์หลักยังเป็น formdd.xambrain.com  
+ตัวติดตั้งอยู่บน GitHub Releases · โฮสต์นี้เสิร์ฟแค่หน้าเว็บกับ `releases/latest.json`  
 ห้ามวาง private key / `gen_license.py` / `.env` ใน `/var/www/formdd` — ดู [docs/UPDATE.md](../docs/UPDATE.md)
 
 อีเมลออกคีย์ชั่วคราว: formdd@xambrain.com — เทมเพลตใน [docs/LICENSE_EMAIL.md](../docs/LICENSE_EMAIL.md)
@@ -31,6 +31,14 @@ GitHub Release สร้างคู่ทุกครั้งเป็นส�
 
 **ตัวติดตั้งไม่ได้อยู่บนโฮสต์นี้** — Pages จำกัดไฟล์ละ 25 MiB ส่วน Setup ราว 33 MB
 ตัวติดตั้งจึงอยู่บน GitHub Releases และ `releases/latest.json` เป็นตัวชี้ทาง
+**ลำดับตอนย้ายโฮสต์** — ห้ามสลับ:
+
+1. ตัดแท็ก `vx.y.z` ให้ `release.yml` สร้าง GitHub Release และ commit `releases/latest.json` เข้ามา
+2. ตรวจว่าเครื่องที่ติดตั้งรุ่นเดิมอยู่ กดตรวจอัปเดตแล้วเจอรุ่นใหม่ ดาวน์โหลดผ่าน sha256 ตรง
+3. ย้าย DNS มาที่ Pages
+4. ปิด `/var/www/formdd` บน VPS เป็นขั้นสุดท้าย
+
+ย้าย DNS ก่อนมี `latest.json` = เครื่องลูกค้าตรวจอัปเดตไม่ได้ (404) จนกว่าจะตัดแท็ก
 ## ใส่คลิป YouTube จริง
 
 เปิด `js/site.js` แก้บรรทัด:
