@@ -70,6 +70,7 @@
 | E5 | CSRF / headers / PDF+ZIP limits / admin gates | ทำแล้วใน 0.1.9 |
 | E6 | Dockerfile คัดลอก `update_core.py` + เอกสาร Docker ขั้นสูง | ทำแล้วใน 0.1.9 |
 | E7 | Docker multi-user: แยกคลัง / XFF / login eviction | เลื่อน — ไม่ขาย server mode ตอนนี้ |
+| E8 | Google OAuth (สมัคร / ล็อกอิน โหมดหลายผู้ใช้) | ถอดออกจาก master แล้ว — โค้ดอยู่ที่สาขา `feat/google-oauth` หยิบกลับได้ด้วยการ revert คอมมิตที่ถอด |
 
 ---
 
