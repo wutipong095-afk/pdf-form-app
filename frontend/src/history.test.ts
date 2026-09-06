@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   relinkSheet: vi.fn(),
   renameSheet: vi.fn(),
   importSheet: vi.fn(),
-  clearActiveSheet: vi.fn(),
+  leaveActiveSheet: vi.fn(),
 }));
 
 vi.mock("./api", () => ({ apiJson: mocks.apiJson }));
@@ -24,7 +24,7 @@ vi.mock("./sheets", () => ({
   relinkSheet: mocks.relinkSheet,
   renameSheet: mocks.renameSheet,
   importSheet: mocks.importSheet,
-  clearActiveSheet: mocks.clearActiveSheet,
+  leaveActiveSheet: mocks.leaveActiveSheet,
 }));
 vi.mock("./i18n", () => ({
   t: (key: string, vars?: Record<string, unknown>) =>
@@ -219,7 +219,7 @@ describe("ปุ่มในแถว", () => {
       expect(mocks.loadDoc).toHaveBeenCalledWith("@out.ใบเบิก-20260819.pdf", onMarkers),
     );
     // ส่วนที่เคยพังเงียบ ๆ เพราะ error ถูกกลืนลง alert
-    expect(mocks.clearActiveSheet).toHaveBeenCalled();
+    expect(mocks.leaveActiveSheet).toHaveBeenCalled();
     expect(mocks.clearChat).toHaveBeenCalled();
     expect(state.fields).toEqual([]);
     expect(onRender).toHaveBeenCalled();

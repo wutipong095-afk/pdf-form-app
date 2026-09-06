@@ -324,3 +324,48 @@ describe("ป้ายสถานะบันทึก", () => {
     expect(chip().title).toContain("ใบเบิก — สมหญิง");
   });
 });
+
+
+describe("flush before switching documents", () => {
+  it("saves a pending edit immediately before clearing the sheet", async () => {
+    state.doc = "form.pdf";
+    state.sheet = "old.json";
+    state.fields = [pin("latest")];
+    mocks.apiJson.mockResolvedValue({ sheet: "old.json" });
+    sheets.scheduleSheetSave();
+    await sheets.leaveActiveSheet();
+    expect(sentBody().fields).toEqual([pin("latest")]);
+    expect(state.sheet).toBeNull();
+  });
+
+  it("waits for creation then saves edits made while the request was in flight", async () => {
+    state.doc = "form.pdf";
+    state.fields = [pin("first")];
+    let finish!: (value: unknown) => void;
+    mocks.apiJson.mockReturnValueOnce(new Promise(r => { finish = r; }));
+    mocks.apiJson.mockResolvedValueOnce({ sheet: "created.json" });
+    const saving = sheets.saveSheetNow();
+    state.fields = [pin("latest")];
+    sheets.scheduleSheetSave();
+    const leaving = sheets.leaveActiveSheet();
+    expect(state.doc).toBe("form.pdf");
+    finish({ sheet: "created.json" });
+    await saving;
+    await leaving;
+    expect(sentBody(1).sheet).toBe("created.json");
+    expect(sentBody(1).fields).toEqual([pin("latest")]);
+    expect(state.sheet).toBeNull();
+  });
+
+  it("keeps the active sheet when saving fails", async () => {
+    state.doc = "form.pdf";
+    state.sheet = "old.json";
+    state.fields = [pin("latest")];
+    mocks.apiJson.mockRejectedValue(new Error("disk full"));
+    sheets.scheduleSheetSave();
+    await expect(sheets.leaveActiveSheet()).rejects.toThrow();
+    expect(state.sheet).toBe("old.json");
+    expect(state.fields).toEqual([pin("latest")]);
+    expect(mocks.loadDoc).not.toHaveBeenCalled();
+  });
+});

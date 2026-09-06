@@ -25,8 +25,8 @@ export type SheetPayload = {
 };
 
 let timer: ReturnType<typeof setTimeout> | null = null;
-let saving = false;
-let pending = false;
+let activeSave: Promise<SheetPayload | null> | null = null;
+let dirty = false;
 let onSaved: (() => void) | null = null;
 /** เพิ่มทุกครั้งที่สลับใบ — คำตอบออโต้เซฟที่ออกก่อนหน้าถือว่าหมดอายุ */
 let epoch = 0;
@@ -37,7 +37,7 @@ function newEpoch(): void {
     clearTimeout(timer);
     timer = null;
   }
-  pending = false;
+  dirty = false;
 }
 
 export function bindSheetSaved(cb: () => void): void {
@@ -99,22 +99,48 @@ function sourceDocForSave(): string | null {
 export function scheduleSheetSave(): void {
   if (isOutDoc(state.doc)) return;
   if (!state.doc || !state.fields.length) return;
+  dirty = true;
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => {
     void saveSheetNow();
   }, 800);
 }
 
+export async function flushSheetSave(): Promise<void> {
+  if (timer) { clearTimeout(timer); timer = null; }
+  while (activeSave || dirty) {
+    if (activeSave) {
+      await activeSave;
+    } else if (!await saveSheetNow()) {
+      throw new Error(t("save.failedTitle"));
+    }
+  }
+}
+
+export async function leaveActiveSheet(): Promise<void> {
+  await flushSheetSave();
+  clearActiveSheet();
+}
+
 export async function saveSheetNow(): Promise<SheetPayload | null> {
+  if (activeSave) {
+    const waitingEpoch = epoch;
+    await activeSave;
+    if (waitingEpoch !== epoch) return null;
+    return saveSheetNow();
+  }
+  activeSave = performSave();
+  try { return await activeSave; }
+  finally { activeSave = null; }
+}
+
+async function performSave(): Promise<SheetPayload | null> {
   if (isOutDoc(state.doc)) return null;
   if (!state.doc || !state.fields.length) return null;
   const source = sourceDocForSave();
   if (!state.sheet && !source) return null;
-  if (saving) {
-    pending = true;
-    return null;
-  }
-  saving = true;
+  dirty = false;
+  if (timer) { clearTimeout(timer); timer = null; }
   const sent = epoch;
   setSaveState("saving");
   try {
@@ -144,16 +170,11 @@ export async function saveSheetNow(): Promise<SheetPayload | null> {
     return r;
   } catch {
     if (sent === epoch) {
+      dirty = true;
       setSheetStatus(t("hist.saveFail"));
       setSaveState("failed");
     }
     return null;
-  } finally {
-    saving = false;
-    if (pending) {
-      pending = false;
-      scheduleSheetSave();
-    }
   }
 }
 
@@ -177,10 +198,11 @@ export async function openSheet(
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<void> {
+  await flushSheetSave();
   const r = await apiJson<SheetPayload>("/api/sheets/" + encodeURIComponent(name));
   // เปิดเอกสารให้ผ่านก่อน — ถ้าล้ม state.sheet ต้องไม่ค้างชี้ใบที่เปิดไม่ขึ้น
   // ไม่งั้นค่าของใบที่ยังอยู่บนจอจะถูกออโต้เซฟทับลงใบนั้น
-  clearActiveSheet();
+  await leaveActiveSheet();
   await loadDoc(r.doc_id, onMarkers);
   applySheet(r, onRender);
 }
@@ -190,11 +212,12 @@ export async function duplicateSheet(
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<SheetPayload> {
+  await flushSheetSave();
   const r = await apiJson<SheetPayload>(
     "/api/sheets/" + encodeURIComponent(name) + "/duplicate",
     { method: "POST" },
   );
-  clearActiveSheet();
+  await leaveActiveSheet();
   await loadDoc(r.doc_id, onMarkers);
   applySheet(r, onRender);
   return r;
@@ -210,10 +233,11 @@ export async function importSheet(
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<SheetPayload> {
+  await flushSheetSave();
   const form = new FormData();
   form.append("file", file);
   const r = await apiJson<SheetPayload>("/api/sheets/import", { method: "POST", body: form });
-  clearActiveSheet();
+  await leaveActiveSheet();
   await loadDoc(r.doc_id, onMarkers);
   applySheet(r, onRender);
   return r;
@@ -239,11 +263,12 @@ export async function relinkSheet(
   onMarkers: () => void,
   onRender: () => void,
 ): Promise<SheetPayload> {
+  await flushSheetSave();
   const r = await apiJson<SheetPayload>(
     "/api/sheets/" + encodeURIComponent(name) + "/relink",
     { method: "POST" },
   );
-  clearActiveSheet();
+  await leaveActiveSheet();
   await loadDoc(r.doc_id, onMarkers);
   applySheet(r, onRender);
   return r;

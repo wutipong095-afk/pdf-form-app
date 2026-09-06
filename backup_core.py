@@ -4,6 +4,8 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
+import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -241,26 +243,17 @@ def restore_backup(
     for d in (uploads, templates, output, sheets, forms):
         d.mkdir(parents=True, exist_ok=True)
 
-    if mode == "replace":
-        for d in (uploads, templates, output, sheets, forms):
-            for p in d.rglob("*"):
-                if p.is_file():
-                    p.unlink()
-        for extra in ("seeded.json", "profiles.json"):
-            p = user_root / extra
-            if p.is_file():
-                p.unlink()
-
     written = 0
     skipped = 0
+
+    planned: dict[Path, bytes] = {}
 
     def _write_bytes(dest: Path, data: bytes) -> bool:
         nonlocal written, skipped
         if mode == "merge" and dest.exists():
             skipped += 1
             return False
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(data)
+        planned[dest] = data
         written += 1
         return True
 
@@ -305,7 +298,15 @@ def restore_backup(
                 if not rel.startswith("pdfmarker/"):
                     skipped += 1
                     continue
-                lib_root = get_library_root(data_dir)
+                cfg = planned.get(config_path(data_dir))
+                if cfg is not None:
+                    config = json.loads(cfg.decode("utf-8"))
+                    raw_root = config.get("root")
+                    lib_root = Path(raw_root).expanduser().resolve() if raw_root else None
+                    if lib_root is not None and not lib_root.is_dir():
+                        lib_root = None
+                else:
+                    lib_root = get_library_root(data_dir)
                 if lib_root is None:
                     skipped += 1
                     continue
@@ -323,6 +324,52 @@ def restore_backup(
                 _write_bytes(dest, zf.read(info))
             else:
                 skipped += 1
+
+    # Read every member (including its CRC) before modifying existing work.
+    removals: set[Path] = set()
+    if mode == "replace":
+        for directory in (uploads, templates, output, sheets, forms):
+            removals.update(p.resolve() for p in directory.rglob("*") if p.is_file())
+        removals.update((user_root / name).resolve() for name in ("seeded.json", "profiles.json")
+                        if (user_root / name).is_file())
+    planned = {p.resolve(): content for p, content in planned.items()}
+    affected = removals | set(planned)
+    # Keep originals on disk until the complete restore succeeds.
+    temp = Path(tempfile.mkdtemp(prefix="formdd-restore-"))
+    keep_recovery = False
+    try:
+        originals: dict[Path, Path] = {}
+        for i, dest in enumerate(affected):
+            if dest.exists():
+                copy = Path(temp) / str(i)
+                shutil.copyfile(dest, copy)
+                originals[dest] = copy
+        touched: list[Path] = []
+        try:
+            for dest in affected:
+                touched.append(dest)
+                if dest in planned:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(planned[dest])
+                else:
+                    dest.unlink()
+        except Exception:
+            try:
+                for dest in reversed(touched):
+                    if dest in originals:
+                        shutil.copyfile(originals[dest], dest)
+                    else:
+                        dest.unlink(missing_ok=True)
+            except OSError as rollback_error:
+                keep_recovery = True
+                (temp / "recovery.json").write_text(
+                    json.dumps({str(dest): str(copy) for dest, copy in originals.items()},
+                               ensure_ascii=False, indent=2), encoding="utf-8")
+                raise OSError(f"Restore rollback failed; originals retained at {temp}") from rollback_error
+            raise
+    finally:
+        if not keep_recovery:
+            shutil.rmtree(temp)
 
     return {
         "ok": True,

@@ -70,8 +70,10 @@ def test_never_overwrites_a_file_already_there(tmp_path: Path):
     (dest / "sheets").mkdir(parents=True)
     (dest / "sheets" / "ชนกัน.json").write_text("ของเดิม", encoding="utf-8")
 
-    out = workdir_core.set_work_dir(root, str(dest))
-    assert out["moved"] == 0
+    with pytest.raises(WorkDirError, match="already exists"):
+        workdir_core.set_work_dir(root, str(dest))
+    assert workdir_core.resolve(root) == root
+    assert (root / "sheets" / "ชนกัน.json").read_text(encoding="utf-8") == "ของใหม่"
     assert (dest / "sheets" / "ชนกัน.json").read_text(encoding="utf-8") == "ของเดิม"
 
 
@@ -207,3 +209,40 @@ def test_reclaim_never_overwrites_a_file_at_the_destination(tmp_path: Path):
     workdir_core._RESOLVED.clear()
     workdir_core.resolve(root)
     assert (dest / "sheets" / "ชนกัน.json").read_text(encoding="utf-8") == "ของที่ปลายทาง"
+
+
+def test_copy_failure_keeps_original_folder_and_all_files(tmp_path, monkeypatch):
+    root, dest = tmp_path / "user", tmp_path / "dest"
+    (root / "sheets").mkdir(parents=True)
+    for name in ("a.json", "b.json"):
+        (root / "sheets" / name).write_text(name)
+    import shutil
+    real_copy = shutil.copyfileobj
+    count = 0
+    def fail_second(src, dst):
+        nonlocal count
+        count += 1
+        if count == 2:
+            dst.write(b"partial")
+            raise OSError("disk full")
+        real_copy(src, dst)
+    monkeypatch.setattr(shutil, "copyfileobj", fail_second)
+    with pytest.raises(WorkDirError):
+        workdir_core.set_work_dir(root, str(dest))
+    assert workdir_core.resolve(root) == root
+    assert {p.name for p in (root / "sheets").iterdir()} == {"a.json", "b.json"}
+    assert not list((dest / "sheets").iterdir())
+
+
+def test_config_failure_keeps_originals(tmp_path, monkeypatch):
+    root, dest = tmp_path / "user", tmp_path / "dest"
+    (root / "sheets").mkdir(parents=True)
+    (root / "sheets" / "a.json").write_text("original")
+    def fail(*args):
+        raise OSError("cannot save settings")
+    monkeypatch.setattr(workdir_core, "_write_config", fail)
+    with pytest.raises(WorkDirError):
+        workdir_core.set_work_dir(root, str(dest))
+    assert workdir_core.resolve(root) == root
+    assert (root / "sheets" / "a.json").read_text() == "original"
+    assert not (dest / "sheets" / "a.json").exists()
