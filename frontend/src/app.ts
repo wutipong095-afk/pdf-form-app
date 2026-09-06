@@ -13,7 +13,7 @@ import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import { bindHistory, notifyHistoryChanged } from "./history";
-import { bindSheetSaved, saveSheetNow, scheduleSheetSave, startNewSheet } from "./sheets";
+import { bindSheetSaved, flushSheetSave, saveSheetNow, scheduleSheetSave, startNewSheet } from "./sheets";
 import { bindBackupUi } from "./backup";
 import { bindWorkDir } from "./workdir";
 import { renderFillResult } from "./fillResult";
@@ -123,8 +123,9 @@ function bindTemplateSave(): void {
 }
 
 function bindClearAndFill(): void {
-  $("clearvals").onclick = () => {
+  $("clearvals").onclick = async () => {
     if (!confirm(t("app.clearConfirm"))) return;
+    try { await flushSheetSave(); } catch (e) { alert(String(e)); return; }
     startNewSheet();
     state.fields.forEach((f) => {
       f.value = "";

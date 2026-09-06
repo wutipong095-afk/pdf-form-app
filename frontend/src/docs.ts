@@ -3,7 +3,7 @@ import { api } from "./api";
 import { state } from "./state";
 import { renderLicense } from "./license";
 import { loadDoc, applyFontMetrics } from "./viewer";
-import { clearActiveSheet } from "./sheets";
+import { leaveActiveSheet } from "./sheets";
 import { getLocale, t } from "./i18n";
 import type { DocsResponse, TemplatePayload } from "./types";
 
@@ -83,26 +83,31 @@ export function bindDocs(
     await refreshDocs(onMarkers, onRender);
     ($("docsel") as HTMLSelectElement).value = r.name;
     try {
-      clearActiveSheet();
+      await leaveActiveSheet();
       await loadDoc(r.name, onMarkers);
     } catch (err) {
       alert(err instanceof Error ? err.message : t("app.loadDocFail"));
     }
   };
 
-  ($("docsel") as HTMLSelectElement).onchange = (e) => {
+  ($("docsel") as HTMLSelectElement).onchange = async (e) => {
     const v = (e.target as HTMLSelectElement).value;
     if (v) {
-      clearActiveSheet();
-      void loadDoc(v, onMarkers).catch((err) => {
+      try {
+        await leaveActiveSheet();
+        await loadDoc(v, onMarkers);
+      } catch (err) {
         alert(err instanceof Error ? err.message : t("app.loadDocFail"));
-      });
+      }
     }
   };
 
   ($("tplsel") as HTMLSelectElement).onchange = async (e) => {
     const v = (e.target as HTMLSelectElement).value;
-    clearActiveSheet();
+    try { await leaveActiveSheet(); } catch (err) {
+      alert(err instanceof Error ? err.message : t("save.failedTitle"));
+      return;
+    }
     if (!v) {
       state.fields = [];
       onRender();

@@ -5,7 +5,7 @@ import { state } from "./state";
 import { loadDoc } from "./viewer";
 import { clearChat } from "./chat";
 import {
-  clearActiveSheet,
+  leaveActiveSheet,
   deleteSheet,
   duplicateSheet,
   importSheet,
@@ -185,7 +185,7 @@ async function openHistoryDoc(
     await openSheet(name, onMarkers, onRender);
     return;
   }
-  clearActiveSheet();
+  await leaveActiveSheet();
   await loadDoc(docId, onMarkers);
   ($("docsel") as HTMLSelectElement).value = "";
   ($("tplsel") as HTMLSelectElement).value = "";

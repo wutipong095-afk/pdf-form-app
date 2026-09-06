@@ -208,14 +208,47 @@ def set_work_dir(
     forget(user_root)
     old_dir = resolve(user_root)
 
-    moved = 0
+    copies: list[tuple[Path, Path]] = []
+    identical: list[Path] = []
     if move and new_dir != old_dir:
+        if old_dir in new_dir.parents or new_dir in old_dir.parents:
+            raise WorkDirError("work folders must not contain one another")
         for name in WORK_SUBDIRS:
-            moved += _move_tree(old_dir / name, new_dir / name)
-    for name in WORK_SUBDIRS:
-        (new_dir / name).mkdir(parents=True, exist_ok=True)
-
-    _write_config(user_root, None if new_dir == user_root else new_dir)
+            src = old_dir / name
+            if not src.is_dir():
+                continue
+            for item in sorted(src.iterdir()):
+                if not item.is_file():
+                    continue
+                target = new_dir / name / item.name
+                if target.exists():
+                    # Identical snapshots can be shared; differing work must stay visible.
+                    if target.is_file() and item.read_bytes() == target.read_bytes():
+                        identical.append(item)
+                        continue
+                    raise WorkDirError(f"A different file already exists: {target.name}. Choose another folder.")
+                copies.append((item, target))
+    created: list[Path] = []
+    try:
+        for name in WORK_SUBDIRS:
+            (new_dir / name).mkdir(parents=True, exist_ok=True)
+        for src, dest in copies:
+            # Exclusive create also protects against a file appearing after preflight.
+            with dest.open("xb") as out:
+                created.append(dest)
+                with src.open("rb") as inp:
+                    shutil.copyfileobj(inp, out)
+        _write_config(user_root, None if new_dir == user_root else new_dir)
+    except Exception as exc:
+        for dest in created:
+            dest.unlink(missing_ok=True)
+        raise WorkDirError("Could not move work; the original folder is still active") from exc
+    moved = len(copies)
+    for src in [item for item, _dest in copies] + identical:
+        try:
+            src.unlink()
+        except OSError:
+            log.warning("Could not remove original after copying: %s", src)
     forget(user_root)
     log.info("work dir set path=%s moved=%s", new_dir, moved)
     out = status(user_root)
