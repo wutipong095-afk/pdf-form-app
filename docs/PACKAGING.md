@@ -32,7 +32,7 @@ English: [PACKAGING.en.md](PACKAGING.en.md)
 
 ### ความต้องการเครื่องแพ็ก
 
-- Linux x86_64 (หรือสถาปัตยกรรมที่ PyInstaller/PyMuPDF รองรับ)
+- Linux x86_64 (หรือสถาปัตยกรรมที่ PyInstaller/pypdfium2 รองรับ)
 - Python 3.11+ พร้อม `python3-venv` และ **tkinter** (`python3-tk` บน Debian/Ubuntu)
 - Node.js
 

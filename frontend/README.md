@@ -1,7 +1,7 @@
 # Frontend (TypeScript)
 
 UI หลักของ PDF Form Marker — **Vite + TypeScript**  
-Backend ยังเป็น Python (Flask + PyMuPDF)
+Backend ยังเป็น Python (Flask + pypdf / ReportLab / PDFium)
 
 ## คำสั่ง
 

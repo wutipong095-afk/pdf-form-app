@@ -23,7 +23,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Optional
 
-import fitz  # PyMuPDF
+import pdf_engine
 from flask import (
     Flask,
     g,
@@ -181,8 +181,7 @@ _DEFAULT_FILL_METRICS = {"font_ascender": 0.85, "font_descender": -0.25}
 
 def _font_metrics(fontfile: str) -> tuple:
     if fontfile not in _FONT_METRICS:
-        f = fitz.Font(fontfile=fontfile)
-        _FONT_METRICS[fontfile] = (f.ascender, f.descender)
+        _FONT_METRICS[fontfile] = pdf_engine.font_metrics(fontfile)
     return _FONT_METRICS[fontfile]
 
 
@@ -212,33 +211,6 @@ def fill_font_metrics() -> dict[str, float]:
         log.warning("fill font metrics unavailable path=%s", path, exc_info=True)
         return dict(_DEFAULT_FILL_METRICS)
     return {"font_ascender": float(asc), "font_descender": float(desc)}
-
-
-def insert_thai_text(page, point, text, fontsize, fontfile):
-    """วางข้อความด้วย insert_htmlbox ซึ่งทำ Thai shaping (GSUB/GPOS) ให้ —
-    วรรณยุกต์ไม่ทับสระบน (สี่ ปั่น น้ำ) ต่างจาก insert_text ที่วาง glyph ดิบ ๆ
-
-    วาง rect ให้ baseline บรรทัดแรกตกที่ point.y พอดี เพื่อให้ตำแหน่งตรงกับ
-    insert_text เดิมทุกจุด (เทมเพลตเก่าไม่เคลื่อน)
-    """
-    asc, desc = _font_metrics(fontfile)
-    line_h = asc - desc
-    top = point.y - asc * fontsize
-    n_lines = text.count("\n") + 1
-    rect = fitz.Rect(point.x, top, point.x + 10000, top + fontsize * line_h * n_lines + 2)
-    fp = Path(fontfile)
-    css = (
-        '@font-face {font-family: thf; src: url("%s");} '
-        "body {margin: 0; padding: 0;} "
-        "p {font-family: thf; font-size: %gpx; margin: 0; padding: 0; "
-        "line-height: %g; white-space: pre;}" % (fp.name, fontsize, line_h)
-    )
-    page.insert_htmlbox(
-        rect,
-        "<p>%s</p>" % html.escape(text),
-        css=css,
-        archive=fitz.Archive(str(fp.parent)),
-    )
 
 
 def safe_name(name: str) -> str:
@@ -853,11 +825,13 @@ def upload():
     if not raw.startswith(b"%PDF-"):
         return jsonify({"error": "The upload must be a valid PDF file"}), 400
     try:
-        with fitz.open(stream=raw, filetype="pdf") as pdf:
-            if pdf.needs_pass:
-                return jsonify({"error": "Password-protected PDFs are not supported"}), 400
-            if len(pdf) < 1 or len(pdf) > MAX_PDF_PAGES:
-                return jsonify({"error": f"PDF must contain 1-{MAX_PDF_PAGES} pages"}), 400
+        pages = pdf_engine.page_sizes(raw)
+        if len(pages) < 1 or len(pages) > MAX_PDF_PAGES:
+            return jsonify({"error": f"PDF must contain 1-{MAX_PDF_PAGES} pages"}), 400
+    except ValueError as exc:
+        if "Password" in str(exc):
+            return jsonify({"error": "Password-protected PDFs are not supported"}), 400
+        return jsonify({"error": "The PDF failed validation"}), 400
     except Exception:
         return jsonify({"error": "The PDF failed validation"}), 400
     paths = user_paths(current_user())
@@ -943,8 +917,7 @@ def pageinfo(doc):
                 touch_last_used(root, lib_rel_from_doc(doc))
             except OSError:
                 pass
-    with fitz.open(path) as d:
-        sizes = [{"w": p.rect.width, "h": p.rect.height} for p in d]
+    sizes = pdf_engine.page_sizes(path)
     info = {"pages": len(sizes), "sizes": sizes, "zoom": ZOOM}
     info.update(fill_font_metrics())
     return jsonify(info)
@@ -975,11 +948,10 @@ def page_png(doc, pno):
     ok, lic_err = can_open_document(DATA_DIR, lic_doc, path)
     if not ok:
         return _license_required_response(lic_err)
-    with fitz.open(path) as d:
-        if pno < 0 or pno >= len(d):
-            return jsonify({"error": "bad page"}), 404
-        pix = d[pno].get_pixmap(matrix=fitz.Matrix(ZOOM, ZOOM))
-        buf = pix.tobytes("png")
+    try:
+        buf = pdf_engine.render_png(path, pno, ZOOM)
+    except ValueError:
+        return jsonify({"error": "bad page"}), 404
     return send_file(io.BytesIO(buf), mimetype="image/png")
 
 
@@ -1670,9 +1642,8 @@ def _pins_off_the_end(username: str, form_sha: str, fields: list) -> int:
     """หมุดที่ชี้หน้าเกินจำนวนหน้าของฟอร์ม — เกิดเมื่อฟอร์มใหม่หน้าน้อยลง"""
     try:
         path = form_store.require_pdf(user_paths(username)["forms"], form_sha)
-        with fitz.open(path) as doc:
-            pages = doc.page_count
-    except (FileNotFoundError, FormDataError, RuntimeError, OSError):
+        pages = len(pdf_engine.page_sizes(path))
+    except (FileNotFoundError, FormDataError, RuntimeError, OSError, ValueError):
         return 0
     return sum(1 for f in fields if not 0 <= int(f.get("page") or 0) < pages)
 
@@ -1833,36 +1804,8 @@ def fill():
     try:
         out_name = unique_output_name(paths["output"], out_base)
         out_path = paths["output"] / out_name
-        with fitz.open(src) as d:
-            used = 0
-            orphan = 0
-            for fld in fields:
-                val = str(fld.get("value") or "").strip()
-                if not val:
-                    continue
-                pno = int(fld["page"])
-                # ฟอร์มเวอร์ชันใหม่อาจมีหน้าน้อยลง — ข้ามหมุดที่ตกขอบ
-                # ดีกว่าให้ทั้งใบล้มทั้งที่ค่าหน้าอื่นใช้ได้
-                if not 0 <= pno < d.page_count:
-                    orphan += 1
-                    continue
-                used += 1
-                page = d[pno]
-                pt = fitz.Point(float(fld["x"]), float(fld["y"]))
-                size = float(fld.get("size", 14))
-                try:
-                    insert_thai_text(page, pt, val, size, font)
-                except Exception:
-                    # เผื่อ insert_htmlbox ใช้ไม่ได้ — ยอมให้วรรณยุกต์เพี้ยนดีกว่าเติมไม่ได้เลย
-                    page.insert_text(
-                        pt, val, fontsize=size, fontname="thaifont", fontfile=font, color=(0, 0, 0)
-                    )
-            try:
-                d.subset_fonts()  # insert_htmlbox ฝังฟอนต์เต็มไฟล์ — ตัดให้เหลือเฉพาะที่ใช้
-            except Exception:
-                pass
-            # garbage=4 รวมฟอนต์ที่ฝังซ้ำกันหลายชุดให้เหลือชุดเดียว (ไฟล์เล็กลงมาก)
-            d.save(out_path, garbage=4, deflate=True)
+        pdf_bytes, used, orphan = pdf_engine.fill_pdf(src, fields, font)
+        out_path.write_bytes(pdf_bytes)
     except Exception:
         if out_path is not None:
             try:
