@@ -6,6 +6,8 @@ import pytest
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import RectangleObject
 
+from reportlab.pdfgen.canvas import Canvas
+
 import pdf_engine
 
 FONT = str(Path(__file__).resolve().parents[1] / "fonts/THSarabun.ttf")
@@ -50,24 +52,56 @@ def test_encrypted_pdf_rejected():
         pdf_engine.page_sizes(stream.getvalue())
 
 
+def test_owner_locked_pdf_with_empty_user_password_is_readable():
+    writer = PdfWriter()
+    writer.add_blank_page(200, 300)
+    writer.encrypt(user_password="", owner_password="owner-lock")
+    stream = io.BytesIO()
+    writer.write(stream)
+    source = stream.getvalue()
+    assert pdf_engine.page_sizes(source) == [{"w": 200.0, "h": 300.0}]
+    data, used, orphan = pdf_engine.fill_pdf(source, [
+        {"page": 0, "x": 10, "y": 40, "size": 14, "value": "เปิดได้"},
+    ], FONT)
+    assert (used, orphan) == (1, 0)
+    assert "เปิดได้" in PdfReader(io.BytesIO(data)).pages[0].extract_text()
+
+
 def test_invalid_preview_page_rejected():
     with pytest.raises(ValueError, match="Invalid page"):
         pdf_engine.render_png(Path(FONT).parents[1] / "demo/uploads/demo-form.pdf", 999)
 
 
-def test_font_name_is_cached_for_the_same_file(monkeypatch):
-    font = Path(FONT)
-    reads = {"n": 0}
-    original = Path.read_bytes
+def test_font_name_does_not_read_the_font_file(monkeypatch):
+    def fail_read(self):
+        raise AssertionError("font file should not be hashed")
 
-    def counted(self):
-        if Path(self).resolve() == font.resolve():
-            reads["n"] += 1
-        return original(self)
-
-    monkeypatch.setattr(Path, "read_bytes", counted)
+    monkeypatch.setattr(Path, "read_bytes", fail_read)
     pdf_engine._FONT_NAMES.clear()
-    first = pdf_engine._font_name(font)
-    second = pdf_engine._font_name(font)
+    first = pdf_engine._font_name(FONT)
+    second = pdf_engine._font_name(FONT)
     assert first == second
-    assert reads["n"] == 1
+    assert first.startswith("FormDD_")
+
+
+def test_fill_keeps_other_fields_when_one_line_cannot_shape(monkeypatch):
+    original = Canvas.drawString
+
+    def draw(self, x, y, text, mode=None, charSpace=0, direction=None, wordSpace=None, shaping=False):
+        if shaping and text == "พัง":
+            raise RuntimeError("shaping failed")
+        return original(self, x, y, text, mode=mode, charSpace=charSpace, direction=direction, wordSpace=wordSpace, shaping=shaping)
+
+    monkeypatch.setattr(Canvas, "drawString", draw)
+    writer = PdfWriter()
+    writer.add_blank_page(400, 500)
+    source = io.BytesIO()
+    writer.write(source)
+    data, used, orphan = pdf_engine.fill_pdf(source.getvalue(), [
+        {"page": 0, "x": 20, "y": 80, "size": 14, "value": "พัง"},
+        {"page": 0, "x": 20, "y": 120, "size": 14, "value": "ยังอยู่"},
+    ], FONT)
+    assert (used, orphan) == (2, 0)
+    text = PdfReader(io.BytesIO(data)).pages[0].extract_text()
+    assert "ยังอยู่" in text
+    assert "พัง" in text
