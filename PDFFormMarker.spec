@@ -23,6 +23,7 @@ IS_WIN = sys.platform == "win32"
 
 datas = [
     ("third_party_licenses", "third_party_licenses"),
+    ("THIRD_PARTY_NOTICES.txt", "."),
     ("templates", "templates"),
     ("static", "static"),
     ("fonts", "fonts"),
