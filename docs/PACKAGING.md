@@ -16,6 +16,22 @@ English: [PACKAGING.en.md](PACKAGING.en.md)
 
 ---
 
+## ใบอนุญาตบุคคลที่สาม (compliance gate)
+
+ทุกสคริปต์ build (Windows / Linux / macOS) จะรัน `scripts/collect_notices.py`
+**หลังติดตั้ง deps และก่อน PyInstaller** เพื่อสร้าง `THIRD_PARTY_NOTICES.txt`
+ใหม่จากเวอร์ชัน dependency ที่กำลังแพ็กจริง — ไม่ใช่ไฟล์ที่ commit ไว้ล่วงหน้า
+
+- ถ้ามี component ที่ต้องแจกแต่หา license text ไม่เจอ **สคริปต์ล้ม build หยุด**
+  จึงไม่มีทางออก installer ที่ notice ขาดโดยไม่รู้ตัว
+- ขั้นตรวจ asset หลัง build ยืนยันว่า `THIRD_PARTY_NOTICES.txt` อยู่ในบันเดิลจริง
+- CI รัน `collect_notices.py --check` เพื่อเตือนเมื่อไฟล์ที่ commit ไว้ไม่ตรงกับ
+  เวอร์ชัน dependency ปัจจุบัน (จะนิ่งสมบูรณ์เมื่อ lock เวอร์ชัน deps แล้ว)
+
+รายละเอียดแหล่งที่มาของ notice: [COMMERCIAL_DISTRIBUTION.md](COMMERCIAL_DISTRIBUTION.md)
+
+---
+
 ## ที่เก็บข้อมูลเมื่อรันแพ็กเกจ (frozen)
 
 | OS | ตำแหน่ง |

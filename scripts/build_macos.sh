@@ -76,6 +76,12 @@ else
   echo "[2/4] Skip pip install"
 fi
 
+# Compliance gate: regenerate third-party notices from the versions just
+# installed. Fails the build if any shipped component lacks a license text.
+echo ""
+echo "[2.5/4] Third-party notices..."
+"$PYTHON" scripts/collect_notices.py
+
 echo ""
 echo "[3/4] PyInstaller (.app bundle)..."
 rm -rf dist/PDFFormMarker dist/PDFFormMarker.app build/PDFFormMarker
@@ -100,6 +106,11 @@ if find "$APP" -type d -name fonts | grep -q .; then
 fi
 if [[ "$FOUND_FONT" -eq 0 ]]; then
   echo "Missing bundled fonts/ inside .app" >&2
+  exit 1
+fi
+
+if ! find "$APP" -name THIRD_PARTY_NOTICES.txt | grep -q .; then
+  echo "Missing THIRD_PARTY_NOTICES.txt inside .app" >&2
   exit 1
 fi
 
