@@ -1,3 +1,6 @@
 # ใช้ตอนรันเทส / CI — ไม่ใส่ใน Docker หรือชุดติดตั้งลูกค้า
 -r requirements.txt
 pytest>=8.0
+
+# Legacy fixtures and independent coordinate checks only; excluded from installer
+PyMuPDF>=1.24

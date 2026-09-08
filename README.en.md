@@ -1,6 +1,6 @@
 # PDF Form Marker
 
-Mark fields on a PDF, then overlay Thai (or any) text as a layer (PyMuPDF + Flask).  
+Mark fields on a PDF, then overlay Thai (or any) text as a layer (pypdf + ReportLab/HarfBuzz + PDFium + Flask).  
 Built for **schools** — install on a PC, works offline, license bound to the machine.
 
 Separate from the `school-reports` vault — a general government/school form filler.

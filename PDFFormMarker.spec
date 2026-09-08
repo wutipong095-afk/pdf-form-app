@@ -22,6 +22,7 @@ IS_DARWIN = sys.platform == "darwin"
 IS_WIN = sys.platform == "win32"
 
 datas = [
+    ("third_party_licenses", "third_party_licenses"),
     ("templates", "templates"),
     ("static", "static"),
     ("fonts", "fonts"),
@@ -31,41 +32,16 @@ datas = [
     ("license_public.pem", "."),
 ]
 
-try:
-    import fitz  # noqa: F401
-except ImportError as e:
-    raise SystemExit(
-        f"PDFFormMarker.spec: cannot import fitz (install PyMuPDF in the build venv): {e}"
-    ) from e
-
 binaries = []
-pymupdf_ok = False
-for pkg in ("pymupdf", "fitz"):
-    try:
-        libs = collect_dynamic_libs(pkg)
-        binaries += libs
-        if libs:
-            pymupdf_ok = True
-            print(f"PDFFormMarker.spec: collect_dynamic_libs({pkg}) -> {len(libs)}")
-    except Exception as e:
-        print(f"PDFFormMarker.spec: WARN collect_dynamic_libs({pkg}): {e}")
+for pkg in ("pypdfium2", "pypdfium2_raw", "reportlab", "uharfbuzz"):
+    datas += collect_data_files(pkg)
+    binaries += collect_dynamic_libs(pkg)
 
-try:
-    pm_data = collect_data_files("pymupdf")
-    datas += pm_data
-    if pm_data:
-        pymupdf_ok = True
-        print(f"PDFFormMarker.spec: collect_data_files(pymupdf) -> {len(pm_data)}")
-except Exception as e:
-    raise SystemExit(
-        f"PDFFormMarker.spec: collect_data_files(pymupdf) failed: {e}"
-    ) from e
-
-if not pymupdf_ok:
-    raise SystemExit(
-        "PDFFormMarker.spec: no PyMuPDF binaries/data collected — "
-        "frozen app would crash on import fitz"
-    )
+# ReportLab ships unused DarkGarden fonts under the GPL — do not bundle them.
+datas = [
+    item for item in datas
+    if "darkgarden" not in str(item[0]).replace("\\", "/").lower()
+]
 
 hiddenimports = [
     "waitress",
@@ -79,11 +55,16 @@ hiddenimports = [
     "i18n_core",
     "cryptography",
     "cryptography.hazmat.primitives.asymmetric.ed25519",
-    "fitz",
-    "pymupdf",
+    "pdf_engine",
+    "pypdfium2_raw",
+    "uharfbuzz",
+    "PIL",
+    "PIL.Image",
 ]
 
 excludes = [
+    "fitz",
+    "pymupdf",
     "torch",
     "torchvision",
     "torchaudio",

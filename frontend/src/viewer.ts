@@ -129,7 +129,7 @@ export function renderMarkers(
       v.className = "mvalue";
       v.textContent = f.value;
       v.style.left = `${px}px`;
-      // ตรงกับ insert_thai_text: top = y - ascender * fontsize
+      // ตรงกับ pdf_engine.fill_pdf: top = y - ascender * fontsize
       v.style.top = `${py - state.fontAsc * em}px`;
       v.style.fontSize = `${em}px`;
       v.style.lineHeight = String(state.fontAsc - state.fontDesc);

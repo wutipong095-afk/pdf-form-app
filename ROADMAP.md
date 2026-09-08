@@ -25,14 +25,14 @@
 ไอคอน Desktop
     → โปรแกรม Python (Flask/Waitress @ 127.0.0.1)
         → UI TypeScript (Vite build → static/)
-        → PyMuPDF + ฟอนต์สารบรรณ
+        → pypdf + ReportLab/HarfBuzz + PDFium + ฟอนต์สารบรรณ
         → ไลเซนต์ในเครื่อง
         → คลังเอกสารที่ผู้ใช้เลือกโฟลเดอร์เอง
 ```
 
 | ส่วน | ทิศทาง |
 |------|--------|
-| Backend | **Python** — Flask + PyMuPDF (เครื่องยนต์ PDF ไทย) |
+| Backend | **Python** — Flask + pypdf / ReportLab / PDFium (เครื่องยนต์ PDF ไทย) |
 | Frontend | **TypeScript** — Vite แยกโฟลเดอร์ `frontend/` แล้ว build เข้า `static/` |
 | Runtime | Windows desktop, bind `127.0.0.1` |
 | ข้อมูลระบบ | `%LOCALAPPDATA%\PDFFormMarker\` (license, machine_id, logs) |
@@ -44,7 +44,7 @@
 
 | ชั้น | ภาษา | เหตุผล |
 |------|------|--------|
-| PDF / license / ไฟล์ | Python | PyMuPDF + โค้ด license ที่มีอยู่แล้ว แข็งแรงและทดสอบแล้ว |
+| PDF / license / ไฟล์ | Python | pdf_engine (pypdf + ReportLab/HarfBuzz + PDFium) + โค้ด license ที่มีอยู่แล้ว |
 | UI / ค้นหา / คลังเอกสาร | TypeScript | โครงใหญ่ขึ้นจะดูแลง่าย มี type กันบั๊ก ขยายหน้าจอโรงเรียนได้ |
 
 **ไม่**ย้าย backend ทั้งก้อนไป Node ในระยะใกล้ — ไลบรารี PDF ไทยและ license ปัจจุบันผูกกับ Python
@@ -81,7 +81,7 @@ Frontend: โฟลเดอร์ [`frontend/`](frontend/)
 
 ### ระยะ 0 — สถานะปัจจุบัน (เสร็จแล้วบางส่วน)
 
-- [x] กรอก PDF ทับด้วยข้อความไทย (PyMuPDF + Thai shaping)
+- [x] กรอก PDF ทับด้วยข้อความไทย (ReportLab/HarfBuzz + Thai shaping)
 - [x] มาร์คจุด / บันทึกเทมเพลต JSON
 - [x] ไลเซนต์ผูกเครื่อง Ed25519 (`license_core.py`)
 - [x] Demo form + seed ต่อผู้ใช้

@@ -9,7 +9,7 @@ export type AppState = {
   selIdx: number;
   chatIdx: number;
   lic: LicenseStatus | null;
-  /** Fill-font ascender / descender — overlay must match insert_thai_text */
+  /** Fill-font ascender / descender — overlay must match pdf_engine.fill_pdf */
   fontAsc: number;
   fontDesc: number;
   /** ชื่อไฟล์ใบงานที่กำลังแก้ */
