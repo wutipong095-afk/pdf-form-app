@@ -2,6 +2,7 @@
 # รัน local: python app.py  →  http://localhost:5000
 from __future__ import annotations
 
+import hashlib
 import html
 import io
 import json
@@ -16,7 +17,7 @@ import threading
 import time
 import uuid
 import zipfile
-from collections import deque
+from collections import OrderedDict, deque
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
@@ -79,7 +80,7 @@ import formdd_io
 import job_core
 import sheet_core
 import workdir_core
-from fields_core import FormDataError, layout_fields
+from fields_core import FormDataError, layout_fields, normalize_fields, required_off_page_errors, validate_completed_fields
 from form_store import form_sha_from_doc, is_form_doc, make_form_doc
 from sheet_core import list_sheets, save_sheet, sheet_filename, unique_sheet_name
 from profiles_core import (
@@ -1764,12 +1765,79 @@ def sheets_import():
     return jsonify(_sheet_response(path, body))
 
 
+def _render_filled_pdf(src: Path, fields: list, font: str) -> tuple[bytes, int, int]:
+    """Use one renderer for the review image and the saved PDF."""
+    return pdf_engine.fill_pdf(src, fields, font)
+
+
+_PREVIEW_CACHE_LOCK = Lock()
+_PREVIEW_CACHE_MAX = 4
+_PREVIEW_CACHE: OrderedDict[tuple[Any, ...], bytes] = OrderedDict()
+
+
+def _preview_cache_key(user: Any, src: Path, fields: list) -> tuple[Any, ...]:
+    payload = json.dumps(fields, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    try:
+        stamp = src.stat().st_mtime_ns
+    except OSError:
+        stamp = 0
+    return (str(user or ""), str(src.resolve()), stamp, digest)
+
+
+def _cached_filled_pdf(user: Any, src: Path, fields: list, font: str) -> bytes:
+    """Reuse a filled PDF while flipping review pages; evict older entries."""
+    key = _preview_cache_key(user, src, fields)
+    with _PREVIEW_CACHE_LOCK:
+        cached = _PREVIEW_CACHE.get(key)
+        if cached is not None:
+            _PREVIEW_CACHE.move_to_end(key)
+            return cached
+    pdf, _used, _orphan = _render_filled_pdf(src, fields, font)
+    with _PREVIEW_CACHE_LOCK:
+        _PREVIEW_CACHE[key] = pdf
+        _PREVIEW_CACHE.move_to_end(key)
+        while len(_PREVIEW_CACHE) > _PREVIEW_CACHE_MAX:
+            _PREVIEW_CACHE.popitem(last=False)
+    return pdf
+
+
+@app.post("/api/fill-preview")
+@login_required
+def fill_preview():
+    data = request.get_json(silent=True) or {}
+    try:
+        fields = normalize_fields(data.get("fields") or [])
+        src, lic_doc = _resolve_open_pdf(current_user(), str(data.get("doc") or ""))
+        pno = int(data.get("page", 0))
+    except (ValueError, TypeError, FileNotFoundError, FormDataError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    ok, lic_err = can_fill_document(DATA_DIR, lic_doc, src)
+    if not ok:
+        return jsonify({"error": lic_err, "license_required": True}), 402
+    font = thai_font()
+    if not font:
+        return jsonify({"error": t("api.thaiFontMissing")}), 500
+    pdf = _cached_filled_pdf(current_user(), src, fields, font)
+    try:
+        png = pdf_engine.render_png(pdf, pno, 1.5)
+    except ValueError:
+        return jsonify({"error": "Invalid page"}), 400
+    return send_file(io.BytesIO(png), mimetype="image/png")
+
+
 @app.post("/api/fill")
 @login_required
 def fill():
     data = request.get_json(force=True, silent=True) or {}
     doc_name = data.get("doc") or ""
-    fields = data.get("fields") or []
+    try:
+        fields = normalize_fields(data.get("fields") or [])
+    except FormDataError as exc:
+        return jsonify({"error": str(exc)}), 400
+    errors = validate_completed_fields(fields)
+    if errors:
+        return jsonify({"error": "\n".join(f"{err['name']}: {t(err['key'])}" for err in errors), "fields": errors}), 400
     font = thai_font()
     if not font:
         log.error("fill aborted: Thai font missing")
@@ -1787,6 +1855,13 @@ def fill():
     if not ok:
         log.warning("fill blocked by license doc=%s", src.name)
         return jsonify({"error": lic_err, "license_required": True}), 402
+    try:
+        sizes = pdf_engine.page_sizes(src)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
+    off_page = required_off_page_errors(fields, sizes)
+    if off_page:
+        return jsonify({"error": "\n".join(f"{err['name']}: {t(err['key'])}" for err in off_page), "fields": off_page}), 400
 
     paths = user_paths(current_user())
     sheet_name = str(data.get("sheet") or "").strip()
@@ -1804,7 +1879,7 @@ def fill():
     try:
         out_name = unique_output_name(paths["output"], out_base)
         out_path = paths["output"] / out_name
-        pdf_bytes, used, orphan = pdf_engine.fill_pdf(src, fields, font)
+        pdf_bytes, used, orphan = _render_filled_pdf(src, fields, font)
         out_path.write_bytes(pdf_bytes)
     except Exception:
         if out_path is not None:

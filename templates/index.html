@@ -2,6 +2,7 @@
 <html lang="{{ ui_lang }}">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{ csrf_token }}">
 <title>{{ t('meta.title') }}</title>
 <style>
@@ -154,25 +155,33 @@
   #updbar button { background:#1a3c6e; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font:inherit; }
   #updbar button.secondary { background:#e8eaf0; color:#1a3c6e; }
 </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workflow.css') }}">
 </head>
-<body>
-<header>
-  <h1>📄 PDF Form Marker</h1>
-  <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
-  <select id="docsel"><option>{{ t('header.selectPdf') }}</option></select>
-  <select id="tplsel"><option value="">{{ t('header.newTemplate') }}</option></select>
-  <input id="tplname" placeholder="{{ t('header.templateName') }}" title="{{ t('header.templateNameTitle') }}" style="width:140px">
-  <button id="savetpl" title="{{ t('header.saveTemplateTitle') }}">{{ t('header.saveTemplate') }}</button>
-  <span id="savestate" class="idle" title="">{{ t('save.idle') }}</span>
-  <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap">
-    <label for="ui-lang" style="opacity:.85">{{ t('header.langLabel') }}</label>
+<body data-view="home">
+<header class="app-header">
+  <a class="brand" href="#" id="nav-home">FormDD</a>
+  <nav aria-label="{{ t('flow.forms') }}">
+    <button id="nav-forms">{{ t('flow.forms') }}</button>
+    <button id="btn-hist-toggle" aria-expanded="false">{{ t('flow.myWork') }}</button>
+    <button id="nav-prepare">{{ t('flow.prepare') }}</button>
+    <button id="nav-settings">{{ t('flow.settings') }}</button>
+  </nav>
+  <span id="trial-status" hidden>{{ t('flow.trial') }}</span>
+</header>
+<div id="flow-message" role="alert" hidden></div>
+<section id="home-view" class="page-view">
+  <h1>{{ t('flow.homeTitle') }}</h1><p>{{ t('flow.homeHint') }}</p>
+  <label class="search-label">{{ t('flow.search') }}<input id="form-search" type="search"></label>
+  <div id="form-cards" class="form-cards" aria-live="polite">{{ t('flow.loading') }}</div>
+  <button id="catalog-retry" hidden>{{ t('flow.retry') }}</button>
+  <h2>{{ t('flow.resume') }}</h2><div id="recent-work" class="form-cards"></div>
+</section>
+<section id="settings-view" class="page-view" hidden><h1>{{ t('flow.settings') }}</h1><p>{{ t('flow.settingsHint') }}</p>
+<div class="settings-account">    <label for="ui-lang" style="opacity:.85">{{ t('header.langLabel') }}</label>
     <select id="ui-lang" aria-label="{{ t('header.langLabel') }}" style="min-width:auto">
       <option value="th" {% if ui_lang == 'th' %}selected{% endif %}>{{ t('header.langTh') }}</option>
       <option value="en" {% if ui_lang == 'en' %}selected{% endif %}>{{ t('header.langEn') }}</option>
     </select>
-    <button type="button" id="btn-lib-toggle" title="{{ t('header.libraryTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.library') }}</button>
-    <button type="button" id="btn-hist-toggle" title="{{ t('header.historyTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.history') }}</button>
-    <button type="button" id="btn-prof-toggle" title="{{ t('header.profilesTitle') }}" aria-expanded="false" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.profiles') }}</button>
     <button type="button" id="btn-support-report" title="{{ t('header.supportTitle') }}" style="background:#e8eaf0;color:#1a3c6e;font-weight:normal">{{ t('header.support') }}</button>
     <span id="appver" style="opacity:.75;font-size:12px"></span>
     <span id="who">{{ user }}</span>
@@ -180,14 +189,15 @@
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <button type="submit" style="background:#e8eaf0;color:#1a3c6e">{{ t('header.logout') }}</button>
     </form>
-  </span>
-</header>
+</div>
+<button id="btn-prof-toggle" aria-expanded="false">{{ t('header.profiles') }}</button>
 <div id="licbar" class="warn">
   <span id="licmsg">{{ t('lic.checking') }}</span>
   <span>{{ t('lic.machineId') }} <code id="licmid">—</code>
     <button type="button" id="liccopy" data-i18n="lic.copyId">{{ t('lic.copyId') }}</button>
   </span>
   <span id="lictrial" hidden data-i18n="lic.trialHint">{{ t('lic.trialHint') }}</span>
+  <a id="licbuy" href="https://formdd.xambrain.com/pricing.html" target="_blank" rel="noopener noreferrer" data-i18n="lic.buy">{{ t('lic.buy') }}</a>
   <span id="licform" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;flex:1">
     <input type="text" id="lickey" placeholder="{{ t('lic.keyPlaceholder') }}">
     <button type="button" id="licactivate">{{ t('lic.activate') }}</button>
@@ -198,31 +208,6 @@
   <button type="button" id="updinstall">{{ t('upd.install') }}</button>
   <a id="updlink" href="#" target="_blank" rel="noopener">{{ t('upd.download') }}</a>
   <button type="button" id="upddismiss" class="secondary">{{ t('upd.dismiss') }}</button>
-</div>
-<div id="libbar" aria-hidden="true">
-  <strong>{{ t('lib.title') }}</strong>
-  <input type="text" id="libroot" placeholder="{{ t('lib.rootPlaceholder') }}" style="flex:1;min-width:220px">
-  <button type="button" id="libbrowse" class="secondary" title="{{ t('lib.browseTitle') }}">{{ t('lib.browse') }}</button>
-  <button type="button" id="libset">{{ t('lib.setRoot') }}</button>
-  <button type="button" id="libdefault" class="secondary">{{ t('lib.useDefault') }}</button>
-  <button type="button" id="libscan" class="secondary">{{ t('lib.rescan') }}</button>
-  <button type="button" id="libopenroot" class="secondary">{{ t('lib.openRoot') }}</button>
-  <input type="text" id="libsearch" placeholder="{{ t('lib.searchPlaceholder') }}" style="min-width:160px">
-  <button type="button" id="libopenfile" class="secondary">{{ t('lib.openFile') }}</button>
-  <span id="libstatus">{{ t('lib.idle') }}</span>
-  <button type="button" id="libhide" class="secondary" title="{{ t('lib.hideTitle') }}">{{ t('lib.hide') }}</button>
-  <div id="libresults" class="picklist" role="listbox" aria-label="{{ t('lib.title') }}"></div>
-</div>
-<div id="histbar" aria-hidden="true">
-  <strong>{{ t('hist.title') }}</strong>
-  <input type="text" id="histsearch" placeholder="{{ t('hist.searchPlaceholder') }}" style="flex:1;min-width:200px">
-  <button type="button" id="histopen" class="secondary" title="{{ t('hist.openFolderTitle') }}">{{ t('hist.openFolder') }}</button>
-  <button type="button" id="histopenfile" class="secondary">{{ t('hist.openFile') }}</button>
-  <button type="button" id="histimport" class="secondary" title="{{ t('hist.importTitle') }}">{{ t('hist.import') }}</button>
-  <input type="file" id="histimportfile" accept=".formdd,.fromdd" hidden>
-  <span id="histstatus">{{ t('hist.idle') }}</span>
-  <button type="button" id="histhide" class="secondary" title="{{ t('hist.hideTitle') }}">{{ t('hist.hide') }}</button>
-  <div id="histlist" class="picklist" role="listbox" aria-label="{{ t('hist.title') }}"></div>
 </div>
 <div id="profbar" aria-hidden="true">
   <strong>{{ t('prof.title') }}</strong>
@@ -266,31 +251,69 @@
   <button type="button" id="btn-formpack" class="secondary">{{ t('bak.formpack') }}</button>
   <span class="hint" style="margin:0">{{ t('bak.hint') }}</span>
 </div>
-<main>
+</section>
+<section id="history-view" class="page-view" hidden><h1>{{ t('flow.myWork') }}</h1><div id="histbar" aria-hidden="true">
+  <strong>{{ t('hist.title') }}</strong>
+  <input type="text" id="histsearch" placeholder="{{ t('hist.searchPlaceholder') }}" style="flex:1;min-width:200px">
+  <button type="button" id="histopen" class="secondary" title="{{ t('hist.openFolderTitle') }}">{{ t('hist.openFolder') }}</button>
+  <button type="button" id="histopenfile" class="secondary">{{ t('hist.openFile') }}</button>
+  <button type="button" id="histimport" class="secondary" title="{{ t('hist.importTitle') }}">{{ t('hist.import') }}</button>
+  <input type="file" id="histimportfile" accept=".formdd,.fromdd" hidden>
+  <span id="histstatus">{{ t('hist.idle') }}</span>
+  <button type="button" id="histhide" class="secondary" title="{{ t('hist.hideTitle') }}">{{ t('hist.hide') }}</button>
+  <div id="histlist" class="picklist" role="listbox" aria-label="{{ t('hist.title') }}"></div>
+</div>
+</section>
+<section id="prepare-view" class="page-view" hidden><h1>{{ t('flow.prepare') }}</h1><p>{{ t('flow.prepareHint') }}</p><div class="prepare-tools">  <input type="file" id="upfile" accept=".pdf" style="max-width:210px">
+  <select id="docsel"><option>{{ t('header.selectPdf') }}</option></select>
+  <select id="tplsel"><option value="">{{ t('header.newTemplate') }}</option></select>
+  <input id="tplname" placeholder="{{ t('header.templateName') }}" title="{{ t('header.templateNameTitle') }}" style="width:140px">
+  <button id="savetpl" title="{{ t('header.saveTemplateTitle') }}">{{ t('flow.savedTemplate') }}</button>
+</div><button id="btn-lib-toggle" aria-expanded="false">{{ t('header.library') }}</button><div id="libbar" aria-hidden="true">
+  <strong>{{ t('lib.title') }}</strong>
+  <input type="text" id="libroot" placeholder="{{ t('lib.rootPlaceholder') }}" style="flex:1;min-width:220px">
+  <button type="button" id="libbrowse" class="secondary" title="{{ t('lib.browseTitle') }}">{{ t('lib.browse') }}</button>
+  <button type="button" id="libset">{{ t('lib.setRoot') }}</button>
+  <button type="button" id="libdefault" class="secondary">{{ t('lib.useDefault') }}</button>
+  <button type="button" id="libscan" class="secondary">{{ t('lib.rescan') }}</button>
+  <button type="button" id="libopenroot" class="secondary">{{ t('lib.openRoot') }}</button>
+  <input type="text" id="libsearch" placeholder="{{ t('lib.searchPlaceholder') }}" style="min-width:160px">
+  <button type="button" id="libopenfile" class="secondary">{{ t('lib.openFile') }}</button>
+  <span id="libstatus">{{ t('lib.idle') }}</span>
+  <button type="button" id="libhide" class="secondary" title="{{ t('lib.hideTitle') }}">{{ t('lib.hide') }}</button>
+  <div id="libresults" class="picklist" role="listbox" aria-label="{{ t('lib.title') }}"></div>
+</div>
+</section>
+<section id="work-heading" hidden><div class="work-title"><h1 id="active-title"></h1><span id="savestate" class="idle" role="status">{{ t('save.idle') }}</span></div><div id="workflow-steps"><span>1 · {{ t('flow.forms') }}</span><strong>2 · {{ t('flow.fill') }}</strong><span>3 · {{ t('flow.review') }}</span></div></section>
+<main id="workspace" hidden>
   <div id="viewer">
     <div class="pgnav">
       <button id="prev">◀</button> <span id="pglabel">{{ t('viewer.page', cur='-', pages='-') }}</span> <button id="next">▶</button>
       <span class="hint" id="fonthint"></span>
     </div>
     <p id="histnotice" hidden>{{ t('hist.notice') }}</p>
-    <div id="pagewrap" class="marking">
+    <div id="pagewrap">
       <img id="pageimg" alt="{{ t('fill.pageAlt') }}">
     </div>
   </div>
   <div id="side">
     <div id="tabs">
-      <button id="tab-edit" class="active">{{ t('tabs.edit') }}</button>
-      <button id="tab-fill">{{ t('tabs.fill') }}</button>
+      <button id="tab-edit">{{ t('flow.edit') }}</button>
+      <button id="tab-fill" class="active">{{ t('flow.testForm') }}</button>
     </div>
-    <div id="panel-edit" class="panel active">
+    <div id="panel-edit" class="panel">
       <p class="hint">{{ t('edit.hint1')|safe }}</p>
       <p class="hint">{{ t('edit.hint2') }}</p>
       <label>{{ t('edit.fontSize') }} <input type="number" id="fsize" value="14" style="width:60px"></label>
-      <ul id="fieldlist"></ul>
+      <div id="field-options" hidden><strong id="field-option-name"></strong>
+<label><input id="field-required" type="checkbox">{{ t('flow.required') }}</label>
+<label>{{ t('flow.fieldType') }}<select id="field-type"><option value="text">{{ t('flow.text') }}</option><option value="number">{{ t('flow.number') }}</option><option value="date">{{ t('flow.date') }}</option></select></label>
+<label>{{ t('flow.width') }}<input id="field-width" type="number" min="1" max="1000000"></label>
+<label>{{ t('flow.fieldSize') }}<input id="field-size" type="number" min="0.1" max="1000" step="any"></label></div><ul id="fieldlist"></ul>
       <p class="hint">{{ t('edit.hint3') }}</p>
     </div>
-    <div id="panel-fill" class="panel">
-      <p class="hint">{{ t('fill.hint1')|safe }}</p>
+    <div id="panel-fill" class="panel active">
+      <p id="fill-progress" role="status"></p>
       <div id="profapplyrow" hidden>
         <label for="profapplysel">{{ t('prof.applyLabel') }}</label>
         <select id="profapplysel"></select>
@@ -300,18 +323,21 @@
       </div>
       <div id="valuelist"></div>
       <button class="btn" id="clearvals" style="background:#888; margin-bottom:8px">{{ t('fill.clearAll') }}</button>
-      <div id="chatlog"></div>
+      <details id="guided-fill"><summary>{{ t('flow.guide') }}</summary><div id="chatlog"></div>
       <div id="chatrow">
         <input id="chatinput" placeholder="{{ t('fill.chatPlaceholder') }}">
         <button class="btn" id="chatsend">{{ t('fill.send') }}</button>
       </div>
       <p class="hint">{{ t('fill.hint2')|safe }}</p>
-      <button class="btn orange" id="makepdf">{{ t('fill.makePdf') }}</button>
+      </details>
       <div id="jobstatus" class="hint" style="margin:6px 0 0"></div>
-      <div id="result"></div>
+
     </div>
   </div>
 </main>
+<footer id="work-actions" hidden><button id="back-to-forms">{{ t('flow.home') }}</button><button class="primary" id="review-document">{{ t('flow.reviewAction') }}</button></footer>
+<section id="review-view" class="page-view" hidden><h1>{{ t('flow.review') }}</h1><p>{{ t('flow.reviewHint') }}</p><div id="review-issues"></div><div class="pgnav"><button id="review-prev" aria-label="{{ t('flow.previousPage') }}">◀</button><span id="review-page"></span><button id="review-next" aria-label="{{ t('flow.nextPage') }}">▶</button></div><p id="review-status" role="status"></p><button id="preview-retry" hidden>{{ t('flow.retry') }}</button><img id="review-image" alt="{{ t('flow.review') }}" hidden><footer class="review-actions"><button id="review-back">{{ t('flow.back') }}</button><button class="primary" id="makepdf">{{ t('flow.create') }}</button></footer></section>
+<section id="done-view" class="page-view" hidden><h1>{{ t('flow.done') }}</h1><p>{{ t('flow.doneHint') }}</p><div id="result" role="status"></div><div class="done-actions"><button id="result-folder">{{ t('flow.openFolder') }}</button><button id="result-edit">{{ t('flow.editAgain') }}</button><button class="primary" id="result-new">{{ t('flow.newSheet') }}</button></div></section>
 <dialog id="markdlg" aria-labelledby="marklabel">
   <p id="marklabel">{{ t('app.markNamePrompt') }}</p>
   <input type="text" id="markname" list="profkeys" autocomplete="off" maxlength="80">

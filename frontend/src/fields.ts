@@ -29,16 +29,20 @@ export function renderList(onGoto: (i: number) => void, onRename: (i: number) =>
 
 export function renderValues(): void {
   const el = $("valuelist");
+  let lastPage = -1;
   el.innerHTML = state.fields
-    .map(
-      (f, i) =>
-        `<div class="vrow">
-          <span class="vname" data-goto="${i}" title="${escapeAttr(f.name)} ${escapeAttr(t("fields.pageTitle", { page: f.page + 1 }))}">📍 ${escapeHtml(f.name)}</span>
-          <input data-i="${i}" value="${escapeAttr(f.value || "")}" placeholder="${escapeAttr(t("fields.emptyPlaceholder"))}">
-          <button class="del" data-clear="${i}" title="${escapeAttr(t("fields.clearTitle"))}">✕</button>
-        </div>`,
-    )
-    .join("");
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => a.f.page - b.f.page || a.i - b.i)
+    .map(({ f, i }) => {
+      const heading = f.page !== lastPage ? `<h3 class="field-group">${escapeHtml(t("flow.pageGroup", { page: f.page + 1 }))}</h3>` : "";
+      lastPage = f.page;
+      const type = f.input_type === "date" ? "date" : "text";
+      return `${heading}<div class="vrow">
+      <label for="value-${i}" data-goto="${i}">${escapeHtml(f.name)}${f.required ? " *" : ""}</label>
+      <input id="value-${i}" data-i="${i}" type="${type}" ${f.input_type === "number" ? 'inputmode="decimal"' : ""} ${f.required ? 'required aria-required="true"' : ""} value="${escapeAttr(f.value || "")}" placeholder="${escapeAttr(t("fields.emptyPlaceholder"))}">
+      <button data-clear="${i}" aria-label="${escapeAttr(t("fields.clearTitle") + ": " + f.name)}">✕</button>
+    </div>`;
+    }).join("");
 }
 
 export function bindValues(

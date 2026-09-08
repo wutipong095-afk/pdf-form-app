@@ -14,6 +14,7 @@ export type AppState = {
   fontDesc: number;
   /** ชื่อไฟล์ใบงานที่กำลังแก้ */
   sheet: string | null;
+  sheetTitle?: string;
   /** เอกสารต้นฉบับเมื่อ state.doc เป็น @form.… */
   sourceDoc: string | null;
 };

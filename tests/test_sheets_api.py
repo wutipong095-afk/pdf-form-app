@@ -725,3 +725,48 @@ def test_duplicate_of_an_auto_named_sheet_keeps_naming_itself(client):
         "sheet": dup["sheet"], "template_name": "demo-ใบลา", "fields": fields("โรงเรียนบ้านหนองแวง"),
     }).get_json()
     assert "โรงเรียนบ้านหนองแวง" in after["title"]
+
+
+def test_preview_matches_generated_pdf_without_creating_output(client):
+    import fitz
+    before = list(client._root.rglob("output/*.pdf"))
+    payload = {"doc": "demo-leave.pdf", "fields": fields("Preview test"), "page": 0}
+    preview = client.post("/api/fill-preview", headers=hdr(client), json=payload)
+    assert preview.status_code == 200
+    assert preview.mimetype == "image/png"
+    assert list(client._root.rglob("output/*.pdf")) == before
+    filled = client.post("/api/fill", headers=hdr(client), json=payload)
+    assert filled.status_code == 200, filled.get_json()
+    output = client.get("/download/" + filled.get_json()["file"])
+    import pdf_engine
+    expected = pdf_engine.render_png(output.data, 0, 1.5)
+    assert preview.data == expected
+
+
+def test_preview_rejects_invalid_page(client):
+    response = client.post("/api/fill-preview", headers=hdr(client), json={"doc": "demo-leave.pdf", "fields": fields(), "page": 500})
+    assert response.status_code == 400
+
+
+def test_sheet_preserves_field_rules_through_export_and_import(client):
+    values = fields()
+    values[0].update(required=True, input_type="text", width=140)
+    response = client.post("/api/sheets", headers=hdr(client), json={"source_doc": "demo-leave.pdf", "fields": values, "title": "Rules"})
+    assert response.status_code == 200
+    sheet = response.get_json()["sheet"]
+    exported = client.get("/api/sheets/" + sheet + "/export")
+    assert exported.status_code == 200
+    imported = client.post("/api/sheets/import", headers=hdr(client, False), data={"file": (io.BytesIO(exported.data), "rules.formdd")})
+    assert imported.status_code == 200, imported.get_json()
+    field = imported.get_json()["fields"][0]
+    assert field["required"] is True and field["width"] == 140 and field["input_type"] == "text"
+
+
+def test_required_fields_can_be_saved_as_draft_but_not_printed(client):
+    values = fields("")
+    values[0]["required"] = True
+    draft = client.post("/api/sheets", headers=hdr(client), json={"source_doc": "demo-leave.pdf", "fields": values})
+    assert draft.status_code == 200
+    result = client.post("/api/fill", headers=hdr(client), json={"doc": "demo-leave.pdf", "fields": values})
+    assert result.status_code == 400
+    assert result.get_json()["fields"][0]["key"] == "flow.missing"

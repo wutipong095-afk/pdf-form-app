@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import math
+import re
+from datetime import date
 from typing import Any
 
 MAX_FIELDS = 500
@@ -58,14 +60,24 @@ def normalize_fields(fields: Any) -> list[dict[str, Any]]:
         name = str(item.get("name") or "").strip()
         if not name:
             continue
-        out.append({
+        field = {
             "name": name[:MAX_NAME_LEN],
             "page": _field_int(item.get("page"), 0, lo=0, hi=MAX_PAGE),
             "x": _field_float(item.get("x"), 0, lo=-MAX_COORD, hi=MAX_COORD),
             "y": _field_float(item.get("y"), 0, lo=-MAX_COORD, hi=MAX_COORD),
             "size": _field_float(item.get("size"), 14, lo=MIN_SIZE, hi=MAX_SIZE),
             "value": str(item.get("value") or "")[:MAX_VALUE_LEN],
-        })
+        }
+        if "required" in item:
+            field["required"] = item["required"] is True
+        if "input_type" in item:
+            kind = item["input_type"]
+            if kind not in ("text", "number", "date"):
+                raise FormDataError("invalid field type")
+            field["input_type"] = kind
+        if item.get("width") not in (None, ""):
+            field["width"] = _field_float(item["width"], 100, lo=1, hi=MAX_COORD)
+        out.append(field)
     return out
 
 
@@ -87,3 +99,61 @@ def first_value(fields: Any) -> str:
         if v:
             return v
     return ""
+
+
+def validate_completed_fields(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return field-level errors; drafts may keep missing values until export."""
+    errors = []
+    for index, field in enumerate(fields):
+        value = str(field.get("value") or "").strip()
+        key = None
+        if field.get("required") and not value:
+            key = "flow.missing"
+        elif value and field.get("input_type") == "number":
+            if not re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)", value) or not math.isfinite(float(value)):
+                key = "flow.badNumber"
+        elif value and field.get("input_type") == "date":
+            try:
+                if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+                    raise ValueError("invalid date")
+                date.fromisoformat(value)
+            except ValueError:
+                key = "flow.badDate"
+        if key:
+            errors.append({"index": index, "name": field["name"], "key": key})
+    return errors
+
+
+def required_off_page_errors(
+    fields: list[dict[str, Any]],
+    sizes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Required fields with a value must sit on a real page; optional orphans may skip."""
+    errors = []
+    for index, field in enumerate(fields):
+        if not field.get("required"):
+            continue
+        if not str(field.get("value") or "").strip():
+            continue
+        page_no = field.get("page", 0)
+        try:
+            page_no = int(page_no)
+        except (TypeError, ValueError):
+            page_no = -1
+        page = sizes[page_no] if 0 <= page_no < len(sizes) else None
+        if page is None:
+            errors.append({"index": index, "name": field["name"], "key": "flow.offPage"})
+            continue
+        x = field.get("x", 0)
+        y = field.get("y", 0)
+        try:
+            w = float(page.get("w", 0))
+            h = float(page.get("h", 0))
+            x = float(x)
+            y = float(y)
+        except (TypeError, ValueError):
+            errors.append({"index": index, "name": field["name"], "key": "flow.offPage"})
+            continue
+        if x < 0 or y < 0 or x >= w or y > h:
+            errors.append({"index": index, "name": field["name"], "key": "flow.offPage"})
+    return errors

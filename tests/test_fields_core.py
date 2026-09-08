@@ -14,6 +14,7 @@ from fields_core import (  # noqa: E402
     first_value,
     layout_fields,
     normalize_fields,
+    required_off_page_errors,
 )
 
 
@@ -65,3 +66,34 @@ def test_first_value_picks_first_non_empty():
     assert first_value([{"value": "  "}, {"value": "สมชาย"}, {"value": "ข"}]) == "สมชาย"
     assert first_value([]) == ""
     assert first_value([{"value": ""}]) == ""
+
+
+def test_layout_keeps_optional_validation_metadata():
+    field = {"name": "Date", "value": "2026-09-07", "required": True, "input_type": "date", "width": 120}
+    got = layout_fields([field])[0]
+    assert got["value"] == ""
+    assert got["required"] is True
+    assert got["input_type"] == "date"
+    assert got["width"] == 120
+
+
+@pytest.mark.parametrize("metadata", [{"input_type": "script"}, {"width": -1}, {"width": "nan"}])
+def test_rejects_invalid_validation_metadata(metadata):
+    with pytest.raises(FormDataError):
+        normalize_fields([{"name": "test", **metadata}])
+
+
+def test_required_off_page_errors_match_client_bounds():
+    sizes = [{"w": 300, "h": 500}]
+    required = {"name": "Name", "page": 0, "x": 10, "y": 30, "required": True, "value": "สมชาย"}
+    assert required_off_page_errors([required], sizes) == []
+    assert required_off_page_errors([{**required, "page": 2}], sizes) == [
+        {"index": 0, "name": "Name", "key": "flow.offPage"}
+    ]
+    assert required_off_page_errors([{**required, "x": 300}], sizes)[0]["key"] == "flow.offPage"
+    assert required_off_page_errors([{**required, "y": 501}], sizes)[0]["key"] == "flow.offPage"
+    # Optional fields may sit off-page and be skipped at fill time.
+    optional = {**required, "required": False, "x": -1}
+    assert required_off_page_errors([optional], sizes) == []
+    # Required blanks are handled by validate_completed_fields, not this gate.
+    assert required_off_page_errors([{**required, "value": ""}], sizes) == []

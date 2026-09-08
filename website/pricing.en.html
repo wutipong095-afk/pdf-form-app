@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FormDD pricing — $49 one-time, no subscription</title>
-  <meta name="description" content="FormDD: US$49 one-time payment. No subscription. Mark your existing PDF forms once, fill them again, keep the data on your PC.">
+  <title>FormDD pricing — $49 for 10 years, no subscription</title>
+  <meta name="description" content="FormDD: US$49 for 10 years payment. No subscription. Mark your existing PDF forms once, fill them again, keep the data on your PC.">
   <link rel="canonical" href="https://formdd.xambrain.com/pricing.en.html">
   <link rel="alternate" hreflang="en" href="https://formdd.xambrain.com/pricing.en.html">
   <link rel="alternate" hreflang="th" href="https://formdd.xambrain.com/pricing.html">
@@ -27,7 +27,19 @@
   <main class="page">
     <div class="wrap">
       <h1>Pricing</h1>
-      <p class="kicker">Take the PDF forms you already use. Mark the fields once. Fill them again. Your data stays on this computer. <strong>US$49 one-time payment — no subscription.</strong></p>
+      <p class="kicker">Take the PDF forms you already use. Mark the fields once. Fill them again. Your data stays on this computer. <strong>US$49 for 10 years payment — no subscription.</strong></p>
+
+      <div class="panel-card" id="purchase">
+        <h2>Prepare your purchase / contact support</h2>
+        <form id="purchase-form">
+          <p><label for="purchase-mid">Machine ID (16 characters)</label><br><input id="purchase-mid" required pattern="[A-Fa-f0-9]{16}" maxlength="16" autocomplete="off" spellcheck="false" style="width:100%;max-width:24em;padding:10px;box-sizing:border-box"></p>
+          <p><label for="purchase-plan">Plan</label><br><select id="purchase-plan" style="max-width:100%;padding:10px"><option value="Personal: US$49 / 10 years">Personal — US$49 / 10 years</option><option value="Team quotation: 10 years">Team — request quotation / 10 years</option></select></p>
+          <button class="btn" type="submit">Prepare email</button>
+          <p id="purchase-status" role="status"></p>
+        </form>
+        <p>This page does not receive orders or verify payments. Attach your receipt in the email app before sending. Keys are normally emailed within one business day after receipt and complete details are received. Contact us using the same email thread to check progress.</p>
+        <p><a href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></p>
+      </div>
 
       <table class="price-table">
         <thead>
@@ -42,7 +54,7 @@
           <tr class="recommend">
             <td>Personal</td>
             <td class="num">US$49</td>
-            <td>Main price. 1 computer. One-time payment</td>
+            <td>Main price. 1 computer. 10-year license</td>
           </tr>
           <tr>
             <td>School / Small Team</td>
@@ -56,12 +68,12 @@
           </tr>
         </tbody>
       </table>
-      <p class="price-note">Same app in every package. You are buying seats, not extra features. Teams: <a href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></p>
+      <p class="price-note">All paid packages include a 10-year license (3,650 days from key issuance) per computer. This is not a lifetime license. Same app in every package. You are buying seats, not extra features. Teams: <a href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></p>
 
       <div class="panel-card">
         <h2>What you keep after you pay</h2>
         <ul>
-          <li>One-time payment. No subscription. No auto-renewal</li>
+          <li>10-year license (3,650 days from key issuance). Pay once for this term. No auto-renewal</li>
           <li>Setup updates while your key is valid. The expiry date is in the license bar</li>
           <li>Filling your own PDFs stops when that date passes unless you buy again</li>
         </ul>
@@ -101,5 +113,6 @@
     </div>
   </footer>
   <script src="js/site.js"></script>
+  <script src="js/purchase.js"></script>
 </body>
 </html>

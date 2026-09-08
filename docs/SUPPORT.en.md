@@ -14,7 +14,7 @@ With a key: the customer’s own PDFs. No reinstall.
 
 | Channel | What we sell | Notes |
 |---------|--------------|-------|
-| International store (English pages) | US$49 Personal one-time; School/Small Team US$99–149 (5–10 PCs); Organization from US$249 | Do not advertise 10 years. Updates while the key is valid (expiry on the license bar). Do not promise a 5-year feature cutoff until the update feed can be gated. |
+| International store (English pages) | US$49 Personal for 10 years; School/Small Team US$99–149 (5–10 PCs); Organization from US$249 | All paid packages: 10 years (3,650 days from issuance), not lifetime. Updates while the key is valid (expiry on the license bar). Do not promise a 5-year feature cutoff until the update feed can be gated. |
 | Thailand store (Thai pages only) | see [SUPPORT.md](SUPPORT.md) | Do not publish baht prices on English pages. |
 
 English site: Personal is the default. Teams pick a seat pack or email a count.  
@@ -33,7 +33,7 @@ Site: [website/pricing.en.html](../website/pricing.en.html) · [website/pricing.
 Customer emails the 16-character machine ID to **formdd@xambrain.com**.  
 Vendor: `python scripts/gen_license.py <id> --term {1|3|5|10}`  
 - Thailand: `--term 1` / `3` / `5` / `10` matching the paid term
-- International: `--term 10` (internal; public copy: updates while the key is valid; expiry on the license bar)
+- International: `--term 10` (public term: 10 years / 3,650 days from issuance; expiry on the license bar)
 - PC replacement carrying leftover days: `--days N` (N = days left on the old key; use `0` on the UTC expiry calendar day). Do not use `--term` here, or the new key gets a full sold period.
 - The script has no silent 5-year default — every invocation must pass either `--term` or `--days`.
 

@@ -103,7 +103,7 @@ export async function setLocale(lang: Locale): Promise<void> {
   location.reload();
 }
 
-export function bindLangToggle(): void {
+export function bindLangToggle(beforeChange?: () => Promise<boolean>): void {
   const sel = document.getElementById("ui-lang") as HTMLSelectElement | null;
   if (!sel) return;
 
@@ -111,9 +111,16 @@ export function bindLangToggle(): void {
   current = normalize(sel.value || document.documentElement.lang || current);
   sel.value = current;
 
-  sel.onchange = () => {
+  sel.onchange = async () => {
     const v = normalize(sel.value);
-    if (v !== current) void setLocale(v);
+    if (v === current) return;
+    try {
+      if (beforeChange && !await beforeChange()) { sel.value = current; return; }
+      await setLocale(v);
+    } catch (error) {
+      sel.value = current;
+      alert(error instanceof Error ? error.message : t("flow.saveFail"));
+    }
   };
 
   // Mirror server locale into cookie / localStorage / launcher file

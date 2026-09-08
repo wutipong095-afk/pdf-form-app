@@ -74,6 +74,7 @@ function setSaveState(kind: SaveState, name = ""): void {
 export function clearActiveSheet(): void {
   newEpoch();
   state.sheet = null;
+  state.sheetTitle = "";
   state.sourceDoc = null;
   setSheetStatus("");
   setSaveState("idle");
@@ -83,6 +84,7 @@ export function clearActiveSheet(): void {
 export function startNewSheet(): void {
   newEpoch();
   state.sheet = null;
+  state.sheetTitle = "";
   setSheetStatus("");
 }
 
@@ -97,14 +99,18 @@ function sourceDocForSave(): string | null {
 }
 
 export function scheduleSheetSave(): void {
+  if (["edit", "test"].includes(document.body.dataset.view || "")) return;
   if (isOutDoc(state.doc)) return;
   if (!state.doc || !state.fields.length) return;
   dirty = true;
+  setSaveState("saving");
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => {
     void saveSheetNow();
   }, 800);
 }
+
+export function hasPendingSheetSave(): boolean { return dirty || activeSave !== null; }
 
 export async function flushSheetSave(): Promise<void> {
   if (timer) { clearTimeout(timer); timer = null; }
@@ -163,6 +169,7 @@ async function performSave(): Promise<SheetPayload | null> {
     // ผู้ใช้สลับใบระหว่างรอ — ไฟล์ฝั่งเซิร์ฟเวอร์ถูกต้องแล้ว แต่ห้ามผูกกลับมาที่ใบใหม่
     if (sent !== epoch) return null;
     state.sheet = r.sheet;
+    state.sheetTitle = r.title || r.sheet;
     if (r.source_doc) state.sourceDoc = r.source_doc;
     setSheetStatus(t("hist.saved", { file: r.title || r.sheet }));
     setSaveState("saved", r.title || r.sheet);
@@ -181,6 +188,7 @@ async function performSave(): Promise<SheetPayload | null> {
 function applySheet(r: SheetPayload, onRender: () => void): void {
   setSaveState("saved", r.title || r.sheet);
   state.sheet = r.sheet;
+  state.sheetTitle = r.title || r.sheet;
   state.sourceDoc = r.source_doc || null;
   if (r.template_name) ($("tplname") as HTMLInputElement).value = r.template_name;
   ($("docsel") as HTMLSelectElement).value = "";
@@ -191,6 +199,7 @@ function applySheet(r: SheetPayload, onRender: () => void): void {
   clearChat();
   onRender();
   setSheetStatus(t("hist.saved", { file: r.title || r.sheet }));
+  window.dispatchEvent(new CustomEvent("workflow:open", { detail: "fill" }));
 }
 
 export async function openSheet(

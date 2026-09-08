@@ -29,6 +29,18 @@
       <h1>ราคา</h1>
       <p class="kicker">เอา PDF แบบฟอร์มที่มีอยู่แล้ว ปักครั้งเดียว กรอกซ้ำ ข้อมูลอยู่ในเครื่อง <strong>ไม่คิดรายเดือน</strong> เลือกอายุคีย์ได้ ทดลองฟอร์มตัวอย่างฟรี</p>
 
+      <div class="panel-card" id="purchase">
+        <h2>เตรียมข้อมูลซื้อ / ติดต่อเรื่องคีย์</h2>
+        <form id="purchase-form">
+          <p><label for="purchase-mid">รหัสเครื่อง 16 ตัว</label><br><input id="purchase-mid" required pattern="[A-Fa-f0-9]{16}" maxlength="16" autocomplete="off" spellcheck="false" style="width:100%;max-width:24em;padding:10px;box-sizing:border-box"></p>
+          <p><label for="purchase-plan">แผนที่ต้องการ</label><br><select id="purchase-plan" style="max-width:100%;padding:10px"><option value="1 ปี / 149 บาท">1 ปี — 149 บาท / เครื่อง</option><option value="3 ปี / 350 บาท">3 ปี — 350 บาท / เครื่อง</option><option value="5 ปี / 500 บาท">5 ปี — 500 บาท / เครื่อง</option><option value="10 ปี / 1000 บาท">10 ปี — 1000 บาท / เครื่อง</option></select></p>
+          <button class="btn" type="submit">เปิดอีเมลพร้อมข้อมูล</button>
+          <p id="purchase-status" role="status"></p>
+        </form>
+        <p>หน้านี้ยังไม่รับคำสั่งซื้อหรือตรวจยอดชำระเงิน กรุณาแนบสลิปในแอปอีเมลก่อนส่ง โดยปกติจะได้รับคีย์ภายใน 1 วันทำการหลังได้รับหลักฐานและข้อมูลครบ ติดตามความคืบหน้าได้ด้วยการตอบกลับอีเมลเดิม</p>
+        <p><a href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></p>
+      </div>
+
       <table class="price-table">
         <thead>
           <tr><th>แผน</th><th>ราคา / เครื่อง</th><th>อายุคีย์</th></tr>
@@ -126,5 +138,6 @@
     </div>
   </footer>
   <script src="js/site.js"></script>
+  <script src="js/purchase.js"></script>
 </body>
 </html>

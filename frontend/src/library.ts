@@ -199,6 +199,7 @@ async function openLibraryDoc(
     state.fields = [];
   }
   onRender();
+  window.dispatchEvent(new CustomEvent("workflow:open", { detail: state.fields.length ? "fill" : "edit" }));
 }
 
 export function bindLibrary(onMarkers: () => void, onRender: () => void): void {
