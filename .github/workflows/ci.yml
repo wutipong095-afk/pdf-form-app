@@ -27,7 +27,7 @@ jobs:
             requirements-dev.txt
       - name: Install deps
         run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
-      - name: Check third-party notices are current
+      - name: Verify third-party notices are complete
         run: python scripts/collect_notices.py --check
       - name: Run pytest
         run: python -m pytest -q

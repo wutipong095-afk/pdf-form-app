@@ -1,0 +1,4 @@
+# Generated files are written with LF; keep them LF regardless of OS so
+# regenerating on Windows does not churn line endings.
+THIRD_PARTY_NOTICES.txt text eol=lf
+requirements.txt text eol=lf

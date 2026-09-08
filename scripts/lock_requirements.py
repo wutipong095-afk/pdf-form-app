@@ -89,5 +89,5 @@ if __name__ == "__main__":
     missing = [canonicalize_name(n) for n in direct_names() if canonicalize_name(n) not in installed]
     if missing:
         sys.exit(f"lock_requirements: not installed here: {', '.join(missing)}")
-    OUT.write_text(build(), encoding="utf-8")
+    OUT.write_text(build(), encoding="utf-8", newline="\n")
     print(f"wrote {OUT.relative_to(ROOT)}")

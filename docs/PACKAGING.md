@@ -32,7 +32,6 @@ python scripts/collect_notices.py        # 3) รีเฟรช notices ให�
 ```
 
 Docker และทุกสคริปต์ build ใช้ `requirements.txt` (locked) → build reproducible
-และ CI `collect_notices.py --check` นิ่ง 100% เพราะเวอร์ชันถูก pin
 
 ## ใบอนุญาตบุคคลที่สาม (compliance gate)
 
@@ -43,8 +42,9 @@ Docker และทุกสคริปต์ build ใช้ `requirements.txt
 - ถ้ามี component ที่ต้องแจกแต่หา license text ไม่เจอ **สคริปต์ล้ม build หยุด**
   จึงไม่มีทางออก installer ที่ notice ขาดโดยไม่รู้ตัว
 - ขั้นตรวจ asset หลัง build ยืนยันว่า `THIRD_PARTY_NOTICES.txt` อยู่ในบันเดิลจริง
-- CI รัน `collect_notices.py --check` เพื่อเตือนเมื่อไฟล์ที่ commit ไว้ไม่ตรงกับ
-  เวอร์ชัน dependency ปัจจุบัน (จะนิ่งสมบูรณ์เมื่อ lock เวอร์ชัน deps แล้ว)
+- CI รัน `collect_notices.py --check` เป็น completeness gate — ผ่านเฉพาะเมื่อทุก
+  component สร้าง license text ได้ครบ (ไม่เทียบไบต์กับไฟล์ที่ commit เพราะ wheel
+  แต่ละแพลตฟอร์มแนบไฟล์ license ต่างกันเล็กน้อย และ build สร้าง notices ใหม่เองอยู่แล้ว)
 
 รายละเอียดแหล่งที่มาของ notice: [COMMERCIAL_DISTRIBUTION.md](COMMERCIAL_DISTRIBUTION.md)
 

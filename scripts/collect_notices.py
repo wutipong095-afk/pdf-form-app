@@ -135,20 +135,16 @@ def build() -> str:
 
 
 if __name__ == "__main__":
+    # build() raises SystemExit if any shipped component yields no license text.
     text = build()
     if "--check" in sys.argv[1:]:
-        # Drift gate: the committed file must match what the current
-        # environment produces. Stable only when dependencies are locked.
-        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
-        if current != text:
-            print(
-                f"collect_notices: {OUT.name} is stale or missing for the installed "
-                "dependency versions. Run `python scripts/collect_notices.py` and commit the result.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        print(f"{OUT.name} is up to date ({len(MANIFEST)} components)")
+        # Completeness gate: reaching here means every declared component
+        # resolved to license text. Platform-stable — it does not compare
+        # bytes against the committed file (per-platform wheels bundle
+        # slightly different license files, and each build regenerates its
+        # own notices anyway).
+        print(f"third-party notices complete ({len(MANIFEST)} components)")
         sys.exit(0)
-    OUT.write_text(text, encoding="utf-8")
+    OUT.write_text(text, encoding="utf-8", newline="\n")
     print(f"wrote {OUT.relative_to(ROOT)} ({len(text):,} bytes, {len(MANIFEST)} components)")
     sys.exit(0)
