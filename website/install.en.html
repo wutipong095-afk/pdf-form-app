@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FormDD — Download &amp; install on Windows</title>
+  <meta name="description" content="How to download and install FormDD on Windows. The 'Unknown publisher' warning is normal for small apps and safe to pass; includes how to verify the file.">
+  <link rel="canonical" href="https://formdd.xambrain.com/install.en.html">
+  <link rel="alternate" hreflang="th" href="https://formdd.xambrain.com/install.html">
+  <link rel="alternate" hreflang="en" href="https://formdd.xambrain.com/install.en.html">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="en.html">📄 FormDD</a>
+      <nav class="nav">
+        <a href="en.html#howto">Tutorial</a>
+        <a href="app.html?lang=en">Try it</a>
+        <a href="pricing.en.html">Pricing</a>
+        <a class="lang" href="install.html" lang="th">ไทย</a>
+        <a class="btn" data-setup data-setup-en href="https://github.com/wutipong095-afk/pdf-form-app/releases/latest" style="padding:6px 12px;font-size:14px">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Install on Windows</p>
+        <h1>Download &amp; install FormDD</h1>
+        <p class="lede">During install, Windows shows a blue “Unknown publisher” warning — <b>this is normal for apps from a small developer, not a virus.</b> Follow the steps below to get past it safely.</p>
+        <div class="cta-row">
+          <a class="btn" data-setup data-setup-en href="https://github.com/wutipong095-afk/pdf-form-app/releases/latest">Download Setup (Windows)</a>
+          <a class="btn ghost" href="pricing.en.html">See pricing</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <div class="steps">
+        <article class="step">
+          <b>① Download Setup</b>
+          <p>Click “Download” above. Only ever download from <b>this official link</b> (formdd.xambrain.com or the GitHub Releases page). You get a file named <code>FormDD-Setup-x.y.z.exe</code>.</p>
+        </article>
+        <article class="step">
+          <b>② Open the downloaded file</b>
+          <p>Double-click it. If your browser warns “this file isn’t commonly downloaded”, choose <b>Keep</b>.</p>
+        </article>
+        <article class="step">
+          <b>③ Get past “Windows protected your PC”</b>
+          <p>On the blue screen, click <b>More info</b>, then <b>Run anyway</b> — the button only appears after you click More info.</p>
+        </article>
+        <article class="step">
+          <b>④ Follow the installer</b>
+          <p>Click Next through the wizard. If it asks for admin permission (Publisher: Unknown), click <b>Yes</b>.</p>
+        </article>
+        <article class="step">
+          <b>⑤ Open FormDD</b>
+          <p>Launch it from the desktop icon. You can try the sample forms right away — no key needed.</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <article class="panel-card">
+        <h2>Why does Windows say “Unknown publisher”?</h2>
+        <p>Windows flags any app that doesn’t yet carry a <b>code-signing certificate</b> it recognizes. FormDD is built by a small team and that certificate is still being arranged — so the warning shows as a precaution. <b>It does not mean the file has a virus or was tampered with.</b></p>
+        <p class="price-note">To be sure before installing: (1) only download from the official link, (2) verify the file’s SHA256 (below), (3) scan with Windows Defender or upload it to virustotal.com.</p>
+      </article>
+    </div>
+
+    <div class="wrap">
+      <article class="panel-card">
+        <h2>For IT — verify the file with SHA256</h2>
+        <p>Every release ships a <code>SHA256SUMS.txt</code> on its Release page. Open PowerShell and run:</p>
+        <pre style="background:#0d1b2a;color:#e6edf3;padding:12px 14px;border-radius:8px;overflow:auto"><code>Get-FileHash .\FormDD-Setup-x.y.z.exe -Algorithm SHA256</code></pre>
+        <p class="price-note">Compare the value with the matching line in <code>SHA256SUMS.txt</code>. If they match, the file is intact and untampered.</p>
+      </article>
+    </div>
+
+    <div class="wrap">
+      <div class="steps">
+        <article class="step">
+          <b>Defender removed the file?</b>
+          <p>Open Windows Security → Protection history → pick the FormDD item → Allow / Restore.</p>
+        </article>
+        <article class="step">
+          <b>Can’t install / needs admin?</b>
+          <p>Right-click the Setup file → “Run as administrator”.</p>
+        </article>
+        <article class="step">
+          <b>Uninstall</b>
+          <p>Settings → Apps → search “FormDD” → Uninstall. Your saved work stays until you delete it yourself.</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="wrap" style="text-align:center;margin:8px 0 40px">
+      <a class="btn" data-setup data-setup-en href="https://github.com/wutipong095-afk/pdf-form-app/releases/latest">Download Setup (Windows)</a>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap foot">
+      <span>FormDD · PDF Form Marker</span>
+      <span><a href="pricing.en.html">Pricing</a> · <a href="app.html?lang=en">Try online</a> · <a href="install.html" lang="th">ไทย</a> · <a href="https://shed.xambrain.com">Shed timetable</a></span>
+    </div>
+  </footer>
+  <script src="js/site.js"></script>
+</body>
+</html>
