@@ -13,12 +13,13 @@ import { bindClientLog } from "./clientLog";
 import { bindSchoolUi } from "./school";
 import { bindLibrary, isLibDoc, refreshLibrary } from "./library";
 import { bindHistory, notifyHistoryChanged } from "./history";
-import { bindSheetSaved, flushSheetSave, saveSheetNow, scheduleSheetSave, startNewSheet } from "./sheets";
+import { bindSheetSaved, flushSheetSave, scheduleSheetSave, startNewSheet } from "./sheets";
 import { bindBackupUi } from "./backup";
 import { bindWorkDir } from "./workdir";
 import { renderFillResult } from "./fillResult";
 import { askFieldName, bindProfiles } from "./profiles";
 import { bindLangToggle, t } from "./i18n";
+import { initWorkflow, syncWorkTitle, markLayoutDirty, markLayoutSaved, flowError, canCreatePdf, showPdfDone, isPreparing, beforeDocumentChange } from "./workflow";
 import type { FillResponse } from "./types";
 
 function setTab(tab: "edit" | "fill"): void {
@@ -28,7 +29,7 @@ function setTab(tab: "edit" | "fill"): void {
   $("panel-" + tab).classList.add("active");
   $("pagewrap").classList.toggle("marking", tab === "edit" && !isOutDoc(state.doc));
   paintMarkers();
-  if (tab === "fill") void saveSheetNow();
+
 }
 
 function gotoField(i: number): void {
@@ -48,6 +49,7 @@ function delField(i: number): void {
   if (!confirm(t("app.deleteConfirm", { name: state.fields[i].name }))) return;
   state.fields.splice(i, 1);
   state.selIdx = -1;
+  markLayoutDirty();
   renderAll();
   if (state.sheet) scheduleSheetSave();
 }
@@ -56,6 +58,7 @@ function renameField(i: number): void {
   const n = prompt(t("app.renamePrompt"), state.fields[i].name);
   if (n) {
     state.fields[i].name = n.trim();
+    markLayoutDirty();
     renderAll();
     if (state.sheet) scheduleSheetSave();
   }
@@ -79,15 +82,8 @@ function renderAll(): void {
   renderList(selField, renameField, delField);
   renderValues();
   paintMarkers();
-}
-
-function bindTabs(): void {
-  $("tab-edit").onclick = () => setTab("edit");
-  $("tab-fill").onclick = () => {
-    setTab("fill");
-    renderValues();
-    startChat();
-  };
+  syncWorkTitle();
+  renderFieldOptions();
 }
 
 function bindTemplateSave(): void {
@@ -118,27 +114,51 @@ function bindTemplateSave(): void {
       await refreshDocs(paintMarkers, renderAll);
       ($("tplsel") as HTMLSelectElement).value = name;
     }
-    alert(t("app.saveOk", { name, count: state.fields.length }));
+    markLayoutSaved();
+    syncWorkTitle();
+    const listed = [...($("tplsel") as HTMLSelectElement).options].some(option => option.value === name);
+    alert(t(!state.lic?.licensed && !listed ? "flow.savedTrial" : "flow.setupSaved"));
   };
 }
 
-function bindClearAndFill(): void {
-  $("clearvals").onclick = async () => {
-    if (!confirm(t("app.clearConfirm"))) return;
-    try { await flushSheetSave(); } catch (e) { alert(String(e)); return; }
-    startNewSheet();
-    state.fields.forEach((f) => {
-      f.value = "";
-    });
-    state.chatIdx = -1;
-    $("chatlog").innerHTML = "";
-    renderAll();
-    startChat();
-    scheduleSheetSave();
+async function newSheet(): Promise<void> {
+  await flushSheetSave();
+  startNewSheet();
+  state.fields = state.fields.map(field => ({ ...field, value: "" }));
+  state.chatIdx = -1;
+  $("chatlog").replaceChildren();
+  $("result").replaceChildren();
+  renderAll();
+}
+
+function renderFieldOptions(): void {
+  const field = state.fields[state.selIdx];
+  $("field-options").hidden = !field;
+  if (!field) return;
+  $("field-option-name").textContent = field.name;
+  const required = $("field-required") as HTMLInputElement;
+  const kind = $("field-type") as HTMLSelectElement;
+  const width = $("field-width") as HTMLInputElement;
+  const size = $("field-size") as HTMLInputElement;
+  required.checked = !!field.required; kind.value = field.input_type || "text";
+  width.value = field.width == null ? "" : String(field.width); size.value = String(field.size);
+  const update = () => {
+    if (!width.checkValidity() || !size.checkValidity()) return;
+    field.required = required.checked;
+    field.input_type = kind.value as "text" | "number" | "date";
+    if (width.value) field.width = Number(width.value); else delete field.width;
+    if (size.value) field.size = Number(size.value);
+    markLayoutDirty();
+    paintMarkers();
   };
+  required.onchange = update; kind.onchange = update; width.onchange = update; size.onchange = update;
+}
+
+function bindClearAndFill(): void {
+  $("clearvals").onclick = () => { void newSheet().catch(flowError); };
 
   $("makepdf").onclick = async () => {
-    if (!state.doc) return;
+    if (!state.doc || !canCreatePdf()) return;
     if (isOutDoc(state.doc)) {
       $("result").textContent = t("app.fillFromHistory");
       return;
@@ -152,8 +172,15 @@ function bindClearAndFill(): void {
       $("result").textContent = t("app.needLicense");
       return;
     }
-    await saveSheetNow();
-    const outname = (($("tplname") as HTMLInputElement).value || "filled").trim() || "filled";
+    const button = $("makepdf") as HTMLButtonElement;
+    button.disabled = true;
+    button.textContent = t("flow.creating");
+    try {
+    if (!isPreparing()) {
+      try { await flushSheetSave(); }
+      catch { throw new Error(t("flow.saveFail")); }
+    }
+    const outname = state.sheetTitle || (($("tplname") as HTMLInputElement).value || "filled").trim() || "filled";
     const res = await api("/api/fill", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -162,12 +189,14 @@ function bindClearAndFill(): void {
     });
     const r = (await res.json()) as FillResponse;
     if (r.error) {
-      $("result").textContent = "❌ " + r.error;
-      return;
+      throw new Error(r.error);
     }
     renderFillResult(r);
     bub(t("app.created", { file: r.file! }), "bot");
     notifyHistoryChanged();
+    showPdfDone();
+    } catch (error) { flowError(error); }
+    finally { button.disabled = false; button.textContent = t("flow.create"); }
   };
 }
 
@@ -187,6 +216,7 @@ function bindKeyboard(): void {
       return;
     } else return;
     e.preventDefault();
+    markLayoutDirty();
     paintMarkers();
     if (state.sheet) scheduleSheetSave();
   });
@@ -198,6 +228,7 @@ function bindMarking(): void {
       state.fields[state.selIdx].x = x;
       state.fields[state.selIdx].y = y;
       state.fields[state.selIdx].page = state.cur;
+      markLayoutDirty();
       state.selIdx = -1;
       renderAll();
       if (state.sheet) scheduleSheetSave();
@@ -208,6 +239,7 @@ function bindMarking(): void {
     const size = parseFloat(($("fsize") as HTMLInputElement).value) || 14;
     void askFieldName().then((name) => {
       if (!name) return;
+      markLayoutDirty();
       state.fields.push({ name: name.trim(), page, x, y, size, value: "" });
       renderAll();
       if (state.sheet) scheduleSheetSave();
@@ -228,7 +260,7 @@ function afterProfileApply(): void {
 }
 
 function init(): void {
-  bindLangToggle();
+  bindLangToggle(beforeDocumentChange);
   bindClientLog();
   bindSchoolUi();
   bindLicenseUi(() => {
@@ -236,7 +268,7 @@ function init(): void {
   });
   bindLibrary(paintMarkers, renderAll);
   bindHistory(paintMarkers, renderAll);
-  bindSheetSaved(() => notifyHistoryChanged());
+  bindSheetSaved(() => { notifyHistoryChanged(); syncWorkTitle(); });
   bindBackupUi(paintMarkers, renderAll);
   bindWorkDir(() => notifyHistoryChanged());
   bindProfiles(afterProfileApply);
@@ -248,6 +280,7 @@ function init(): void {
       paintMarkers();
       renderList(selField, renameField, delField);
       scheduleSheetSave();
+      syncWorkTitle();
     },
     (i) => {
       state.fields[i].value = "";
@@ -256,7 +289,7 @@ function init(): void {
     },
     gotoField,
   );
-  bindTabs();
+  window.addEventListener("workflow:guide", startChat);
   bindChat(
     (page) => {
       state.cur = page;
@@ -271,7 +304,8 @@ function init(): void {
   bindClearAndFill();
   bindKeyboard();
   ensureFillFont(paintMarkers);
-  void refreshDocs(paintMarkers, renderAll);
+  initWorkflow({ setTab, render: renderAll, markers: paintMarkers, newSheet });
+  void refreshDocs(paintMarkers, renderAll).catch(flowError);
 }
 
 init();

@@ -1,44 +1,27 @@
+import { beforeDocumentChange } from "./workflow";
 import { $ } from "./dom";
 import { api } from "./api";
 import { state } from "./state";
 import { renderLicense } from "./license";
 import { loadDoc, applyFontMetrics } from "./viewer";
 import { leaveActiveSheet } from "./sheets";
-import { getLocale, t } from "./i18n";
+import { t } from "./i18n";
 import type { DocsResponse, TemplatePayload } from "./types";
 
-const TPL_FOR_DOC: Record<string, string> = {
-  "demo-leave.pdf": "demo-ใบลา",
-  "demo-form.pdf": "demo-ใบเบิก",
-  "demo-request.pdf": "demo-request",
-};
-
-function preferredTrialDocs(): string[] {
-  if (getLocale() === "en") {
-    return ["demo-request.pdf", "demo-form.pdf", "demo-leave.pdf"];
-  }
-  return ["demo-leave.pdf", "demo-form.pdf", "demo-request.pdf"];
-}
-
-function pickTrialDoc(pdfs: string[], lic: DocsResponse["license"]): string | null {
-  const listed = lic?.demo_docs?.length ? lic.demo_docs : [lic?.demo_doc || "demo-form.pdf"];
-  for (const name of [...preferredTrialDocs(), ...listed]) {
-    if (pdfs.includes(name)) return name;
-  }
-  return pdfs[0] || null;
-}
-
-export async function refreshDocs(onMarkers: () => void, onRender: () => void): Promise<void> {
+export async function refreshDocs(_onMarkers: () => void, _onRender: () => void): Promise<void> {
   const res = await api("/api/docs");
   const r = (await res.json()) as DocsResponse;
   if (r.license) renderLicense(r.license);
 
   const docsel = $("docsel") as HTMLSelectElement;
   const tplsel = $("tplsel") as HTMLSelectElement;
+  const selectedDoc = docsel.value;
+  const selectedTemplate = tplsel.value;
   docsel.replaceChildren(new Option(t("header.selectPdf"), ""));
   for (const name of r.pdfs) docsel.add(new Option(name, name));
   tplsel.replaceChildren(new Option(t("header.newTemplate"), ""));
   for (const name of r.templates) tplsel.add(new Option(name, name));
+  docsel.value = selectedDoc; tplsel.value = selectedTemplate;
 
   const fontName = (r.font || "").split(/[/\\]/).pop();
   $("fonthint").textContent = r.font
@@ -49,20 +32,7 @@ export async function refreshDocs(onMarkers: () => void, onRender: () => void): 
     $("who").textContent = r.auth_required === false ? t("header.thisMachine") : r.user;
   }
 
-  const demoDoc = pickTrialDoc(r.pdfs, r.license);
-  if (!state.doc && demoDoc) {
-    docsel.value = demoDoc;
-    await loadDoc(demoDoc, onMarkers);
-    const tplName = TPL_FOR_DOC[demoDoc];
-    if (tplName && r.templates.includes(tplName)) {
-      tplsel.value = tplName;
-      const tres = await api("/api/template/" + encodeURIComponent(tplName));
-      const tpl = (await tres.json()) as TemplatePayload;
-      ($("tplname") as HTMLInputElement).value = tplName;
-      state.fields = tpl.fields || [];
-      onRender();
-    }
-  }
+
 }
 
 export function bindDocs(
@@ -71,7 +41,7 @@ export function bindDocs(
 ): void {
   ($("upfile") as HTMLInputElement).onchange = async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
+    if (!file || !await beforeDocumentChange()) return;
     const fd = new FormData();
     fd.append("file", file);
     const res = await api("/api/upload", { method: "POST", body: fd });
@@ -85,6 +55,10 @@ export function bindDocs(
     try {
       await leaveActiveSheet();
       await loadDoc(r.name, onMarkers);
+      state.fields = []; state.selIdx = -1;
+      ($("tplname") as HTMLInputElement).value = r.name.replace(/\.pdf$/i, "");
+      onRender();
+      window.dispatchEvent(new CustomEvent("workflow:open", { detail: "edit" }));
     } catch (err) {
       alert(err instanceof Error ? err.message : t("app.loadDocFail"));
     }
@@ -94,8 +68,13 @@ export function bindDocs(
     const v = (e.target as HTMLSelectElement).value;
     if (v) {
       try {
+        if (!await beforeDocumentChange()) return;
         await leaveActiveSheet();
         await loadDoc(v, onMarkers);
+        state.fields = []; state.selIdx = -1;
+        ($("tplname") as HTMLInputElement).value = v.replace(/\.pdf$/i, "");
+        onRender();
+        window.dispatchEvent(new CustomEvent("workflow:open", { detail: "edit" }));
       } catch (err) {
         alert(err instanceof Error ? err.message : t("app.loadDocFail"));
       }
@@ -104,7 +83,7 @@ export function bindDocs(
 
   ($("tplsel") as HTMLSelectElement).onchange = async (e) => {
     const v = (e.target as HTMLSelectElement).value;
-    try { await leaveActiveSheet(); } catch (err) {
+    try { if (!await beforeDocumentChange()) return; await leaveActiveSheet(); } catch (err) {
       alert(err instanceof Error ? err.message : t("save.failedTitle"));
       return;
     }
@@ -126,5 +105,6 @@ export function bindDocs(
       }
     }
     onRender();
+    window.dispatchEvent(new CustomEvent("workflow:open", { detail: "edit" }));
   };
 }

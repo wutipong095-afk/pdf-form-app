@@ -19,6 +19,9 @@ export type Field = {
   y: number;
   size: number;
   value?: string;
+  required?: boolean;
+  input_type?: "text" | "number" | "date";
+  width?: number;
 };
 
 export type TemplatePayload = {

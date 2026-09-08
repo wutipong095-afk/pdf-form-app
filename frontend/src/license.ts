@@ -1,7 +1,7 @@
 import { $ } from "./dom";
 import { api } from "./api";
 import { state } from "./state";
-import { t } from "./i18n";
+import { t, getLocale } from "./i18n";
 import type { LicenseActivateResponse, LicenseStatus } from "./types";
 
 function setDisplay(id: string, show: boolean): void {
@@ -39,6 +39,12 @@ export function renderLicense(st: LicenseStatus | null | undefined): void {
   const bar = $("licbar");
   const form = $("licform");
   $("licmid").textContent = lic.machine_id || "—";
+  const buy = document.getElementById("licbuy") as HTMLAnchorElement | null;
+  if (buy) {
+    const page = getLocale() === "en" ? "pricing.en.html" : "pricing.html";
+    const mid = /^[a-f0-9]{16}$/i.test(lic.machine_id || "") ? lic.machine_id : "";
+    buy.href = `https://formdd.xambrain.com/${page}#machine_id=${encodeURIComponent(mid)}`;
+  }
   $("licmsg").textContent = lic.message || "";
   if (lic.licensed) {
     bar.className = "ok";

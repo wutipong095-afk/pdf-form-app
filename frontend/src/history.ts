@@ -194,6 +194,7 @@ async function openHistoryDoc(
   state.chatIdx = -1;
   clearChat();
   onRender();
+  window.dispatchEvent(new CustomEvent("workflow:open", { detail: "pdf" }));
 }
 
 async function runSheetAction(

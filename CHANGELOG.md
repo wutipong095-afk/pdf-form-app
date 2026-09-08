@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+- New form catalog and recent-work home, with choose / fill / review / create workflow.
+- Separate reusable-form preparation; required, number and date field validation.
+- Preview the generated PDF before saving; preserve drafts during navigation.
+- Add a localized purchase link with machine ID prefill.
+- Experimental: not published to the website feed.
+
+
 ## 0.4.0
 - Replace runtime PyMuPDF with pypdf, ReportLab/HarfBuzz and PDFium.
 - Preserve legacy crop-relative baselines and multi-page form coordinates.
