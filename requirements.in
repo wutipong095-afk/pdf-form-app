@@ -1,0 +1,17 @@
+# Direct runtime dependencies — version ranges express intent.
+# The pinned lockfile requirements.txt is GENERATED from this file:
+#   1. install/upgrade in a venv and test
+#   2. python scripts/lock_requirements.py   (pins to the tested versions)
+#   3. python scripts/collect_notices.py     (refresh notices for those versions)
+#   4. commit requirements.txt + THIRD_PARTY_NOTICES.txt together
+flask>=3.0
+pypdf==6.18.0
+reportlab==5.0.1
+pypdfium2==5.13.0
+uharfbuzz==0.56.1
+fonttools>=4.50
+pillow>=10.0
+gunicorn>=22.0
+waitress>=3.0
+werkzeug>=3.0
+cryptography>=42.0

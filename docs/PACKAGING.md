@@ -16,6 +16,24 @@ English: [PACKAGING.en.md](PACKAGING.en.md)
 
 ---
 
+## Dependency lock (reproducible build)
+
+`requirements.txt` เป็น **lockfile ที่ pin exact ทุกตัว** (รวม transitive) สร้างจาก
+`requirements.in` (ช่วงเวอร์ชัน = เจตนา) ด้วย `scripts/lock_requirements.py`
+ซึ่ง pin ไปที่ **เวอร์ชันที่ติดตั้ง/ทดสอบแล้วจริง** ไม่ใช่ resolve ล่าสุดที่ยังไม่เทส
+
+อัปเกรด/เพิ่ม dependency:
+
+```bash
+# 1) แก้ requirements.in (ช่วงเวอร์ชัน) แล้วติดตั้ง+ทดสอบใน venv
+python scripts/lock_requirements.py     # 2) pin ไป requirements.txt
+python scripts/collect_notices.py        # 3) รีเฟรช notices ให้ตรงเวอร์ชันใหม่
+# 4) commit requirements.txt + THIRD_PARTY_NOTICES.txt ด้วยกัน
+```
+
+Docker และทุกสคริปต์ build ใช้ `requirements.txt` (locked) → build reproducible
+และ CI `collect_notices.py --check` นิ่ง 100% เพราะเวอร์ชันถูก pin
+
 ## ใบอนุญาตบุคคลที่สาม (compliance gate)
 
 ทุกสคริปต์ build (Windows / Linux / macOS) จะรัน `scripts/collect_notices.py`
