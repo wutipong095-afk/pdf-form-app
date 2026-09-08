@@ -81,6 +81,12 @@ img { max-width: 100%; display: block; }
 }
 .lede { margin: 0 0 18px; color: var(--muted); max-width: 38rem; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.cta-help {
+  align-self: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
 
 .yt-block { padding: 12px 0 48px; }
 .yt-block h2 { margin: 0 0 6px; font-size: 1.2rem; color: var(--navy-deep); }

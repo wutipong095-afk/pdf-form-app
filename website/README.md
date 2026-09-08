@@ -5,6 +5,8 @@
 
 - `index.html` — หน้าแรกภาษาไทย: ปักฟอร์มครั้งเดียว กรอกซ้ำ ข้อมูลอยู่ในเครื่อง
 - `en.html` — หน้าแรกภาษาอังกฤษ (จุดขายเดียวกัน, ราคา $49 จ่ายครั้งเดียว)
+- `install.html` — วิธีดาวน์โหลดและติดตั้งบน Windows (จอเตือน SmartScreen / SHA256)
+- `install.en.html` — English install guide
 - `pricing.html` — ราคาไทย 1/3/5/10 ปี + คิวอาร์พร้อมเพย์ (`img/promptpay-qr.png` ต้องอยู่ในเรป ห้าม deploy ขาดไฟล์นี้)
 - `pricing.en.html` — Personal $49 / School $99–149 / Org จาก $249 ไม่โชว์ราคาบาท
 - `app.html` — ทดลองมาร์คจุด / กรอกใบลา ในเบราว์เซอร์
