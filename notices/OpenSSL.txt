@@ -1,0 +1,10 @@
+OpenSSL
+
+The "cryptography" package bundles a statically-linked build of OpenSSL
+(OpenSSL 3.x). OpenSSL 3.x is licensed under the Apache License, Version 2.0.
+
+Copyright (c) The OpenSSL Project Authors. All Rights Reserved.
+
+The full Apache License 2.0 text is included in this notices file under the
+"cryptography" section (cryptography ships LICENSE.APACHE), which is the
+same license that applies to the bundled OpenSSL build.

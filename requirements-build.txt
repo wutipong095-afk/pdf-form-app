@@ -1,4 +1,4 @@
 # ใช้ตอนแพ็ก desktop (Windows / Linux / macOS) — ไม่ใส่ใน Docker / runtime ลูกค้า
+# requirements.txt คือ lockfile ที่ pin exact (waitress รวมอยู่แล้ว)
 -r requirements.txt
 pyinstaller>=6.3
-waitress>=3.0

@@ -74,6 +74,12 @@ else
   echo "[2/4] Skip pip install"
 fi
 
+# Compliance gate: regenerate third-party notices from the versions just
+# installed. Fails the build if any shipped component lacks a license text.
+echo ""
+echo "[2.5/4] Third-party notices..."
+"$PYTHON" scripts/collect_notices.py
+
 echo ""
 echo "[3/4] PyInstaller (one-folder)..."
 rm -rf dist/PDFFormMarker build/PDFFormMarker
@@ -93,7 +99,7 @@ if find "$BUNDLE_ROOT" \( -name 'ed25519_private.pem' -o -name 'gen_license.py' 
   exit 1
 fi
 
-for rel in license_public.pem fonts demo templates static formpacks locales; do
+for rel in license_public.pem THIRD_PARTY_NOTICES.txt fonts demo templates static formpacks locales; do
   if [[ ! -e "$BUNDLE_ROOT/$rel" && ! -e "$BUNDLE_ROOT/_internal/$rel" ]]; then
     echo "Missing bundled asset: $rel" >&2
     exit 1

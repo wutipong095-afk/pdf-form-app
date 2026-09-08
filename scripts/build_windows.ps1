@@ -58,6 +58,16 @@ else {
     Write-Host "[2/4] Skip pip install" -ForegroundColor DarkGray
 }
 
+# Compliance gate: regenerate third-party notices from the versions just
+# installed into .venv. Fails the build if any shipped component lacks a
+# license text, so no installer goes out with a missing notice.
+Write-Host ""
+Write-Host "[2.5/4] Third-party notices..." -ForegroundColor Yellow
+& $Python (Join-Path $Root "scripts\collect_notices.py")
+if ($LASTEXITCODE -ne 0) {
+    throw "collect_notices.py failed - refusing to build without complete notices"
+}
+
 Write-Host ""
 Write-Host "[3/4] PyInstaller (one-folder)..." -ForegroundColor Yellow
 if (Test-Path "dist\PDFFormMarker") {
@@ -89,7 +99,7 @@ $FeedSrc = Join-Path $Root "installer\update_feed.url"
 if (Test-Path $FeedSrc) {
     Copy-Item -Force $FeedSrc (Join-Path $BundleRoot "update_feed.url")
 }
-foreach ($rel in @("license_public.pem", "fonts", "demo", "templates", "static", "formpacks", "locales")) {
+foreach ($rel in @("license_public.pem", "THIRD_PARTY_NOTICES.txt", "fonts", "demo", "templates", "static", "formpacks", "locales")) {
     $p = Join-Path $BundleRoot $rel
     $pInternal = Join-Path $BundleRoot "_internal\$rel"
     if (-not (Test-Path $p) -and -not (Test-Path $pInternal)) {

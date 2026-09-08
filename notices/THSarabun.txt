@@ -1,0 +1,13 @@
+TH Sarabun New / TH Sarabun (THSarabun*.ttf)
+
+TH Sarabun New is one of the thirteen Thai national fonts (ฟอนต์แห่งชาติ)
+commissioned in Thailand and released for free public use, including
+commercial use, modification, and embedding in documents and software.
+
+Original author: Suppakit Chalermlarp.
+Released through the national font programme (SIPA / Department of
+Intellectual Property, Thailand).
+
+The application distributes this font under those free-use terms. The
+distributor has verified that commercial redistribution and embedding of
+this font is permitted.

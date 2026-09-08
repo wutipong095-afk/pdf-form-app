@@ -1,0 +1,10 @@
+Noto Sans Thai
+Copyright The Noto Project Authors (https://github.com/notofonts/thai)
+
+Licensed under the SIL Open Font License, Version 1.1.
+The full license text is included in this notices file under the
+"SIL Open Font License 1.1" section (source: notices/SIL-OFL-1.1.txt).
+
+This font is bundled and embedded with the application in accordance with
+the OFL: it is redistributed with the license text above and is never sold
+on its own.

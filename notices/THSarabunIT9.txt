@@ -1,0 +1,9 @@
+TH Sarabun IT๙ (THSarabunIT๙*.ttf)
+
+A derivative of TH Sarabun New (see the "TH Sarabun New" section) that
+remaps the ASCII digits 0-9 to Thai numeral glyphs (๐-๙). It inherits the
+free-use terms of TH Sarabun New, one of Thailand's national fonts, which
+permit modification, commercial use, and embedding.
+
+The distributor has verified that redistribution and embedding of this
+font is permitted.
