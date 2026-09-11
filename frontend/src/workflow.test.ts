@@ -14,6 +14,7 @@ beforeEach(() => {
   const ids = ['flow-message','active-title','fill-progress','home-view','history-view','settings-view','prepare-view','work-heading','workspace','work-actions','review-view','done-view','form-cards','recent-work','trial-status','chatlog','result','guided-fill','jobstatus'];
   const buttons = ['nav-home','nav-forms','btn-hist-toggle','nav-settings','nav-prepare','back-to-forms','review-document','histhide','catalog-retry','review-back','review-prev','review-next','preview-retry','result-edit','result-new','result-folder','tab-edit','tab-fill'];
   document.body.innerHTML = ids.map(id => `<div id="${id}"></div>`).join('') + buttons.map(id => `<button id="${id}"></button>`).join('') + '<input id="tplname"><input id="form-search"><select id="tplsel"></select><select id="docsel"></select>';
+  document.body.insertAdjacentHTML('beforeend', '<div id="pagewrap"></div>');
   mocks.flush.mockResolvedValue(undefined); mocks.leave.mockResolvedValue(undefined); mocks.load.mockResolvedValue(undefined);
   mocks.apiJson.mockImplementation(async (url: string) => {
     if (url === '/api/docs') return { templates: ['Leave'], license: { licensed: true } };

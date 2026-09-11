@@ -1,4 +1,5 @@
 {
+  "quick": { "mode": "กรอกด่วน", "template": "โหมดเทมเพลต", "text": "ข้อความ", "delete": "ลบข้อความที่เลือก", "export": "บันทึก PDF" },
   "meta": {
     "title": "PDF Form Marker — มาร์คจุด กรอกข้อมูล ออก PDF",
     "loginTitle": "เข้าสู่ระบบ — PDF Form Marker"

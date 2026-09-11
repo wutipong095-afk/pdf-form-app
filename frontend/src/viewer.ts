@@ -3,6 +3,7 @@ import { ApiError, api } from "./api";
 import { isOutDoc, state } from "./state";
 import { t } from "./i18n";
 import type { Field } from "./types";
+import { isQuickFill, bindQuickObject, commitQuickInput } from './quickFill';
 
 function img(): HTMLImageElement {
   return $("pageimg") as HTMLImageElement;
@@ -38,6 +39,7 @@ export function ensureFillFont(onReady: () => void): void {
 }
 
 export function showPage(onMarkers: () => void): void {
+  commitQuickInput();
   if (!state.doc) return;
   const el = img();
   el.src = `/page/${encodeURIComponent(state.doc)}/${state.cur}.png?${Date.now()}`;
@@ -99,6 +101,7 @@ function syncHistoryChrome(): void {
 export function renderMarkers(
   onSelect: (i: number) => void,
   onEditValue: (i: number, value: string) => void,
+  onQuickChange: () => void = () => undefined,
 ): void {
   const w = wrap();
   w.querySelectorAll(".marker,.mlabel,.mvalue").forEach((n) => n.remove());
@@ -113,8 +116,10 @@ export function renderMarkers(
     m.style.left = `${px}px`;
     m.style.top = `${py}px`;
     m.title = f.name + (f.value ? ` = ${f.value}` : "");
+    if (isQuickFill()) bindQuickObject(m, i, onQuickChange);
     m.onclick = (ev) => {
       ev.stopPropagation();
+      if (isQuickFill()) return;
       if (fillActive) {
         const nv = prompt(t("viewer.valuePrompt", { name: f.name }), f.value || "");
         if (nv !== null) onEditValue(i, nv.trim());
@@ -133,6 +138,7 @@ export function renderMarkers(
       v.style.top = `${py - state.fontAsc * em}px`;
       v.style.fontSize = `${em}px`;
       v.style.lineHeight = String(state.fontAsc - state.fontDesc);
+      if (isQuickFill()) bindQuickObject(v, i, onQuickChange);
       w.appendChild(v);
     } else {
       const l = document.createElement("div");
@@ -162,7 +168,7 @@ export function bindViewer(
     }
   };
   img().onclick = (e) => {
-    if (!state.doc || isOutDoc(state.doc) || !$("panel-edit").classList.contains("active")) return;
+    if (!state.doc || isOutDoc(state.doc) || (!isQuickFill() && !$("panel-edit").classList.contains("active"))) return;
     const rect = img().getBoundingClientRect();
     const x = ((e.clientX - rect.left) * scale()) / state.zoom;
     const y = ((e.clientY - rect.top) * scale()) / state.zoom;

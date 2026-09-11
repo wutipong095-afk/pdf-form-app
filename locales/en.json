@@ -1,4 +1,5 @@
 {
+  "quick": { "mode": "Quick Fill", "template": "Template mode", "text": "Text", "delete": "Delete selected text", "export": "Save PDF" },
   "meta": {
     "title": "PDF Form Marker — Mark fields, fill data, export PDF",
     "loginTitle": "Sign in — PDF Form Marker"

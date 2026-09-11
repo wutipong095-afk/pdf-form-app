@@ -164,6 +164,7 @@
     <button id="nav-forms">{{ t('flow.forms') }}</button>
     <button id="btn-hist-toggle" aria-expanded="false">{{ t('flow.myWork') }}</button>
     <button id="nav-prepare">{{ t('flow.prepare') }}</button>
+    <button id="quick-mode" aria-pressed="false">{{ t('quick.mode') }}</button>
     <button id="nav-settings">{{ t('flow.settings') }}</button>
   </nav>
   <span id="trial-status" hidden>{{ t('flow.trial') }}</span>
@@ -288,8 +289,14 @@
 <main id="workspace" hidden>
   <div id="viewer">
     <div class="pgnav">
+      <button id="template-mode">{{ t('quick.template') }}</button>
       <button id="prev">◀</button> <span id="pglabel">{{ t('viewer.page', cur='-', pages='-') }}</span> <button id="next">▶</button>
       <span class="hint" id="fonthint"></span>
+    </div>
+    <div id="quick-tools" hidden>
+      <label>{{ t('edit.fontSize') }} <input id="quick-size" type="number" min="0.1" max="1000" step="any" value="14"></label>
+      <button id="quick-delete" title="{{ t('quick.delete') }}" aria-label="{{ t('quick.delete') }}">×</button>
+      <button id="quick-export" class="primary">{{ t('quick.export') }}</button>
     </div>
     <p id="histnotice" hidden>{{ t('hist.notice') }}</p>
     <div id="pagewrap">
