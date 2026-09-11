@@ -151,6 +151,25 @@
     </div>
   </footer>
   <script src="js/site.js"></script>
+  <script>
+    (function () {
+      // Single source of truth for the machine ID handed over from the app via
+      // #machine_id=... Fill BOTH purchase forms once, then drop the fragment so
+      // it never reaches a request URL or referrer. Runs before purchase.js and
+      // checkout.js so neither reads or clobbers the fragment first.
+      var incoming = new URLSearchParams(location.hash.slice(1)).get('machine_id') || '';
+      if (/^[a-f0-9]{16}$/i.test(incoming)) {
+        var value = incoming.toUpperCase();
+        ['stripe-mid', 'purchase-mid'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.value = value;
+        });
+      }
+      if (location.hash.indexOf('machine_id') !== -1) {
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+    })();
+  </script>
   <script src="js/purchase.js"></script>
   <script src="js/checkout.js"></script>
 </body>

@@ -96,24 +96,31 @@ def create_app(config=None):
             # Refuse payment if the seller's signing key is unavailable.
             from license_core import load_private_key
             load_private_key()
+            # Persist the order and read back its state in one short transaction,
+            # BEFORE any Stripe network call, so no write lock is held while Stripe
+            # is slow. INSERT OR IGNORE keeps this idempotent per request_id.
             with use_db() as conn:
                 conn.execute('INSERT OR IGNORE INTO orders(id,machine,email,plan,amount) VALUES(?,?,?,?,?)',
                              (order_id, mid, email, plan, PLANS[plan]))
                 order = conn.execute('SELECT * FROM orders WHERE id=?', (order_id,)).fetchone()
-                if (order['machine'], order['email'], order['plan']) != (mid, email, plan):
-                    return jsonify(error='ข้อมูลเปลี่ยน กรุณาเริ่มรายการใหม่'), 409
-                if order['session']:
-                    session = stripe.checkout.Session.retrieve(order['session'], api_key=app.config['STRIPE_SECRET_KEY'])
-                else:
-                    session = stripe.checkout.Session.create(
-                        api_key=app.config['STRIPE_SECRET_KEY'], idempotency_key='checkout-' + order_id,
-                        mode='payment', customer_email=email, client_reference_id=order_id,
-                        metadata={'order_id': order_id},
-                        line_items=[{'price_data': {'currency': 'thb', 'unit_amount': PLANS[plan],
-                            'product_data': {'name': f'FormDD {plan} years / 1 PC'}}, 'quantity': 1}],
-                        success_url=app.config['SALES_ORIGIN'] + '/payment.html',
-                        cancel_url=app.config['SALES_ORIGIN'] + '/pricing.html?payment=cancelled#purchase')
-                    conn.execute('UPDATE orders SET session=? WHERE id=?', (session.id, order_id))
+            if (order['machine'], order['email'], order['plan']) != (mid, email, plan):
+                return jsonify(error='ข้อมูลเปลี่ยน กรุณาเริ่มรายการใหม่'), 409
+            if order['session']:
+                session = stripe.checkout.Session.retrieve(order['session'], api_key=app.config['STRIPE_SECRET_KEY'])
+            else:
+                session = stripe.checkout.Session.create(
+                    api_key=app.config['STRIPE_SECRET_KEY'], idempotency_key='checkout-' + order_id,
+                    mode='payment', customer_email=email, client_reference_id=order_id,
+                    metadata={'order_id': order_id},
+                    line_items=[{'price_data': {'currency': 'thb', 'unit_amount': PLANS[plan],
+                        'product_data': {'name': f'FormDD {plan} years / 1 PC'}}, 'quantity': 1}],
+                    success_url=app.config['SALES_ORIGIN'] + '/payment.html',
+                    cancel_url=app.config['SALES_ORIGIN'] + '/pricing.html?payment=cancelled#purchase')
+                # Store the session only if none was set meanwhile. The idempotency
+                # key guarantees a concurrent create returns this same session, so a
+                # racing request that already stored it wins harmlessly.
+                with use_db() as conn:
+                    conn.execute('UPDATE orders SET session=? WHERE id=? AND session IS NULL', (session.id, order_id))
             if not session.url: return jsonify(error='รายการนี้สิ้นสุดแล้ว กรุณาเริ่มรายการใหม่'), 409
             return jsonify(url=session.url)
         except Exception:

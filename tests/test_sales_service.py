@@ -103,6 +103,33 @@ def test_cross_origin_rejected(setup):
     create.assert_not_called()
 
 
+def test_checkout_holds_no_db_lock_during_stripe_call(setup, tmp_path):
+    import sqlite3
+    client, payload, session, create, *_ = setup
+    db_path = str(tmp_path / 'orders.db')
+    probe = {}
+
+    def slow_stripe(*args, **kwargs):
+        # While Stripe is "slow", another connection must still be able to write.
+        # A short busy timeout makes a held lock fail fast instead of hanging.
+        other = sqlite3.connect(db_path, timeout=0.5)
+        try:
+            other.execute('BEGIN IMMEDIATE')
+            other.execute('UPDATE orders SET amount=amount WHERE id=?', (payload['request_id'],))
+            other.commit()
+            probe['ok'] = True
+        except sqlite3.OperationalError as exc:
+            probe['ok'] = False
+            probe['error'] = str(exc)
+        finally:
+            other.close()
+        return session
+
+    create.side_effect = slow_stripe
+    assert checkout(client, payload).status_code == 200
+    assert probe.get('ok') is True, probe
+
+
 def test_stalled_delivery_stops_retrying_after_window(setup, tmp_path):
     import sqlite3
     client, payload, _, _, issue, mail = setup
