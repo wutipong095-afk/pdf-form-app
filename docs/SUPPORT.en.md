@@ -18,7 +18,7 @@ With a key: the customer’s own PDFs. No reinstall.
 | Thailand store (Thai pages only) | see [SUPPORT.md](SUPPORT.md) | Do not publish baht prices on English pages. |
 
 English site: Personal is the default. Teams pick a seat pack or email a count.  
-Thai quotes default to the **5-year** row if the buyer does not pick a term.  
+Thai quotes default to **lifetime + major updates for 3 years** if the buyer does not pick a plan. Thai prices are per PC, multiplied by the number of PCs, with no automatic volume discount.  
 Site: [website/pricing.en.html](../website/pricing.en.html) · [website/pricing.html](../website/pricing.html) (Thai)
 
 ## Moving to a new PC
@@ -31,8 +31,8 @@ Site: [website/pricing.en.html](../website/pricing.en.html) · [website/pricing.
 ## Issuing keys (temporary)
 
 Customer emails the 16-character machine ID to **formdd@xambrain.com**.  
-Vendor: `python scripts/gen_license.py <id> --term {1|3|5|10}`  
-- Thailand: `--term 1` / `3` / `5` / `10` matching the paid term
+Vendor: `python scripts/gen_license.py <id> --term 1` or `--days 36500` for a new Thai lifetime license.  
+- Thailand: `--term 1` for one year; `--days 36500` for LT or LT with major updates for 3 years. Record the purchased plan separately; the key does not encode update entitlement.
 - International: `--term 10` (public term: 10 years / 3,650 days from issuance; expiry on the license bar)
 - PC replacement carrying leftover days: `--days N` (N = days left on the old key; use `0` on the UTC expiry calendar day). Do not use `--term` here, or the new key gets a full sold period.
 - The script has no silent 5-year default — every invocation must pass either `--term` or `--days`.
