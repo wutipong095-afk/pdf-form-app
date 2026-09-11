@@ -105,7 +105,7 @@ function bindTemplateSave(): void {
     const res = await api("/api/template/" + encodeURIComponent(name), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ doc: tplDoc, fields: state.fields }),
+      body: JSON.stringify({ doc: tplDoc, fields: state.fields.map((f) => ({ ...f, value: "" })) }),
     });
     const body = (await res.json().catch(() => ({}))) as { error?: string; library?: boolean };
     if (!res.ok) {

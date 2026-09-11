@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { editQuickText, commitQuickInput } from './quickFill';
+import { editQuickText, bindQuickObject, commitQuickInput } from './quickFill';
 import { state } from './state';
 
 beforeEach(() => {
@@ -37,4 +37,27 @@ it('keeps the original page when navigation commits pending text', () => {
   state.cur = 1;
   commitQuickInput();
   expect(state.fields[0].page).toBe(0);
+});
+
+it('drags a field by the pointer delta, converted to document units', () => {
+  const changed = vi.fn();
+  state.zoom = 2; // scale() is 1 in jsdom (image unloaded), so ratio = scale()/zoom = 0.5
+  state.fields = [{ name: 'quick_001', page: 0, x: 100, y: 100, size: 14 }];
+  const img = document.getElementById('pageimg')!;
+  Object.defineProperty(img, 'clientWidth', { value: 1000, configurable: true });
+  Object.defineProperty(img, 'clientHeight', { value: 1000, configurable: true });
+  const el = document.createElement('div');
+  el.setPointerCapture = () => undefined;
+  document.getElementById('pagewrap')!.appendChild(el);
+  bindQuickObject(el, 0, changed);
+
+  el.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 200, clientY: 200 }));
+  el.dispatchEvent(new MouseEvent('pointermove', { clientX: 260, clientY: 200 }));
+  el.dispatchEvent(new MouseEvent('pointerup'));
+
+  expect(state.fields[0].x).toBe(130); // 100 + 60 * 0.5
+  expect(state.fields[0].y).toBe(100); // no vertical movement
+  expect(state.selIdx).toBe(0);
+  expect(changed).toHaveBeenCalled();
+  expect(document.querySelector('.quick-input')).toBeNull(); // a drag never opens the editor
 });

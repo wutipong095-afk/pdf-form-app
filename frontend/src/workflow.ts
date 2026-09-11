@@ -63,7 +63,7 @@ function show(next: View): void {
   document.getElementById('quick-tools')?.toggleAttribute('hidden', next !== 'quick');
   document.getElementById('quick-mode')?.setAttribute('aria-pressed', String(next === 'quick'));
   $('pagewrap').classList.toggle('marking', next === 'quick' || next === 'edit');
-  hooks.markers();
+  if (['quick', 'edit', 'fill', 'test', 'pdf'].includes(next)) hooks.markers();
   window.scrollTo(0, 0);
 }
 
@@ -220,8 +220,8 @@ export function isPreparing(): boolean { return ['quick', 'edit', 'test'].includ
 
 export function initWorkflow(callbacks: Hooks): void {
   hooks = callbacks;
-  document.getElementById('quick-mode')?.addEventListener('click', () => { show('quick'); hooks.render(); });
-  document.getElementById('template-mode')?.addEventListener('click', () => { show('edit'); hooks.render(); });
+  const toggleWorkspaceView = (next: View) => void safeAction(async () => { await flushSheetSave(); show(next); hooks.render(); }); document.getElementById('quick-mode')?.addEventListener('click', () => toggleWorkspaceView('quick'));
+  document.getElementById('template-mode')?.addEventListener('click', () => toggleWorkspaceView('edit'));
   $('nav-home').onclick = event => { event.preventDefault(); void safeAction(() => navigate('home')); };
   for (const [id, next] of Object.entries({ 'nav-forms': 'home', 'btn-hist-toggle': 'history', 'nav-settings': 'settings', 'nav-prepare': 'edit', 'back-to-forms': 'home' })) {
     $(id).onclick = () => void safeAction(() => navigate(next as View));
