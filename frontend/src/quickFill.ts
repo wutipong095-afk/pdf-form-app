@@ -6,6 +6,7 @@ import { t } from './i18n';
 export function isQuickFill(): boolean { return document.body.dataset.quick === 'true'; }
 
 let finish: (() => void) | null = null;
+let suppressChange = false;
 export function commitQuickInput(): void { finish?.(); }
 
 export function editQuickText(x: number, y: number, changed: () => void, index?: number): void {
@@ -15,10 +16,11 @@ export function editQuickText(x: number, y: number, changed: () => void, index?:
   const field = index === undefined ? undefined : state.fields[index];
   const size = field?.size || Number(($('quick-size') as HTMLInputElement).value) || 14;
   const ratio = state.zoom / scale();
-  const input = document.createElement('input');
+  const input = document.createElement('textarea');
   input.className = 'quick-input';
   input.setAttribute('aria-label', t('quick.text'));
   input.value = field?.value || '';
+  input.rows = Math.max(1, input.value.split('\n').length);
   input.style.left = `${Math.min(x * ratio, Math.max(0, $('pagewrap').clientWidth - 180))}px`;
   input.style.top = `${Math.max(0, (y - state.fontAsc * size) * ratio)}px`;
   let closed = false;
@@ -35,16 +37,16 @@ export function editQuickText(x: number, y: number, changed: () => void, index?:
       state.fields.push({ name: `quick_${String(n).padStart(3, '0')}`, page, x, y, size, value });
       state.selIdx = state.fields.length - 1;
     }
-    if (field || value) changed();
+    if ((field || value) && !suppressChange) changed();
   };
   finish = () => close(true);
   input.onblur = () => close(true);
   input.onkeydown = event => {
     event.stopPropagation();
     if (event.isComposing) return;
-    if (event.key === 'Enter' || event.key === 'Escape') {
-      event.preventDefault(); close(event.key === 'Enter');
-    }
+    // Enter commits; Shift+Enter inserts a newline so multi-line values stay editable.
+    if (event.key === 'Escape') { event.preventDefault(); close(false); }
+    else if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); close(true); }
   };
   $('pagewrap').appendChild(input); input.focus();
 }
@@ -58,7 +60,10 @@ export function bindQuickObject(el: HTMLElement, index: number, changed: () => v
   el.onpointerdown = event => {
     if (event.button !== 0) return;
     event.preventDefault(); event.stopPropagation();
-    commitQuickInput();
+    // Commit any open editor without its re-render, which would remove this
+    // drag target from the DOM before setPointerCapture runs. The pointerup
+    // (or pointercancel) below re-renders and persists everything.
+    suppressChange = true; commitQuickInput(); suppressChange = false;
     const startX = event.clientX, startY = event.clientY, x = field.x, y = field.y;
     let moved = false;
     el.setPointerCapture(event.pointerId);

@@ -5,7 +5,7 @@ body[data-quick=true] #viewer{position:static;max-width:1000px;margin:auto}
 body[data-quick=true] .mvalue{outline:1px dashed #8ba7c5;min-width:8px;min-height:12px}
 #quick-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 #quick-size{width:90px}#quick-tools label{display:flex;gap:8px;align-items:center}
-.quick-input{position:absolute;z-index:4;width:240px;max-width:100%;min-height:36px;padding:4px 6px;font-size:16px;box-shadow:0 2px 8px #0002}
+.quick-input{position:absolute;z-index:4;width:240px;max-width:100%;min-height:36px;padding:4px 6px;font:inherit;font-size:16px;line-height:1.4;border:1px solid #a8b6c8;border-radius:7px;background:white;color:var(--ink);resize:vertical;box-shadow:0 2px 8px #0002}
 #quick-mode[aria-pressed=true]{background:#e5f4ec;color:#17633b}
 [hidden]{display:none!important}
 body{height:auto;min-height:100vh;color:var(--ink);background:#f3f6fa;font-size:16px;line-height:1.5}

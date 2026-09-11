@@ -23,7 +23,7 @@ import { initWorkflow, syncWorkTitle, markLayoutDirty, markLayoutSaved, flowErro
 import type { FillResponse } from "./types";
 import { isQuickFill, editQuickText, commitQuickInput } from './quickFill';
 
-function quickChanged(): void { markLayoutDirty(); renderAll(); }
+function quickChanged(): void { markLayoutDirty(); renderAll(); if (state.sheet) scheduleSheetSave(); }
 
 function setTab(tab: "edit" | "fill"): void {
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.remove("active"));
@@ -183,7 +183,7 @@ function bindClearAndFill(): void {
     ($('quick-export') as HTMLButtonElement).disabled = true;
     button.textContent = t("flow.creating");
     try {
-    if (!isPreparing()) {
+    if (!isPreparing() || isQuickFill()) {
       try { await flushSheetSave(); }
       catch { throw new Error(t("flow.saveFail")); }
     }
