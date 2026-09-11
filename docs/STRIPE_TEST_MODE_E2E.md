@@ -16,6 +16,8 @@ Results log for validating the FormDD purchase flow (system from PR #38) in
 | Layer | Method | Result |
 |---|---|---|
 | License issue/verify/expiry/machine-binding/tamper | **Real crypto**, throwaway test keypair | ✅ Pass |
+| Signing key present matches shipped `license_public.pem` | **Real**, local key files (no material printed) | ✅ Match — issued keys will activate |
+| Local harness: service starts, serves `pricing.html`, disabled gate (`config` = false, checkout → 503) | **Real local**, no external services | ✅ Pass |
 | Checkout validation, webhook signature, mismatch, duplicate, delayed payment, email-failure retry, no-lock-across-Stripe, 23 h stop | **Mock** (Stripe + Resend mocked) | ✅ 14/14 pass |
 | Web checkout → real Stripe test card → real webhook → real email → activation in app | **Real E2E in test mode** | ⛔ **Not run — blocked on credentials** (see below) |
 
@@ -48,10 +50,11 @@ Evidence: verification returned `sig OK / machine match OK` and the expected
 `expires`/`days_left` for every plan; mismatched-machine and tampered-signature
 keys both raised a validation error. (Key strings withheld.)
 
-**Note on the real signing key:** `license_public.pem` is committed (shipped in the
-app) and the seller's private PEM is present locally but never read or printed by
-this test. Activating a key produced by the *real* key on a *real* FormDD build is
-part of section C.
+**Note on the real signing key:** verified locally that the private key at
+`keys/ed25519_private.pem` matches the committed `license_public.pem` (compared the
+derived public halves; no key material printed). So a key issued by the real
+service **will** activate on a real FormDD build — the app-side activation itself
+is still a section-C step. This resolves section-C prerequisite #5.
 
 ## B. Application logic — MOCK (Stripe and Resend mocked)
 
@@ -89,11 +92,14 @@ untracked `test.sales.env`** and confirm here that it is set):
 3. **Resend API key** + a **verified sender domain** for `SALES_FROM`.
 4. **A test recipient email you own and confirm here** (the `to:` address). Per the
    task, test email must go only to an address you specify — never a real customer.
-5. **License signing:** confirm `LICENSE_PRIVATE_KEY_PATH` points at the seller PEM
-   whose public half is the shipped `license_public.pem` (for activation in a real
-   build), or provide a dev build that trusts a test public key.
+5. **License signing:** ✅ already confirmed — `keys/ed25519_private.pem` matches the
+   shipped `license_public.pem` (section A). `LICENSE_PRIVATE_KEY_PATH` defaults to it.
 6. **A FormDD build/machine** to paste the key into (with its current license state
    backed up first, restored after — per scope #4).
+
+**Runner:** once `test.sales.env` is filled, `python scripts/run_sales_test.py --check`
+validates it (presence only, no values; refuses a non-`sk_test_` key) and
+`python scripts/run_sales_test.py` starts the service on `127.0.0.1:5080`.
 
 Once these are in place, run the section-4/5 steps in
 [STRIPE_TEST_MODE.md](STRIPE_TEST_MODE.md) and record here: order id, plan, amount,

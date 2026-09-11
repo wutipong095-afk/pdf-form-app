@@ -61,12 +61,13 @@ relays events and lets you replay them.
 ## 3. Run the service
 
 ```bash
-# load test.sales.env into the environment, then:
-python sales_service.py
+python scripts/run_sales_test.py --check   # validate test.sales.env (presence only)
+python scripts/run_sales_test.py           # start the service in test mode
 ```
 
-Serves http://127.0.0.1:5080 (it also serves the `website/` pages, so the pricing
-page is at http://127.0.0.1:5080/pricing.html). Confirm it is enabled:
+The runner loads `test.sales.env`, refuses a non-`sk_test_` key, and starts the
+service on http://127.0.0.1:5080 (it also serves the `website/` pages, so the
+pricing page is at http://127.0.0.1:5080/pricing.html). Confirm it is enabled:
 
 ```bash
 curl -s http://127.0.0.1:5080/api/sales/config      # -> {"enabled": true}
