@@ -5,6 +5,7 @@ import re
 import sqlite3
 import time
 import uuid
+from contextlib import closing, contextmanager
 from pathlib import Path
 
 import requests
@@ -27,8 +28,13 @@ def create_app(config=None):
         RESEND_API_KEY=os.environ.get('RESEND_API_KEY', ''),
         SALES_FROM=os.environ.get('SALES_FROM', ''),
         SALES_ENABLED=os.environ.get('SALES_ENABLED') == 'true',
+        # Optional: pin the Stripe API version so behaviour cannot drift when the
+        # account default changes. Leave empty to use the account/SDK default.
+        STRIPE_API_VERSION=os.environ.get('STRIPE_API_VERSION', ''),
     )
     if config: app.config.update(config)
+    if app.config['STRIPE_API_VERSION']:
+        stripe.api_version = app.config['STRIPE_API_VERSION']
     Path(app.config['SALES_DB']).parent.mkdir(parents=True, exist_ok=True)
 
     def db():
@@ -36,7 +42,18 @@ def create_app(config=None):
         conn.row_factory = sqlite3.Row
         return conn
 
-    with db() as conn:
+    @contextmanager
+    def use_db():
+        # `with sqlite3.connect(...)` commits/rolls back but never closes the
+        # connection. Own it here so every request releases its handle.
+        conn = db()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
+    with use_db() as conn:
         conn.execute('''CREATE TABLE IF NOT EXISTS orders (
             id TEXT PRIMARY KEY, machine TEXT NOT NULL, email TEXT NOT NULL,
             plan TEXT NOT NULL, amount INTEGER NOT NULL, session TEXT UNIQUE,
@@ -79,7 +96,7 @@ def create_app(config=None):
             # Refuse payment if the seller's signing key is unavailable.
             from license_core import load_private_key
             load_private_key()
-            with db() as conn:
+            with use_db() as conn:
                 conn.execute('INSERT OR IGNORE INTO orders(id,machine,email,plan,amount) VALUES(?,?,?,?,?)',
                              (order_id, mid, email, plan, PLANS[plan]))
                 order = conn.execute('SELECT * FROM orders WHERE id=?', (order_id,)).fetchone()
@@ -100,13 +117,13 @@ def create_app(config=None):
             if not session.url: return jsonify(error='รายการนี้สิ้นสุดแล้ว กรุณาเริ่มรายการใหม่'), 409
             return jsonify(url=session.url)
         except Exception:
-            app.logger.error('Checkout failed; inspect seller configuration or Stripe dashboard')
+            app.logger.exception('Checkout failed; inspect seller configuration or Stripe dashboard')
             return jsonify(error='สร้างรายการชำระเงินไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ขาย'), 502
 
     def fulfill(session_id):
         session = stripe.checkout.Session.retrieve(session_id, api_key=app.config['STRIPE_SECRET_KEY'])
         if session.payment_status != 'paid': return
-        with db() as conn:
+        with use_db() as conn:
             conn.execute('BEGIN IMMEDIATE')
             order = conn.execute('SELECT * FROM orders WHERE session=?', (session_id,)).fetchone()
             if not order: raise ValueError('Unknown order')
@@ -117,20 +134,27 @@ def create_app(config=None):
             key = order['license'] or issue_license_key(order['machine'], days=days_for_term_years(int(order['plan'])))
             started = order['email_started'] or time.time()
             conn.execute('UPDATE orders SET paid=1,license=?,email_started=? WHERE id=?', (key, started, order['id']))
-        # The key is durable before contacting the email provider. Retries reuse it.
-        with db() as conn:
-            conn.execute('BEGIN IMMEDIATE')
+        # The key is durable and committed. Contact the email provider WITHOUT
+        # holding a write lock, so concurrent checkouts are never blocked on the
+        # network call. Resend's Idempotency-Key makes a retried send reuse the
+        # same delivery, so it is safe to send outside the transaction.
+        with closing(db()) as conn:
             order = conn.execute('SELECT * FROM orders WHERE session=?', (session_id,)).fetchone()
-            if order['sent']: return
-            if time.time() - order['email_started'] > 23 * 3600:
-                raise RuntimeError('Email retry window expired; seller must reconcile delivery')
-            result = requests.post('https://api.resend.com/emails', timeout=20,
-                headers={'Authorization': 'Bearer ' + app.config['RESEND_API_KEY'],
-                         'Idempotency-Key': 'license-' + order['id']},
-                json={'from': app.config['SALES_FROM'], 'to': [order['email']],
-                      'subject': 'FormDD: คีย์เปิดใช้งาน / Activation key',
-                      'text': f"ขอบคุณที่สั่งซื้อ FormDD\nOrder: {order['id']}\nMachine ID: {order['machine']}\nPlan: {order['plan']} years\n\n{order['license']}\n\nเปิดโปรแกรม ไปที่ตั้งค่าไลเซนต์ แล้ววางคีย์นี้\nOpen FormDD license settings and paste this key.\nSupport: formdd@xambrain.com"})
-            result.raise_for_status()
+        if order['sent']: return
+        if time.time() - order['email_started'] > 23 * 3600:
+            # Stop retrying instead of returning 500 forever (which eventually makes
+            # Stripe disable the endpoint and blocks future orders too). The key is
+            # paid and issued; a seller reconciles unsent paid orders (paid=1,sent=0).
+            app.logger.error('Email retry window expired for order %s; key issued but not emailed — seller must send it manually', order['id'])
+            return
+        result = requests.post('https://api.resend.com/emails', timeout=20,
+            headers={'Authorization': 'Bearer ' + app.config['RESEND_API_KEY'],
+                     'Idempotency-Key': 'license-' + order['id']},
+            json={'from': app.config['SALES_FROM'], 'to': [order['email']],
+                  'subject': 'FormDD: คีย์เปิดใช้งาน / Activation key',
+                  'text': f"ขอบคุณที่สั่งซื้อ FormDD\nOrder: {order['id']}\nMachine ID: {order['machine']}\nPlan: {order['plan']} years\n\n{order['license']}\n\nเปิดโปรแกรม ไปที่ตั้งค่าไลเซนต์ แล้ววางคีย์นี้\nOpen FormDD license settings and paste this key.\nSupport: formdd@xambrain.com"})
+        result.raise_for_status()
+        with use_db() as conn:
             conn.execute('UPDATE orders SET sent=1 WHERE id=?', (order['id'],))
 
     @app.post('/api/sales/webhook')
@@ -144,7 +168,7 @@ def create_app(config=None):
         if event.type in ('checkout.session.completed', 'checkout.session.async_payment_succeeded'):
             try: fulfill(event.data.object.id)
             except Exception:
-                app.logger.error('Fulfillment pending; Stripe event %s requires retry or seller review', event.id)
+                app.logger.exception('Fulfillment pending; Stripe event %s requires retry or seller review', event.id)
                 return jsonify(error='Fulfillment pending'), 500
         return jsonify(received=True)
 

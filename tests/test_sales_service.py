@@ -101,3 +101,28 @@ def test_cross_origin_rejected(setup):
     client, payload, _, create, *_ = setup
     assert client.post('/api/sales/checkout', json=payload).status_code == 403
     create.assert_not_called()
+
+
+def test_stalled_delivery_stops_retrying_after_window(setup, tmp_path):
+    import sqlite3
+    client, payload, _, _, issue, mail = setup
+    checkout(client, payload)
+    mail.side_effect = RuntimeError('email provider down')
+    # First delivery attempt fails -> 500 so Stripe retries; the key is issued and
+    # email_started is recorded.
+    assert event(client).status_code == 500
+    # Backdate the retry window so the next attempt is past the 23h cutoff.
+    db = sqlite3.connect(str(tmp_path / 'orders.db'))
+    db.execute('UPDATE orders SET email_started = email_started - ?', (24 * 3600,))
+    db.commit()
+    db.close()
+    mail.reset_mock()
+    mail.side_effect = None
+    # Now the webhook returns 200 (give up) instead of looping 500s forever, and
+    # does not send again. The paid, issued key stays on the order for the seller.
+    assert event(client).status_code == 200
+    mail.assert_not_called()
+    assert issue.call_count == 1
+    row = sqlite3.connect(str(tmp_path / 'orders.db')).execute(
+        'SELECT paid, sent, license FROM orders').fetchone()
+    assert row[0] == 1 and row[1] == 0 and row[2]
