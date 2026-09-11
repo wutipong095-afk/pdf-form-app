@@ -299,3 +299,9 @@ img { max-width: 100%; display: block; }
 }
 .pay-info { flex: 1 1 16rem; min-width: 0; }
 .pay-info p { margin: 0 0 8px; }
+#stripe-form { max-width:560px; }
+#stripe-form input:not([type=checkbox]), #stripe-form select { width:100%; min-height:44px; padding:10px 12px; border:1px solid #aab9b0; border-radius:6px; font:inherit; }
+#stripe-form button:disabled { opacity:.55; cursor:not-allowed; }
+#stripe-form :focus-visible { outline:3px solid #287c57; outline-offset:3px; }
+#stripe-status { min-height:28px; overflow-wrap:anywhere; }
+#stripe-purchase { border-top:4px solid #287c57; }
