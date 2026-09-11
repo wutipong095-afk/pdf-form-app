@@ -1,0 +1,4 @@
+# Seller server only. Do not add these to the desktop build.
+-r requirements.txt
+stripe==15.6.1
+requests==2.34.2
