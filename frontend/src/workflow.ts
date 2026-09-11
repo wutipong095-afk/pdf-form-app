@@ -8,8 +8,9 @@ import { setHistoryOpen } from './history';
 import { setProfilesOpen } from './profiles';
 import { reviewFields } from './review';
 import type { DocsResponse, TemplatePayload, HistoryStatus, PageInfo, LibraryStatus } from './types';
+import { isQuickFill, commitQuickInput } from './quickFill';
 
-type View = 'home' | 'history' | 'settings' | 'edit' | 'fill' | 'test' | 'review' | 'done' | 'pdf';
+type View = 'home' | 'history' | 'settings' | 'edit' | 'fill' | 'test' | 'review' | 'done' | 'pdf' | 'quick';
 type Hooks = { setTab: (tab: 'edit' | 'fill') => void; render: () => void; markers: () => void; newSheet: () => Promise<void> };
 let hooks: Hooks;
 let view: View = 'home';
@@ -39,13 +40,15 @@ export function syncWorkTitle(): void {
 }
 
 function show(next: View): void {
+  commitQuickInput();
   previewSequence++;
   view = next;
   document.body.dataset.view = next;
+  document.body.dataset.quick = String(next === 'quick');
   for (const [id, visible] of Object.entries({
     'home-view': next === 'home', 'history-view': next === 'history', 'settings-view': next === 'settings',
-    'prepare-view': next === 'edit' || next === 'test', 'work-heading': ['edit', 'fill', 'test', 'pdf'].includes(next),
-    workspace: ['edit', 'fill', 'test', 'pdf'].includes(next), 'work-actions': ['edit', 'fill', 'test'].includes(next),
+    'prepare-view': next === 'edit' || next === 'test' || next === 'quick', 'work-heading': ['edit', 'fill', 'test', 'pdf', 'quick'].includes(next),
+    workspace: ['edit', 'fill', 'test', 'pdf', 'quick'].includes(next), 'work-actions': ['edit', 'fill', 'test'].includes(next),
     'review-view': next === 'review', 'done-view': next === 'done',
   })) $(id).hidden = !visible;
   for (const [id, active] of Object.entries({ 'nav-forms': next === 'home', 'btn-hist-toggle': next === 'history', 'nav-prepare': next === 'edit' || next === 'test', 'nav-settings': next === 'settings' })) {
@@ -57,6 +60,10 @@ function show(next: View): void {
   setHistoryOpen(next === 'history');
   if (next !== 'settings') setProfilesOpen(false);
   syncWorkTitle();
+  document.getElementById('quick-tools')?.toggleAttribute('hidden', next !== 'quick');
+  document.getElementById('quick-mode')?.setAttribute('aria-pressed', String(next === 'quick'));
+  $('pagewrap').classList.toggle('marking', next === 'quick' || next === 'edit');
+  hooks.markers();
   window.scrollTo(0, 0);
 }
 
@@ -68,6 +75,7 @@ async function safeAction(action: () => Promise<void>): Promise<void> {
 }
 
 export async function beforeDocumentChange(): Promise<boolean> {
+  commitQuickInput();
   await flushSheetSave();
   if (layoutDirty && !confirm(t('flow.discard'))) return false;
   layoutDirty = false;
@@ -206,12 +214,14 @@ async function beginReview(): Promise<void> {
   previewPage = 0; show('review'); await loadPreview();
 }
 
-export function canCreatePdf(): boolean { return view === 'review' && previewReady && !$('review-issues').querySelector('.error'); }
-export function showPdfDone(): void { show('done'); }
-export function isPreparing(): boolean { return ['edit', 'test'].includes(view) || (view === 'review' && reviewReturn === 'test'); }
+export function canCreatePdf(): boolean { return (view === 'quick' && state.fields.some(f => !!f.value?.trim())) || (view === 'review' && previewReady && !$('review-issues').querySelector('.error')); }
+export function showPdfDone(): void { if (isQuickFill()) { reviewReturn = 'quick'; layoutDirty = false; } show('done'); }
+export function isPreparing(): boolean { return ['quick', 'edit', 'test'].includes(view) || (view === 'review' && reviewReturn === 'test'); }
 
 export function initWorkflow(callbacks: Hooks): void {
   hooks = callbacks;
+  document.getElementById('quick-mode')?.addEventListener('click', () => { show('quick'); hooks.render(); });
+  document.getElementById('template-mode')?.addEventListener('click', () => { show('edit'); hooks.render(); });
   $('nav-home').onclick = event => { event.preventDefault(); void safeAction(() => navigate('home')); };
   for (const [id, next] of Object.entries({ 'nav-forms': 'home', 'btn-hist-toggle': 'history', 'nav-settings': 'settings', 'nav-prepare': 'edit', 'back-to-forms': 'home' })) {
     $(id).onclick = () => void safeAction(() => navigate(next as View));
@@ -240,7 +250,7 @@ export function initWorkflow(callbacks: Hooks): void {
   window.addEventListener('workflow:open', event => {
     const mode = (event as CustomEvent).detail;
     layoutDirty = false;
-    show(mode === 'edit' ? 'edit' : mode === 'pdf' ? 'pdf' : 'fill');
+    show(mode === 'edit' ? (isQuickFill() ? 'quick' : 'edit') : mode === 'pdf' ? 'pdf' : 'fill');
     hooks.render();
   });
   window.addEventListener('beforeunload', event => { if (layoutDirty || hasPendingSheetSave()) { event.preventDefault(); event.returnValue = ''; } });

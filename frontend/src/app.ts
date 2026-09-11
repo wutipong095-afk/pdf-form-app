@@ -21,6 +21,9 @@ import { askFieldName, bindProfiles } from "./profiles";
 import { bindLangToggle, t } from "./i18n";
 import { initWorkflow, syncWorkTitle, markLayoutDirty, markLayoutSaved, flowError, canCreatePdf, showPdfDone, isPreparing, beforeDocumentChange } from "./workflow";
 import type { FillResponse } from "./types";
+import { isQuickFill, editQuickText, commitQuickInput } from './quickFill';
+
+function quickChanged(): void { markLayoutDirty(); renderAll(); }
 
 function setTab(tab: "edit" | "fill"): void {
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.remove("active"));
@@ -75,6 +78,7 @@ function paintMarkers(): void {
       renderAll();
       scheduleSheetSave();
     },
+    quickChanged,
   );
 }
 
@@ -158,6 +162,7 @@ function bindClearAndFill(): void {
   $("clearvals").onclick = () => { void newSheet().catch(flowError); };
 
   $("makepdf").onclick = async () => {
+    commitQuickInput();
     if (!state.doc || !canCreatePdf()) return;
     if (isOutDoc(state.doc)) {
       $("result").textContent = t("app.fillFromHistory");
@@ -170,10 +175,12 @@ function bindClearAndFill(): void {
     const docName = fillKey.split(/[/\\|]/).pop() || fillKey;
     if (state.lic && !state.lic.licensed && !demoDocs.includes(docName) && !demoDocs.includes(fillKey)) {
       $("result").textContent = t("app.needLicense");
+      if (isQuickFill()) flowError(t('app.needLicense'));
       return;
     }
     const button = $("makepdf") as HTMLButtonElement;
     button.disabled = true;
+    ($('quick-export') as HTMLButtonElement).disabled = true;
     button.textContent = t("flow.creating");
     try {
     if (!isPreparing()) {
@@ -196,7 +203,7 @@ function bindClearAndFill(): void {
     notifyHistoryChanged();
     showPdfDone();
     } catch (error) { flowError(error); }
-    finally { button.disabled = false; button.textContent = t("flow.create"); }
+    finally { button.disabled = false; ($('quick-export') as HTMLButtonElement).disabled = false; button.textContent = t("flow.create"); }
   };
 }
 
@@ -224,6 +231,7 @@ function bindKeyboard(): void {
 
 function bindMarking(): void {
   bindViewer(paintMarkers, (x, y) => {
+    if (isQuickFill()) { editQuickText(x, y, quickChanged); return; }
     if (state.selIdx >= 0) {
       state.fields[state.selIdx].x = x;
       state.fields[state.selIdx].y = y;
@@ -303,6 +311,18 @@ function init(): void {
   bindTemplateSave();
   bindClearAndFill();
   bindKeyboard();
+  $('quick-export').onclick = () => { commitQuickInput(); $('makepdf').click(); };
+  $('quick-size').onchange = () => {
+    const input = $('quick-size') as HTMLInputElement;
+    if (!input.value || !input.checkValidity()) return;
+    const field = state.fields[state.selIdx];
+    if (field) { field.size = Number(input.value); quickChanged(); }
+  };
+  $('quick-delete').onclick = () => {
+    commitQuickInput();
+    if (state.selIdx < 0) return;
+    state.fields.splice(state.selIdx, 1); state.selIdx = -1; quickChanged();
+  };
   ensureFillFont(paintMarkers);
   initWorkflow({ setTab, render: renderAll, markers: paintMarkers, newSheet });
   void refreshDocs(paintMarkers, renderAll).catch(flowError);
