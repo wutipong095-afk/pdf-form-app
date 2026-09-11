@@ -31,7 +31,7 @@ Do not package this service, payment secrets, or signing keys into the Windows i
 ## Payment and email flow
 
 The browser sends email, 16-character machine ID, plan, and a request UUID.
-Prices are selected on the server: THB 149 / 350 / 500 / 1,000 for 1 / 3 / 5 / 10 years.
+Prices are selected on the server: THB 99 (1 year), 299 (lifetime of that version: bug/security fixes, no new major), 499 (lifetime + major updates for 3 years).
 Stripe hosts the payment form. The success page is not proof of payment.
 
 Configure `/api/sales/webhook` for `checkout.session.completed` and

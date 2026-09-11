@@ -11,9 +11,55 @@ from pathlib import Path
 import requests
 import stripe
 from flask import Flask, jsonify, request, send_from_directory
-from license_core import issue_license_key, days_for_term_years
+from license_core import LICENSE_LIFETIME_DAYS, days_for_term_years, issue_license_key
 
-PLANS = {'1': 14900, '3': 35000, '5': 50000, '10': 100000}
+# amount is Stripe unit_amount in satang. days is written into the issued key.
+PLANS = {
+    '1': {
+        'amount': 9900,
+        'days': days_for_term_years(1),
+        'label': '1 ปี',
+        'product': 'FormDD 1 ปี / 1 เครื่อง',
+    },
+    'lt': {
+        'amount': 29900,
+        'days': LICENSE_LIFETIME_DAYS,
+        'label': 'ซื้อขาด (LT)',
+        'product': 'FormDD ซื้อขาด (LT) — เวอร์ชันนั้นตลอดไป / 1 เครื่อง',
+    },
+    'lt3': {
+        'amount': 49900,
+        'days': LICENSE_LIFETIME_DAYS,
+        'label': 'ซื้อขาด + อัปเดต 3 ปี',
+        'product': 'FormDD ซื้อขาด + major update 3 ปี / 1 เครื่อง',
+    },
+}
+# Closed for new checkout. Kept so a session opened before the catalog change
+# can still issue a key and email after payment.
+LEGACY_PLANS = {
+    '3': {
+        'amount': 35000,
+        'days': days_for_term_years(3),
+        'label': '3 ปี',
+        'product': 'FormDD 3 ปี / 1 เครื่อง',
+    },
+    '5': {
+        'amount': 50000,
+        'days': days_for_term_years(5),
+        'label': '5 ปี',
+        'product': 'FormDD 5 ปี / 1 เครื่อง',
+    },
+    '10': {
+        'amount': 100000,
+        'days': days_for_term_years(10),
+        'label': '10 ปี',
+        'product': 'FormDD 10 ปี / 1 เครื่อง',
+    },
+}
+
+
+def plan_record(plan: str):
+    return PLANS.get(plan) or LEGACY_PLANS.get(plan)
 ROOT = Path(__file__).resolve().parent
 
 
@@ -54,11 +100,16 @@ def create_app(config=None):
             conn.close()
 
     with use_db() as conn:
+        # Serialize schema inspection and migration across starting workers.
+        conn.execute('BEGIN IMMEDIATE')
         conn.execute('''CREATE TABLE IF NOT EXISTS orders (
             id TEXT PRIMARY KEY, machine TEXT NOT NULL, email TEXT NOT NULL,
             plan TEXT NOT NULL, amount INTEGER NOT NULL, session TEXT UNIQUE,
             license TEXT, paid INTEGER NOT NULL DEFAULT 0,
             email_started REAL, sent INTEGER NOT NULL DEFAULT 0)''')
+        cols = {row[1] for row in conn.execute('PRAGMA table_info(orders)')}
+        if 'product' not in cols:
+            conn.execute('ALTER TABLE orders ADD COLUMN product TEXT')
 
     def ready():
         return app.config['SALES_ENABLED'] and all(app.config[k] for k in (
@@ -86,8 +137,11 @@ def create_app(config=None):
         email = str(data.get('email', '')).strip()
         plan = str(data.get('plan', ''))
         order_id = str(data.get('request_id', ''))
-        if not re.fullmatch(r'[A-F0-9]{16}', mid) or plan not in PLANS:
-            return jsonify(error='กรุณาตรวจรหัสเครื่องและแผนที่เลือก'), 400
+        spec = PLANS.get(plan)
+        if not re.fullmatch(r'[A-F0-9]{16}', mid):
+            return jsonify(error='กรุณาตรวจรหัสเครื่อง 16 ตัว'), 400
+        if spec is None:
+            return jsonify(error='กรุณาเลือกแผนที่เปิดขาย'), 400
         if len(email) > 254 or not re.fullmatch(r'[^\s@<>\r\n]+@[^\s@<>\r\n]+\.[^\s@<>\r\n]+', email):
             return jsonify(error='กรุณาตรวจอีเมล'), 400
         try: uuid.UUID(order_id)
@@ -99,12 +153,22 @@ def create_app(config=None):
             # Persist the order and read back its state in one short transaction,
             # BEFORE any Stripe network call, so no write lock is held while Stripe
             # is slow. INSERT OR IGNORE keeps this idempotent per request_id.
+            # Amount and product are frozen on first insert so a retry after a lost
+            # Session write reuses the same Stripe idempotency parameters.
             with use_db() as conn:
-                conn.execute('INSERT OR IGNORE INTO orders(id,machine,email,plan,amount) VALUES(?,?,?,?,?)',
-                             (order_id, mid, email, plan, PLANS[plan]))
+                conn.execute(
+                    'INSERT OR IGNORE INTO orders(id,machine,email,plan,amount,product) VALUES(?,?,?,?,?,?)',
+                    (order_id, mid, email, plan, spec['amount'], spec['product']))
                 order = conn.execute('SELECT * FROM orders WHERE id=?', (order_id,)).fetchone()
-            if (order['machine'], order['email'], order['plan']) != (mid, email, plan):
+                if (order['machine'], order['email'], order['plan']) != (mid, email, plan):
+                    order = None
+            if order is None:
                 return jsonify(error='ข้อมูลเปลี่ยน กรุณาเริ่มรายการใหม่'), 409
+            stored_product = (order['product'] or '').strip()
+            if not order['session'] and not stored_product and order['amount'] != spec['amount']:
+                # Pre-catalog row: we cannot replay the original Stripe params.
+                return jsonify(error='รายการนี้ต้องเริ่มใหม่ กรุณารีเฟรชหน้าแล้วลองอีกครั้ง'), 409
+            product = stored_product or spec['product']
             if order['session']:
                 session = stripe.checkout.Session.retrieve(order['session'], api_key=app.config['STRIPE_SECRET_KEY'])
             else:
@@ -112,8 +176,8 @@ def create_app(config=None):
                     api_key=app.config['STRIPE_SECRET_KEY'], idempotency_key='checkout-' + order_id,
                     mode='payment', customer_email=email, client_reference_id=order_id,
                     metadata={'order_id': order_id},
-                    line_items=[{'price_data': {'currency': 'thb', 'unit_amount': PLANS[plan],
-                        'product_data': {'name': f'FormDD {plan} years / 1 PC'}}, 'quantity': 1}],
+                    line_items=[{'price_data': {'currency': 'thb', 'unit_amount': order['amount'],
+                        'product_data': {'name': product}}, 'quantity': 1}],
                     success_url=app.config['SALES_ORIGIN'] + '/payment.html',
                     cancel_url=app.config['SALES_ORIGIN'] + '/pricing.html?payment=cancelled#purchase')
                 # Store the session only if none was set meanwhile. The idempotency
@@ -138,7 +202,9 @@ def create_app(config=None):
                 raise ValueError('Payment mismatch')
             if session.client_reference_id != order['id']: raise ValueError('Reference mismatch')
             if order['sent']: return
-            key = order['license'] or issue_license_key(order['machine'], days=days_for_term_years(int(order['plan'])))
+            spec = plan_record(order['plan'])
+            if spec is None: raise ValueError('Unknown plan')
+            key = order['license'] or issue_license_key(order['machine'], days=spec['days'])
             started = order['email_started'] or time.time()
             conn.execute('UPDATE orders SET paid=1,license=?,email_started=? WHERE id=?', (key, started, order['id']))
         # The key is durable and committed. Contact the email provider WITHOUT
@@ -159,7 +225,7 @@ def create_app(config=None):
                      'Idempotency-Key': 'license-' + order['id']},
             json={'from': app.config['SALES_FROM'], 'to': [order['email']],
                   'subject': 'FormDD: คีย์เปิดใช้งาน / Activation key',
-                  'text': f"ขอบคุณที่สั่งซื้อ FormDD\nOrder: {order['id']}\nMachine ID: {order['machine']}\nPlan: {order['plan']} years\n\n{order['license']}\n\nเปิดโปรแกรม ไปที่ตั้งค่าไลเซนต์ แล้ววางคีย์นี้\nOpen FormDD license settings and paste this key.\nSupport: formdd@xambrain.com"})
+                  'text': f"ขอบคุณที่สั่งซื้อ FormDD\nOrder: {order['id']}\nMachine ID: {order['machine']}\nPlan: {plan_record(order['plan'])['label']}\n\n{order['license']}\n\nเปิดโปรแกรม ไปที่ตั้งค่าไลเซนต์ แล้ววางคีย์นี้\nOpen FormDD license settings and paste this key.\nSupport: formdd@xambrain.com"})
         result.raise_for_status()
         with use_db() as conn:
             conn.execute('UPDATE orders SET sent=1 WHERE id=?', (order['id'],))

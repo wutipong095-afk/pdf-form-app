@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from license_core import (  # noqa: E402
+    LICENSE_LIFETIME_DAYS,
     LICENSE_TERM_DAYS,
     MAX_ISSUE_DAYS,
     TERM_CHOICES_TEXT,
@@ -68,7 +69,13 @@ def test_unknown_term_is_rejected():
 
 def test_choice_text_follows_the_table():
     assert TERM_CHOICES_TEXT == "{1,3,5,10}"
-    assert MAX_ISSUE_DAYS == LICENSE_TERM_DAYS[10]
+    assert MAX_ISSUE_DAYS == LICENSE_LIFETIME_DAYS
+
+
+def test_lifetime_days_can_be_issued():
+    priv = Ed25519PrivateKey.generate()
+    key, allowed = issue_with_window(LICENSE_LIFETIME_DAYS, priv)
+    assert expiry_of(key) in allowed
 
 
 @pytest.mark.parametrize("years", sorted(LICENSE_TERM_DAYS))
