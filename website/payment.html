@@ -1,1 +1,44 @@
-<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>สถานะคำสั่งซื้อ | FormDD</title><link rel="stylesheet" href="css/landing.css"></head><body><main class="page"><div class="wrap"><h1>ขอบคุณสำหรับคำสั่งซื้อ FormDD</h1><p>เมื่อ Stripe ยืนยันว่าชำระเงินสำเร็จ ระบบจะส่งคีย์เปิดใช้งานไปยังอีเมลที่กรอกก่อนชำระเงิน โปรดตรวจกล่องจดหมายและโฟลเดอร์สแปม</p><p>การกลับมาหน้านี้อย่างเดียวไม่ได้ยืนยันยอดชำระ หากยังไม่ได้รับอีเมล กรุณาติดต่อผู้ขายพร้อมหมายเลขรายการจาก Stripe ไม่จำเป็นต้องชำระซ้ำ</p><div class="cta-row"><a class="btn" href="mailto:formdd@xambrain.com">ติดต่อผู้ขาย</a><a href="install.html">วิธีติดตั้งโปรแกรม</a><a href="index.html">กลับหน้าแรก</a></div></div></main></body></html>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>สถานะคำสั่งซื้อ | FormDD</title>
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+  <main class="page">
+    <div class="wrap">
+      <h1>ขอบคุณสำหรับคำสั่งซื้อ FormDD</h1>
+      <p>เมื่อ Stripe ยืนยันว่าชำระเงินสำเร็จ ระบบจะส่งคีย์เปิดใช้งานไปยังอีเมลที่กรอกก่อนชำระเงิน โปรดตรวจกล่องจดหมายและโฟลเดอร์สแปม</p>
+      <p>การกลับมาหน้านี้อย่างเดียวไม่ได้ยืนยันยอดชำระ หากยังไม่ได้รับอีเมล กรุณาติดต่อผู้ขายพร้อมหมายเลขรายการจาก Stripe ไม่จำเป็นต้องชำระซ้ำ</p>
+      <p>อีเมลผู้ขาย: <a id="seller-email" href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></p>
+      <p id="contact-status" class="price-note" role="status"></p>
+      <div class="cta-row">
+        <a class="btn" id="contact-seller" href="mailto:formdd@xambrain.com">ติดต่อผู้ขาย</a>
+        <a href="install.html">วิธีติดตั้งโปรแกรม</a>
+        <a href="index.html">กลับหน้าแรก</a>
+      </div>
+    </div>
+  </main>
+  <script>
+    (function () {
+      var email = 'formdd@xambrain.com';
+      var status = document.getElementById('contact-status');
+      var btn = document.getElementById('contact-seller');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        function done() {
+          if (status) status.textContent = 'คัดลอก ' + email + ' แล้ว วางในแอปเมลได้';
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(email).then(done).catch(done);
+        } else {
+          done();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
