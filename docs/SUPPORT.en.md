@@ -14,10 +14,10 @@ With a key: the customer’s own PDFs. No reinstall.
 
 | Channel | What we sell | Notes |
 |---------|--------------|-------|
-| International store (English pages) | US$49 Personal for 10 years; School/Small Team US$99–149 (5–10 PCs); Organization from US$249 | All paid packages: 10 years (3,650 days from issuance), not lifetime. Updates while the key is valid (expiry on the license bar). Do not promise a 5-year feature cutoff until the update feed can be gated. |
+| International store (English pages) | US$19 per computer for 10 years. More computers: US$19 × count, no volume discount | All paid seats: 10 years (3,650 days from issuance), not lifetime. Updates while the key is valid (expiry on the license bar). Do not promise a 5-year feature cutoff until the update feed can be gated. |
 | Thailand store (Thai pages only) | see [SUPPORT.md](SUPPORT.md) | Do not publish baht prices on English pages. |
 
-English site: Personal is the default. Teams pick a seat pack or email a count.  
+English site: US$19 per computer is the only paid price. Teams email a count. No cheaper School/Org packs.  
 Thai quotes default to **lifetime + major updates for 3 years** if the buyer does not pick a plan. Thai prices are per PC, multiplied by the number of PCs, with no automatic volume discount.  
 Site: [website/pricing.en.html](../website/pricing.en.html) · [website/pricing.html](../website/pricing.html) (Thai)
 
