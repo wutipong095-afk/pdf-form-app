@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import sys
+import threading
 import time
 import uuid
 from contextlib import closing, contextmanager
@@ -11,8 +12,9 @@ from pathlib import Path
 
 import requests
 import stripe
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from flask import Flask, jsonify, request, send_from_directory
-from license_core import LICENSE_LIFETIME_DAYS, days_for_term_years, issue_license_key
+from license_core import LICENSE_LIFETIME_DAYS, days_for_term_years, issue_license_key, load_private_key, load_public_key
 
 # amount is Stripe unit_amount in satang. days is written into the issued key.
 PLANS = {
@@ -57,10 +59,14 @@ LEGACY_PLANS = {
         'product': 'FormDD 10 ปี / 1 เครื่อง',
     },
 }
+EMAIL_RETRY_SECONDS = 23 * 3600
+MAIL_CLAIM_SECONDS = 120
 
 
 def plan_record(plan: str):
     return PLANS.get(plan) or LEGACY_PLANS.get(plan)
+
+
 ROOT = Path(__file__).resolve().parent
 
 
@@ -86,6 +92,18 @@ def _install_private_key_from_env() -> None:
     os.environ['LICENSE_PRIVATE_KEY_PATH'] = str(path)
 
 
+def signing_keys_match() -> bool:
+    """True if the seller private key is the pair of license_public.pem in the app."""
+    try:
+        private = load_private_key()
+        public = load_public_key()
+        issued = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+        shipped = public.public_bytes(Encoding.Raw, PublicFormat.Raw)
+        return issued == shipped
+    except Exception:
+        return False
+
+
 def create_app(config=None):
     _install_private_key_from_env()
     app = Flask(__name__, static_folder=None)
@@ -97,10 +115,14 @@ def create_app(config=None):
         STRIPE_WEBHOOK_SECRET=os.environ.get('STRIPE_WEBHOOK_SECRET', ''),
         RESEND_API_KEY=os.environ.get('RESEND_API_KEY', ''),
         SALES_FROM=os.environ.get('SALES_FROM', ''),
+        SALES_ALERT_TO=os.environ.get('SALES_ALERT_TO', ''),
+        SALES_ADMIN_TOKEN=os.environ.get('SALES_ADMIN_TOKEN', ''),
         SALES_ENABLED=os.environ.get('SALES_ENABLED') == 'true',
+        SALES_MAIL_POLL=float(os.environ.get('SALES_MAIL_POLL', '5')),
         # Optional: pin the Stripe API version so behaviour cannot drift when the
         # account default changes. Leave empty to use the account/SDK default.
         STRIPE_API_VERSION=os.environ.get('STRIPE_API_VERSION', ''),
+        TESTING=False,
     )
     if config: app.config.update(config)
     if app.config['STRIPE_API_VERSION']:
@@ -134,10 +156,134 @@ def create_app(config=None):
         cols = {row[1] for row in conn.execute('PRAGMA table_info(orders)')}
         if 'product' not in cols:
             conn.execute('ALTER TABLE orders ADD COLUMN product TEXT')
+        if 'alerted' not in cols:
+            conn.execute('ALTER TABLE orders ADD COLUMN alerted INTEGER NOT NULL DEFAULT 0')
+        for name, kind in (('mail_claim', 'TEXT'), ('mail_claim_until', 'REAL'),
+                           ('recovery_started', 'REAL')):
+            if name not in cols:
+                conn.execute(f'ALTER TABLE orders ADD COLUMN {name} {kind}')
 
     def ready():
         return app.config['SALES_ENABLED'] and all(app.config[k] for k in (
-            'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'RESEND_API_KEY', 'SALES_FROM'))
+            'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'RESEND_API_KEY', 'SALES_FROM'
+        )) and signing_keys_match()
+
+    def admin_ok():
+        token = app.config['SALES_ADMIN_TOKEN']
+        if not token:
+            return False
+        return request.headers.get('Authorization') == 'Bearer ' + token
+
+    def license_email_body(order):
+        spec = plan_record(order['plan'])
+        label = spec['label'] if spec else order['plan']
+        return (
+            f"ขอบคุณที่สั่งซื้อ FormDD\nOrder: {order['id']}\n"
+            f"Machine ID: {order['machine']}\nPlan: {label}\n\n{order['license']}\n\n"
+            "เปิดโปรแกรม ไปที่ตั้งค่าไลเซนต์ แล้ววางคีย์นี้\n"
+            "Open FormDD license settings and paste this key.\n"
+            "Support: formdd@xambrain.com"
+        )
+
+    def post_resend(to, subject, text, idempotency):
+        result = requests.post(
+            'https://api.resend.com/emails', timeout=20,
+            headers={'Authorization': 'Bearer ' + app.config['RESEND_API_KEY'],
+                     'Idempotency-Key': idempotency},
+            json={'from': app.config['SALES_FROM'], 'to': [to],
+                  'subject': subject, 'text': text})
+        result.raise_for_status()
+
+    def alert_seller(order):
+        dest = (app.config['SALES_ALERT_TO'] or app.config['SALES_FROM']).strip()
+        if not dest:
+            app.logger.error('Unsent paid order %s has no SALES_ALERT_TO / SALES_FROM', order['id'])
+            return
+        post_resend(
+            dest,
+            'FormDD: คีย์ค้างส่ง / unpaid email',
+            (
+                f"จ่ายแล้วแต่ส่งคีย์ให้ลูกค้าไม่สำเร็จ\n"
+                f"Order: {order['id']}\nCustomer: {order['email']}\n"
+                f"Machine ID: {order['machine']}\n"
+                f"ส่งซ้ำ: POST /api/sales/resend with this order id\n\n{order['license']}"
+            ),
+            'alert-' + order['id'],
+        )
+        with use_db() as conn:
+            conn.execute('UPDATE orders SET alerted=1 WHERE id=?', (order['id'],))
+
+    def send_customer(order_id, manual=False):
+        # Claim in SQLite, not a process-local lock: workers and admin requests
+        # share ownership, including after a restart. Never hold a DB lock over HTTP.
+        claim = uuid.uuid4().hex
+        now = time.time()
+        with use_db() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            order = conn.execute('SELECT * FROM orders WHERE id=?', (order_id,)).fetchone()
+            if not order or not order['paid'] or not order['license']:
+                return 'missing'
+            if order['sent']:
+                return 'sent'
+            if (order['mail_claim_until'] or 0) > now:
+                return 'busy'
+            started = order['email_started'] or now
+            recovery = order['recovery_started']
+            if now - started > EMAIL_RETRY_SECONDS:
+                if not manual:
+                    return 'expired'
+                if recovery and now - recovery > EMAIL_RETRY_SECONDS:
+                    # Delivery may have succeeded before a crash. Do not reuse a
+                    # provider key after its deduplication window has elapsed.
+                    return 'review'
+                recovery = recovery or now
+            delivery = ('license-resend-' if recovery else 'license-') + order_id
+            conn.execute(
+                'UPDATE orders SET mail_claim=?,mail_claim_until=?,email_started=?,recovery_started=? WHERE id=?',
+                (claim, now + MAIL_CLAIM_SECONDS, started, recovery, order_id))
+        try:
+            post_resend(order['email'], 'FormDD: คีย์เปิดใช้งาน / Activation key',
+                        license_email_body(order), delivery)
+            with use_db() as conn:
+                conn.execute('UPDATE orders SET sent=1 WHERE id=? AND mail_claim=?', (order_id, claim))
+            return 'sent'
+        finally:
+            with use_db() as conn:
+                conn.execute('UPDATE orders SET mail_claim=NULL,mail_claim_until=NULL WHERE id=? AND mail_claim=?',
+                             (order_id, claim))
+
+    def drain_mail():
+        """Send or alert for paid orders that still lack a customer email."""
+        with closing(db()) as conn:
+            pending = conn.execute(
+                'SELECT * FROM orders WHERE paid=1 AND sent=0 AND license IS NOT NULL'
+            ).fetchall()
+        now = time.time()
+        for order in pending:
+            started = order['email_started'] or now
+            if now - started > EMAIL_RETRY_SECONDS:
+                if not order['alerted']:
+                    try:
+                        alert_seller(order)
+                    except Exception:
+                        app.logger.exception('Seller alert failed for order %s', order['id'])
+                continue
+            try:
+                send_customer(order['id'])
+            except Exception:
+                app.logger.exception('Customer license email pending for order %s', order['id'])
+
+    app.drain_mail = drain_mail
+
+    if not app.config.get('TESTING'):
+        def mail_loop():
+            while True:
+                try:
+                    drain_mail()
+                except Exception:
+                    app.logger.exception('Mail worker')
+                time.sleep(max(1.0, float(app.config['SALES_MAIL_POLL'])))
+        threading.Thread(target=mail_loop, name='sales-mail', daemon=True).start()
 
     @app.after_request
     def headers(response):
@@ -181,9 +327,8 @@ def create_app(config=None):
         try: uuid.UUID(order_id)
         except ValueError: return jsonify(error='Invalid request ID'), 400
         try:
-            # Refuse payment if the seller's signing key is unavailable.
-            from license_core import load_private_key
-            load_private_key()
+            if not signing_keys_match():
+                return jsonify(error='ระบบออกคีย์ยังไม่พร้อม กรุณาติดต่อผู้ขาย'), 503
             # Persist the order and read back its state in one short transaction,
             # BEFORE any Stripe network call, so no write lock is held while Stripe
             # is slow. INSERT OR IGNORE keeps this idempotent per request_id.
@@ -226,6 +371,7 @@ def create_app(config=None):
             return jsonify(error='สร้างรายการชำระเงินไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ขาย'), 502
 
     def fulfill(session_id):
+        """Record a paid order and issue the key. Email is a later drain_mail job."""
         session = stripe.checkout.Session.retrieve(session_id, api_key=app.config['STRIPE_SECRET_KEY'])
         if session.payment_status != 'paid': return
         with use_db() as conn:
@@ -241,28 +387,6 @@ def create_app(config=None):
             key = order['license'] or issue_license_key(order['machine'], days=spec['days'])
             started = order['email_started'] or time.time()
             conn.execute('UPDATE orders SET paid=1,license=?,email_started=? WHERE id=?', (key, started, order['id']))
-        # The key is durable and committed. Contact the email provider WITHOUT
-        # holding a write lock, so concurrent checkouts are never blocked on the
-        # network call. Resend's Idempotency-Key makes a retried send reuse the
-        # same delivery, so it is safe to send outside the transaction.
-        with closing(db()) as conn:
-            order = conn.execute('SELECT * FROM orders WHERE session=?', (session_id,)).fetchone()
-        if order['sent']: return
-        if time.time() - order['email_started'] > 23 * 3600:
-            # Stop retrying instead of returning 500 forever (which eventually makes
-            # Stripe disable the endpoint and blocks future orders too). The key is
-            # paid and issued; a seller reconciles unsent paid orders (paid=1,sent=0).
-            app.logger.error('Email retry window expired for order %s; key issued but not emailed — seller must send it manually', order['id'])
-            return
-        result = requests.post('https://api.resend.com/emails', timeout=20,
-            headers={'Authorization': 'Bearer ' + app.config['RESEND_API_KEY'],
-                     'Idempotency-Key': 'license-' + order['id']},
-            json={'from': app.config['SALES_FROM'], 'to': [order['email']],
-                  'subject': 'FormDD: คีย์เปิดใช้งาน / Activation key',
-                  'text': f"ขอบคุณที่สั่งซื้อ FormDD\nOrder: {order['id']}\nMachine ID: {order['machine']}\nPlan: {plan_record(order['plan'])['label']}\n\n{order['license']}\n\nเปิดโปรแกรม ไปที่ตั้งค่าไลเซนต์ แล้ววางคีย์นี้\nOpen FormDD license settings and paste this key.\nSupport: formdd@xambrain.com"})
-        result.raise_for_status()
-        with use_db() as conn:
-            conn.execute('UPDATE orders SET sent=1 WHERE id=?', (order['id'],))
 
     @app.post('/api/sales/webhook')
     def webhook():
@@ -273,11 +397,49 @@ def create_app(config=None):
         except (ValueError, stripe.SignatureVerificationError):
             return jsonify(error='Invalid signature'), 400
         if event.type in ('checkout.session.completed', 'checkout.session.async_payment_succeeded'):
-            try: fulfill(event.data.object.id)
+            try:
+                fulfill(event.data.object.id)
             except Exception:
                 app.logger.exception('Fulfillment pending; Stripe event %s requires retry or seller review', event.id)
                 return jsonify(error='Fulfillment pending'), 500
         return jsonify(received=True)
+
+    @app.get('/api/sales/unsent')
+    def unsent():
+        if not admin_ok():
+            return jsonify(error='Not found'), 404
+        with closing(db()) as conn:
+            rows = conn.execute(
+                'SELECT id,email,machine,plan,paid,sent,alerted,email_started FROM orders '
+                'WHERE paid=1 AND sent=0 ORDER BY email_started'
+            ).fetchall()
+        return jsonify(orders=[dict(row) for row in rows])
+
+    @app.post('/api/sales/resend')
+    def resend():
+        if not admin_ok():
+            return jsonify(error='Not found'), 404
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            return jsonify(error='Invalid request'), 400
+        order_id = str(data.get('order_id', '')).strip()
+        with closing(db()) as conn:
+            order = conn.execute('SELECT * FROM orders WHERE id=?', (order_id,)).fetchone()
+        if not order or not order['paid'] or not order['license']:
+            return jsonify(error='Order not found'), 404
+        if order['sent']:
+            return jsonify(ok=True, already=True)
+        try:
+            state = send_customer(order_id, manual=True)
+        except Exception:
+            app.logger.exception('Manual delivery pending for order %s', order_id)
+            return jsonify(error='Email delivery pending; retry safely'), 502
+        if state in ('busy', 'review'):
+            return jsonify(error='Delivery in progress' if state == 'busy' else
+                           'Check provider delivery history before further recovery'), 409
+        if state == 'missing':
+            return jsonify(error='Order not found'), 404
+        return jsonify(ok=True)
 
     @app.get('/')
     def home(): return send_from_directory(ROOT / 'website', 'index.html')

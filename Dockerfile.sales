@@ -6,7 +6,7 @@ WORKDIR /app
 COPY requirements-sales-cloud.txt .
 RUN pip install --no-cache-dir -r requirements-sales-cloud.txt
 
-COPY sales_service.py start_sales.py license_core.py envutil.py i18n_core.py ./
+COPY sales_service.py start_sales.py license_core.py envutil.py i18n_core.py license_public.pem ./
 COPY locales ./locales
 COPY website ./website
 

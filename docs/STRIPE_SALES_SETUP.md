@@ -44,6 +44,8 @@ Use a **new Railway project**, not the ExamFlow API/worker project.
    - `RESEND_API_KEY`
    - `SALES_FROM` = a verified Resend sender
    - `LICENSE_PRIVATE_KEY` = the existing Ed25519 PEM (same key that matches `license_public.pem` in the app). Do not generate a new pair.
+   - `SALES_ALERT_TO` = seller inbox for paid-but-unsent alerts (defaults to `SALES_FROM`).
+   - `SALES_ADMIN_TOKEN` = bearer token for `GET /api/sales/unsent` and `POST /api/sales/resend`. Leave empty to hide those routes.
 
 4. Settings → Networking → custom domain `sales.formdd.xambrain.com`.
    At the DNS host, CNAME `sales` → the Railway domain shown there.
@@ -63,19 +65,26 @@ Configure `/api/sales/webhook` for `checkout.session.completed` and
 `checkout.session.async_payment_succeeded`. The official Stripe SDK verifies the raw
 payload signature. The service retrieves the Session and checks payment status,
 currency, amount, and order reference before issuing a machine-bound key.
-The key is saved before email delivery. Duplicate notifications reuse the key and
-the Resend idempotency key; sent orders are skipped.
+Checkout stays closed unless that private key matches the `license_public.pem`
+shipped with the desktop app. The key is saved and the webhook returns HTTP 200
+before email delivery. Duplicate notifications reuse the stored key. A background
+worker sends Resend mail with `Idempotency-Key: license-{order_id}`.
 
 Resend acceptance is not proof of inbox delivery. Monitor bounces in Resend.
-After an ambiguous email failure, automatic retries stop after 23 hours to avoid
-retrying beyond the provider's 24-hour idempotency window. Check Resend delivery
-history before manually resending the stored key. A pending webhook returns HTTP 500
-so Stripe can retry. Monitor failed webhooks and reconcile orders with `paid=1,sent=0`.
+Automatic customer retries stop after 23 hours so the provider's 24-hour
+idempotency window is not reused. After that window the worker emails the seller
+and leaves `paid=1,sent=0`. Recover with `GET /api/sales/unsent` and
+`POST /api/sales/resend`. Automatic and manual sends share a database claim;
+an active claim returns HTTP 409 to manual callers and expires after 120 seconds
+if a worker stops. Within the original window, manual retries reuse
+`license-{order_id}`. After that window, check provider delivery history first;
+manual recovery uses `license-resend-{order_id}`. Ambiguous recovery attempts
+reuse that key for at most 23 hours, then return HTTP 409 for seller review.
 Never ask the customer to pay again to recover a missing email.
 
 ## Before live launch
 
-1. Configure test-mode Stripe, signing key, verified sender, persistent database.
+1. Configure test-mode Stripe, matching signing key, verified sender, persistent database, and an admin token for unsent recovery.
 2. Test successful and declined payments, cancellation, repeated webhook delivery,
    delayed confirmation, email outages, and receipt of the actual key in a test inbox.
 3. Activate a test-generated key on the intended machine and check the expiry.

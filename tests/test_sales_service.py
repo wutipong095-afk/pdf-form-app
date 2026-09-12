@@ -49,16 +49,19 @@ def test_concurrent_startup_migrates_legacy_database_once(tmp_path, monkeypatch)
     with original_connect(path) as conn:
         columns = [row[1] for row in conn.execute('PRAGMA table_info(orders)')]
         assert columns.count('product') == 1
+        assert columns.count('alerted') == 1
         assert conn.execute('SELECT id FROM orders').fetchone()[0] == 'existing-order'
     conn.close()
 
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch):
+    monkeypatch.setattr(sales, 'signing_keys_match', lambda: True)
     app = sales.create_app({'TESTING': True, 'SALES_DB': str(tmp_path / 'orders.db'),
         'SALES_ENABLED': True, 'SALES_ORIGIN': 'https://shop.example',
         'STRIPE_SECRET_KEY': 'sk_test_fake', 'STRIPE_WEBHOOK_SECRET': 'whsec_test',
-        'RESEND_API_KEY': 'fake', 'SALES_FROM': 'shop@example.com'})
+        'RESEND_API_KEY': 'fake', 'SALES_FROM': 'shop@example.com',
+        'SALES_ALERT_TO': 'seller@example.com', 'SALES_ADMIN_TOKEN': 'admin-test'})
     monkeypatch.setattr('license_core.load_private_key', lambda: object())
     session = SimpleNamespace(id='cs_test_order', url='https://checkout.stripe.com/test',
         payment_status='paid', mode='payment', currency='thb', amount_total=9900)
@@ -83,7 +86,13 @@ def event(client, kind='checkout.session.completed', signature=True):
     body = json.dumps({'id':'evt_test', 'type':kind, 'data':{'object':{'id':'cs_test_order'}}}).encode()
     timestamp = str(int(time.time()))
     digest = hmac.new(b'whsec_test', timestamp.encode()+b'.'+body, hashlib.sha256).hexdigest()
-    return client.post('/api/sales/webhook', data=body, headers={'Stripe-Signature':f't={timestamp},v1={digest if signature else "bad"}'})
+    response = client.post('/api/sales/webhook', data=body, headers={'Stripe-Signature':f't={timestamp},v1={digest if signature else "bad"}'})
+    if response.status_code == 200:
+        try:
+            client.application.drain_mail()
+        except Exception:
+            pass
+    return response
 
 
 def test_paid_and_duplicate_events_send_once(setup):
@@ -134,7 +143,7 @@ def test_email_failure_reuses_key_and_delivery_id(setup):
     client, payload, _, _, issue, mail = setup
     checkout(client, payload)
     mail.side_effect = [RuntimeError('timeout'), Mock()]
-    assert event(client).status_code == 500
+    assert event(client).status_code == 200
     assert event(client).status_code == 200
     assert issue.call_count == 1
     assert mail.call_args_list[0].kwargs == mail.call_args_list[1].kwargs
@@ -197,24 +206,25 @@ def test_stalled_delivery_stops_retrying_after_window(setup, tmp_path):
     client, payload, _, _, issue, mail = setup
     checkout(client, payload)
     mail.side_effect = RuntimeError('email provider down')
-    # First delivery attempt fails -> 500 so Stripe retries; the key is issued and
-    # email_started is recorded.
-    assert event(client).status_code == 500
-    # Backdate the retry window so the next attempt is past the 23h cutoff.
+    # Payment is persisted and Stripe gets 200; email is a later job.
+    assert event(client).status_code == 200
+    # Backdate the retry window so the next drain is past the 23h cutoff.
     db = sqlite3.connect(str(tmp_path / 'orders.db'))
     db.execute('UPDATE orders SET email_started = email_started - ?', (24 * 3600,))
     db.commit()
     db.close()
     mail.reset_mock()
     mail.side_effect = None
-    # Now the webhook returns 200 (give up) instead of looping 500s forever, and
-    # does not send again. The paid, issued key stays on the order for the seller.
+    # Customer email is not retried with the expired idempotency key. The seller
+    # is alerted instead; the paid key stays on the order for a manual resend.
     assert event(client).status_code == 200
-    mail.assert_not_called()
+    assert mail.call_count == 1
+    assert mail.call_args.kwargs['headers']['Idempotency-Key'] == 'alert-' + payload['request_id']
+    assert mail.call_args.kwargs['json']['to'] == ['seller@example.com']
     assert issue.call_count == 1
     row = sqlite3.connect(str(tmp_path / 'orders.db')).execute(
-        'SELECT paid, sent, license FROM orders').fetchone()
-    assert row[0] == 1 and row[1] == 0 and row[2]
+        'SELECT paid, sent, license, alerted FROM orders').fetchone()
+    assert row[0] == 1 and row[1] == 0 and row[2] and row[3] == 1
 
 
 @pytest.mark.parametrize('plan', ['lt', 'lt3'])
@@ -348,3 +358,97 @@ def test_retry_keeps_params_if_stripe_created_but_session_not_saved(setup, tmp_p
     assert event(client).status_code == 200
     issue.assert_called_once_with(payload['machine_id'], days=spec['days'])
     assert mail.call_count == 1
+
+
+def _write_ed25519_pair(tmp_path, matching=True):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
+
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key() if matching else Ed25519PrivateKey.generate().public_key()
+    priv_pem = tmp_path / 'priv.pem'
+    pub_pem = tmp_path / 'pub.pem'
+    priv_pem.write_bytes(private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+    pub_pem.write_bytes(public.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo))
+    return priv_pem, pub_pem
+
+
+def test_signing_keys_match_uses_ephemeral_pair(tmp_path, monkeypatch):
+    from license_core import load_public_key
+
+    try:
+        priv_pem, pub_pem = _write_ed25519_pair(tmp_path, matching=True)
+        monkeypatch.setenv('LICENSE_PRIVATE_KEY_PATH', str(priv_pem))
+        monkeypatch.setenv('LICENSE_PUBLIC_KEY_PATH', str(pub_pem))
+        load_public_key.cache_clear()
+        assert sales.signing_keys_match() is True
+
+        other = tmp_path / 'other'
+        other.mkdir()
+        _, other_pub = _write_ed25519_pair(other, matching=False)
+        monkeypatch.setenv('LICENSE_PUBLIC_KEY_PATH', str(other_pub))
+        load_public_key.cache_clear()
+        assert sales.signing_keys_match() is False
+    finally:
+        load_public_key.cache_clear()
+
+
+def test_mismatched_signing_keys_disable_checkout(tmp_path, monkeypatch):
+    monkeypatch.setattr(sales, 'signing_keys_match', lambda: False)
+    app = sales.create_app({'TESTING': True, 'SALES_DB': str(tmp_path / 'orders.db'),
+        'SALES_ENABLED': True, 'SALES_ORIGIN': 'https://shop.example',
+        'STRIPE_SECRET_KEY': 'sk_test_fake', 'STRIPE_WEBHOOK_SECRET': 'whsec_test',
+        'RESEND_API_KEY': 'fake', 'SALES_FROM': 'shop@example.com'})
+    client = app.test_client()
+    assert client.get('/api/sales/config').get_json() == {'enabled': False}
+    payload = dict(machine_id='0123456789ABCDEF', email='buyer@example.com',
+                   plan='1', request_id=str(uuid.uuid4()))
+    assert checkout(client, payload).status_code == 503
+
+
+def test_admin_lists_unsent_and_resends_after_window(setup, tmp_path):
+    import sqlite3
+    client, payload, _, _, _, mail = setup
+    checkout(client, payload)
+    mail.side_effect = RuntimeError('email provider down')
+    assert event(client).status_code == 200
+    db = sqlite3.connect(str(tmp_path / 'orders.db'))
+    db.execute('UPDATE orders SET email_started = email_started - ?', (24 * 3600,))
+    db.commit()
+    db.close()
+    mail.reset_mock()
+    mail.side_effect = None
+    assert event(client).status_code == 200
+
+    hidden = client.get('/api/sales/unsent')
+    assert hidden.status_code == 404
+    listed = client.get('/api/sales/unsent', headers={'Authorization': 'Bearer admin-test'})
+    assert listed.status_code == 200
+    orders = listed.get_json()['orders']
+    assert len(orders) == 1
+    assert orders[0]['id'] == payload['request_id']
+    assert orders[0]['sent'] == 0 and orders[0]['alerted'] == 1
+    assert 'license' not in orders[0]
+
+    mail.reset_mock()
+    resent = client.post('/api/sales/resend', json={'order_id': payload['request_id']},
+                         headers={'Authorization': 'Bearer admin-test'})
+    assert resent.status_code == 200
+    assert mail.call_args.kwargs['headers']['Idempotency-Key'] == 'license-resend-' + payload['request_id']
+    assert mail.call_args.kwargs['json']['to'] == [payload['email']]
+    already = client.post('/api/sales/resend', json={'order_id': payload['request_id']},
+                          headers={'Authorization': 'Bearer admin-test'})
+    assert already.get_json() == {'ok': True, 'already': True}
+
+
+def test_empty_admin_token_hides_recovery_routes(tmp_path, monkeypatch):
+    monkeypatch.setattr(sales, 'signing_keys_match', lambda: True)
+    app = sales.create_app({'TESTING': True, 'SALES_DB': str(tmp_path / 'orders.db'),
+        'SALES_ENABLED': True, 'SALES_ORIGIN': 'https://shop.example',
+        'STRIPE_SECRET_KEY': 'sk_test_fake', 'STRIPE_WEBHOOK_SECRET': 'whsec_test',
+        'RESEND_API_KEY': 'fake', 'SALES_FROM': 'shop@example.com',
+        'SALES_ADMIN_TOKEN': ''})
+    client = app.test_client()
+    assert client.get('/api/sales/unsent', headers={'Authorization': 'Bearer anything'}).status_code == 404
+    assert client.post('/api/sales/resend', json={'order_id': 'x'},
+                       headers={'Authorization': 'Bearer anything'}).status_code == 404
