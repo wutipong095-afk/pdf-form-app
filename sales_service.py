@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 import uuid
 from contextlib import closing, contextmanager
@@ -64,15 +65,24 @@ ROOT = Path(__file__).resolve().parent
 
 
 def _install_private_key_from_env() -> None:
-    """Railway/hosting: paste PEM into LICENSE_PRIVATE_KEY. Never commit the key."""
+    """Railway/hosting: paste PEM into LICENSE_PRIVATE_KEY. Never commit the key.
+
+    A bad value must not prevent the process from listening — otherwise Railway
+    returns 502 for /api/sales/config and the seller cannot see that checkout
+    is merely misconfigured.
+    """
     pem = os.environ.get('LICENSE_PRIVATE_KEY', '').replace('\\n', '\n').strip()
     if not pem:
         return
     if 'BEGIN' not in pem:
-        raise RuntimeError('LICENSE_PRIVATE_KEY must be a PEM private key')
+        print('LICENSE_PRIVATE_KEY is set but is not a PEM; ignoring', file=sys.stderr, flush=True)
+        return
     path = Path(os.environ.get('LICENSE_PRIVATE_KEY_FILE', '/tmp/ed25519_private.pem'))
     path.write_text(pem if pem.endswith('\n') else pem + '\n', encoding='ascii')
-    os.chmod(path, 0o600)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
     os.environ['LICENSE_PRIVATE_KEY_PATH'] = str(path)
 
 
