@@ -1,0 +1,23 @@
+# Seller checkout only. Do not use for the desktop/Windows build.
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements-sales-cloud.txt .
+RUN pip install --no-cache-dir -r requirements-sales-cloud.txt
+
+COPY sales_service.py license_core.py envutil.py i18n_core.py ./
+COPY locales ./locales
+COPY website ./website
+
+RUN useradd -m -u 10001 appuser \
+    && mkdir -p /data \
+    && chown -R appuser:appuser /app /data
+
+ENV SALES_DB=/data/orders.sqlite \
+    PORT=8000
+
+USER appuser
+EXPOSE 8000
+
+CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT:-8000} -w 1 --timeout 60 'sales_service:create_app()'"]

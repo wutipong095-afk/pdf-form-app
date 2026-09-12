@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.sales"
+
+[deploy]
+healthcheckPath = "/api/sales/config"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"

@@ -63,7 +63,21 @@ def plan_record(plan: str):
 ROOT = Path(__file__).resolve().parent
 
 
+def _install_private_key_from_env() -> None:
+    """Railway/hosting: paste PEM into LICENSE_PRIVATE_KEY. Never commit the key."""
+    pem = os.environ.get('LICENSE_PRIVATE_KEY', '').replace('\\n', '\n').strip()
+    if not pem:
+        return
+    if 'BEGIN' not in pem:
+        raise RuntimeError('LICENSE_PRIVATE_KEY must be a PEM private key')
+    path = Path(os.environ.get('LICENSE_PRIVATE_KEY_FILE', '/tmp/ed25519_private.pem'))
+    path.write_text(pem if pem.endswith('\n') else pem + '\n', encoding='ascii')
+    os.chmod(path, 0o600)
+    os.environ['LICENSE_PRIVATE_KEY_PATH'] = str(path)
+
+
 def create_app(config=None):
+    _install_private_key_from_env()
     app = Flask(__name__, static_folder=None)
     app.config.update(
         MAX_CONTENT_LENGTH=65536,
@@ -120,14 +134,24 @@ def create_app(config=None):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'no-referrer'
         if request.path.startswith('/api/'): response.headers['Cache-Control'] = 'no-store'
+        origin = request.headers.get('Origin')
+        if origin == app.config['SALES_ORIGIN'] and request.path.startswith('/api/sales/'):
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            response.headers['Vary'] = 'Origin'
         return response
 
-    @app.get('/api/sales/config')
+    @app.route('/api/sales/config', methods=['GET', 'OPTIONS'])
     def settings():
+        if request.method == 'OPTIONS':
+            return '', 204
         return jsonify(enabled=bool(ready()))
 
-    @app.post('/api/sales/checkout')
+    @app.route('/api/sales/checkout', methods=['POST', 'OPTIONS'])
     def checkout():
+        if request.method == 'OPTIONS':
+            return '', 204
         if not ready(): return jsonify(error='ระบบชำระเงินยังไม่เปิดใช้งาน กรุณาติดต่อผู้ขาย'), 503
         if request.headers.get('Origin') != app.config['SALES_ORIGIN']:
             return jsonify(error='Invalid origin'), 403

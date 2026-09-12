@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  const SALES_API = 'https://sales.formdd.xambrain.com';
   const form = document.getElementById('stripe-form');
   if (!form) return;
   const status = document.getElementById('stripe-status');
@@ -12,7 +13,7 @@
   if (['1','lt','lt3'].includes(choice)) plan.value = choice;
   let requestId = null;
   form.addEventListener('input', () => { requestId = null; });
-  fetch('/api/sales/config').then(r => r.ok ? r.json() : {enabled:false}).then(data => {
+  fetch(SALES_API + '/api/sales/config').then(r => r.ok ? r.json() : {enabled:false}).then(data => {
     button.disabled = !data.enabled;
     status.textContent = data.enabled ? '' : 'Stripe ยังไม่เปิดรับชำระเงิน ใช้ช่องทางติดต่อผู้ขายด้านล่างได้';
   }).catch(() => { status.textContent = 'Stripe ยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ขาย'; });
@@ -22,7 +23,7 @@
     button.disabled = true; status.textContent = 'กำลังเปิดหน้าชำระเงินที่ Stripe…';
     requestId ||= crypto.randomUUID();
     try {
-      const response = await fetch('/api/sales/checkout', {method:'POST', headers:{'Content-Type':'application/json'},
+      const response = await fetch(SALES_API + '/api/sales/checkout', {method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({machine_id:mid.value.trim().toUpperCase(), email:document.getElementById('stripe-email').value.trim(), plan:plan.value, request_id:requestId})});
       const data = await response.json();
       if (!response.ok) { if (response.status === 409) requestId = null; throw new Error(data.error || 'ชำระเงินไม่สำเร็จ'); }

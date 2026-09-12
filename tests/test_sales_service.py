@@ -146,6 +146,17 @@ def test_cross_origin_rejected(setup):
     create.assert_not_called()
 
 
+def test_sales_origin_can_call_from_the_website(setup):
+    client, *_ = setup
+    config = client.get('/api/sales/config', headers={'Origin': 'https://shop.example'})
+    assert config.status_code == 200
+    assert config.headers['Access-Control-Allow-Origin'] == 'https://shop.example'
+    preflight = client.open('/api/sales/checkout', method='OPTIONS',
+                            headers={'Origin': 'https://shop.example'})
+    assert preflight.status_code == 204
+    assert preflight.headers['Access-Control-Allow-Origin'] == 'https://shop.example'
+
+
 def test_checkout_holds_no_db_lock_during_stripe_call(setup, tmp_path):
     import sqlite3
     client, payload, session, create, *_ = setup
