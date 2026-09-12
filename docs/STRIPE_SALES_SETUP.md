@@ -28,6 +28,31 @@ for local preview at http://127.0.0.1:5080. Use a production WSGI server behind 
 for production, persistent storage, backups, and edge rate limiting on checkout.
 Do not package this service, payment secrets, or signing keys into the Windows installer.
 
+## Railway (recommended host)
+
+Use a **new Railway project**, not the ExamFlow API/worker project.
+
+1. New project → Deploy from GitHub → `pdf-form-app` → this repo. Railway reads `railway.toml` and `Dockerfile.sales`.
+2. Add a volume mounted at `/data` (SQLite orders).
+3. Variables (test mode first):
+
+   - `SALES_ENABLED=true`
+   - `SALES_ORIGIN=https://formdd.xambrain.com`
+   - `SALES_DB=/data/orders.sqlite`
+   - `STRIPE_SECRET_KEY` = Stripe **test** secret (`sk_test_…`)
+   - `STRIPE_WEBHOOK_SECRET` = webhook signing secret for this endpoint
+   - `RESEND_API_KEY`
+   - `SALES_FROM` = a verified Resend sender
+   - `LICENSE_PRIVATE_KEY` = the existing Ed25519 PEM (same key that matches `license_public.pem` in the app). Do not generate a new pair.
+
+4. Settings → Networking → custom domain `sales.formdd.xambrain.com`.
+   At the DNS host, CNAME `sales` → the Railway domain shown there.
+5. Stripe Dashboard → Webhooks → `https://sales.formdd.xambrain.com/api/sales/webhook`
+   Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`.
+6. The pricing page calls that origin from `website/js/checkout.js`. After DNS works, a test card payment must email a key. Only then switch to live Stripe keys and a live webhook.
+
+Do not add this service to the ExamFlow Railway project. Do not commit `LICENSE_PRIVATE_KEY` or `sk_live_` / `sk_test_` files.
+
 ## Payment and email flow
 
 The browser sends email, 16-character machine ID, plan, and a request UUID.
