@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ราคา FormDD — รายเครื่อง ไม่คิดรายเดือน</title>
-  <meta name="description" content="FormDD สำหรับโรงเรียนไทย เลือกอายุคีย์ 1 ปี 149 บาท ถึง 10 ปี 1,000 บาท ทดลองฟอร์มตัวอย่างฟรี ตัวติดตั้งชุดเดียวกับตัวจริง">
+  <meta name="description" content="FormDD สำหรับโรงเรียนไทย 1 ปี 99 บาท ซื้อขาด 299 บาท หรือซื้อขาดพร้อมอัปเดต 3 ปี 499 บาท ทดลองฟอร์มตัวอย่างฟรี">
   <link rel="canonical" href="https://formdd.xambrain.com/pricing.html">
   <link rel="alternate" hreflang="th" href="https://formdd.xambrain.com/pricing.html">
   <link rel="alternate" hreflang="en" href="https://formdd.xambrain.com/pricing.en.html">
@@ -27,14 +27,15 @@
   <main class="page">
     <div class="wrap">
       <h1>ราคา</h1>
-      <p class="kicker">เอา PDF แบบฟอร์มที่มีอยู่แล้ว ปักครั้งเดียว กรอกซ้ำ ข้อมูลอยู่ในเครื่อง <strong>ไม่คิดรายเดือน</strong> เลือกอายุคีย์ได้ ทดลองฟอร์มตัวอย่างฟรี</p>
+      <p class="kicker">เอา PDF แบบฟอร์มที่มีอยู่แล้ว ปักครั้งเดียว กรอกซ้ำ ข้อมูลอยู่ในเครื่อง <strong>ไม่คิดรายเดือน</strong> ทดลองฟอร์มตัวอย่างฟรี</p>
 
       <section class="panel-card" id="stripe-purchase">
         <h2>ชำระผ่าน Stripe และรับคีย์ทางอีเมล</h2>
         <form id="stripe-form">
           <p><label for="stripe-mid">รหัสเครื่อง 16 ตัว</label><br><input id="stripe-mid" required pattern="[A-Fa-f0-9]{16}" maxlength="16" autocomplete="off" spellcheck="false"></p>
           <p><label for="stripe-email">อีเมลสำหรับรับคีย์</label><br><input id="stripe-email" type="email" required maxlength="254" autocomplete="email"></p>
-          <p><label for="stripe-plan">แผนต่อ 1 เครื่อง</label><br><select id="stripe-plan"><option value="1">1 ปี / 149 บาท</option><option value="3">3 ปี / 350 บาท</option><option value="5">5 ปี / 500 บาท</option><option value="10">10 ปี / 1,000 บาท</option></select></p>
+          <p><label for="stripe-plan">แผนต่อ 1 เครื่อง</label><br><select id="stripe-plan"><option value="1">1 ปี / 99 บาท</option><option value="lt">ซื้อขาด (LT) / 299 บาท</option><option value="lt3">ซื้อขาด + อัปเดต 3 ปี / 499 บาท</option></select></p>
+          <p class="price-note" style="margin-top:0"><a href="#lt">ซื้อขาด (LT) คืออะไร</a> — ใช้เวอร์ชันนั้นได้ตลอดไป รวมแก้บั๊กและความปลอดภัย ไม่รวมเวอร์ชันใหญ่ใหม่</p>
           <p><label><input type="checkbox" required> ตรวจสอบรหัสเครื่องและอีเมลแล้ว และยอมรับ <a href="#policies">เงื่อนไขไลเซนต์</a></label></p>
           <button class="btn" type="submit" disabled>ไปชำระเงินที่ Stripe</button>
           <p id="stripe-status" role="status">กำลังตรวจช่องทางชำระเงิน</p>
@@ -45,7 +46,7 @@
         <h2>ช่องทางโอนเงิน / ขอใบเสนอราคา</h2>
         <form id="purchase-form">
           <p><label for="purchase-mid">รหัสเครื่อง 16 ตัว</label><br><input id="purchase-mid" required pattern="[A-Fa-f0-9]{16}" maxlength="16" autocomplete="off" spellcheck="false" style="width:100%;max-width:24em;padding:10px;box-sizing:border-box"></p>
-          <p><label for="purchase-plan">แผนที่ต้องการ</label><br><select id="purchase-plan" style="max-width:100%;padding:10px"><option value="1 ปี / 149 บาท">1 ปี — 149 บาท / เครื่อง</option><option value="3 ปี / 350 บาท">3 ปี — 350 บาท / เครื่อง</option><option value="5 ปี / 500 บาท">5 ปี — 500 บาท / เครื่อง</option><option value="10 ปี / 1000 บาท">10 ปี — 1000 บาท / เครื่อง</option></select></p>
+          <p><label for="purchase-plan">แผนที่ต้องการ</label><br><select id="purchase-plan" style="max-width:100%;padding:10px"><option value="1 ปี / 99 บาท">1 ปี — 99 บาท / เครื่อง</option><option value="ซื้อขาด (LT) / 299 บาท">ซื้อขาด (LT) — 299 บาท / เครื่อง</option><option value="ซื้อขาด + อัปเดต 3 ปี / 499 บาท">ซื้อขาด + อัปเดต 3 ปี — 499 บาท / เครื่อง</option></select></p>
           <button class="btn" type="submit">เปิดอีเมลพร้อมข้อมูล</button>
           <p id="purchase-status" role="status"></p>
         </form>
@@ -55,7 +56,7 @@
 
       <table class="price-table">
         <thead>
-          <tr><th>แผน</th><th>ราคา / เครื่อง</th><th>อายุคีย์</th></tr>
+          <tr><th>แผน</th><th>ราคา / เครื่อง</th><th>สิทธิ์</th></tr>
         </thead>
         <tbody>
           <tr>
@@ -65,27 +66,32 @@
           </tr>
           <tr>
             <td>1 ปี</td>
-            <td class="num">149 บาท</td>
-            <td>ประมาณ 1 ปี</td>
+            <td class="num">99 บาท</td>
+            <td>ใช้และอัปเดตได้ประมาณ 1 ปี</td>
           </tr>
           <tr>
-            <td>3 ปี</td>
-            <td class="num">350 บาท</td>
-            <td>ประมาณ 3 ปี</td>
+            <td>ซื้อขาด (LT)</td>
+            <td class="num">299 บาท</td>
+            <td>ใช้เวอร์ชันนั้นได้ตลอดไป · แก้บั๊กและความปลอดภัยของเวอร์ชันนั้น · ไม่รวมเวอร์ชันใหญ่ใหม่</td>
           </tr>
           <tr class="recommend">
-            <td>5 ปี</td>
-            <td class="num">500 บาท</td>
-            <td>ประมาณ 5 ปี · แนะนำโรงเรียน</td>
-          </tr>
-          <tr>
-            <td>10 ปี</td>
-            <td class="num">1,000 บาท</td>
-            <td>ประมาณ 10 ปี</td>
+            <td>ซื้อขาด + อัปเดต 3 ปี</td>
+            <td class="num">499 บาท</td>
+            <td>เหมือน LT และได้อัปเดตเวอร์ชันใหญ่ 3 ปี · แนะนำโรงเรียน</td>
           </tr>
         </tbody>
       </table>
-      <p class="price-note">1 คีย์ = 1 เครื่อง ไม่ต่ออายุอัตโนมัติ โรงเรียนที่ไม่ได้ระบุอายุ ใช้แผน 5 ปี<br>ซื้อหลายเครื่องมีส่วนลดตามจำนวน — ส่งจำนวนเครื่องและอายุที่ต้องการมาที่ <a href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></p>
+      <p class="price-note">1 คีย์ = 1 เครื่อง ไม่ต่ออายุอัตโนมัติ โรงเรียนที่ไม่ได้ระบุแผน ใช้ซื้อขาด + อัปเดต 3 ปี<br>ซื้อหลายเครื่องคิดราคาต่อเครื่องคูณจำนวน ไม่มีส่วนลดอัตโนมัติ — ขอใบเสนอราคาได้ที่ <a href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></p>
+
+      <div class="panel-card" id="lt">
+        <h2>ซื้อขาด (LT) คืออะไร</h2>
+        <p><strong>LT (lifetime)</strong> คือใช้โปรแกรม<strong>เวอร์ชันที่ซื้อ</strong>ได้ตลอดไป ไม่ต้องต่อรายปี</p>
+        <ul>
+          <li>รวม <strong>แก้บั๊ก</strong> และ <strong>อัปเดตความปลอดภัย</strong> ของเวอร์ชันนั้น</li>
+          <li><strong>ไม่รวม</strong> เวอร์ชันใหญ่ใหม่ (major version) เช่น เปลี่ยนเลขรุ่นหลัก 1 → 2</li>
+        </ul>
+        <p>ถ้าต้องการเวอร์ชันใหญ่ใหม่ด้วย ให้เลือก <strong>ซื้อขาด + อัปเดต 3 ปี (499 บาท)</strong> — ได้สิทธิ์ LT เหมือนกัน และรับ major update ภายใน 3 ปีหลังซื้อ</p>
+      </div>
 
       <div class="panel-card">
         <h2>วิธีได้ไลเซนต์</h2>
@@ -109,29 +115,31 @@
               บัญชี <strong>นาย ธนวรรธน์ หมื่นแพน</strong></p>
             <p class="price-note" style="margin:0">
               คิวอาร์นี้ไม่ระบุยอด — <strong>กรอกยอดตามแผนที่เลือก ต่อ 1 เครื่อง</strong>
-              (149 / 350 / 500 / 1,000 บาท)<br>
-              ซื้อหลายเครื่องคูณจำนวน แล้วหักส่วนลดตามที่ตกลงทางอีเมลก่อนโอน
+              (99 / 299 / 499 บาท)<br>
+              ซื้อหลายเครื่องคูณจำนวน เช่น แผน 499 บาท จำนวน 5 เครื่อง รวม 2,495 บาท
             </p>
           </div>
         </div>
         <ol>
           <li>สแกนคิวอาร์ กรอกยอดตามแผนและจำนวนเครื่อง แล้วโอน</li>
-          <li>ส่ง <strong>สลิป</strong> + <strong>รหัสเครื่อง 16 ตัว</strong> + <strong>ชื่อหน่วยงาน</strong> + <strong>อายุที่ซื้อ</strong> มาที่
+          <li>ส่ง <strong>สลิป</strong> + <strong>รหัสเครื่อง 16 ตัว</strong> + <strong>ชื่อหน่วยงาน</strong> + <strong>แผนที่ซื้อ</strong> มาที่
             <a href="mailto:formdd@xambrain.com">formdd@xambrain.com</a></li>
           <li>ได้คีย์กลับทางอีเมลภายใน 1 วันทำการ</li>
         </ol>
         <p class="price-note" style="margin:12px 0 0">
           โรงเรียนหรือหน่วยงานที่ต้องเบิกงบ — ขอ <strong>ใบเสนอราคา</strong> ก่อนได้
-          ส่งชื่อหน่วยงาน ที่อยู่ จำนวนเครื่อง และอายุคีย์ (1 / 3 / 5 / 10 ปี) มาที่อีเมลข้างต้น
+          ส่งชื่อหน่วยงาน ที่อยู่ จำนวนเครื่อง และแผน (1 ปี / ซื้อขาด / ซื้อขาด+อัปเดต 3 ปี) มาที่อีเมลข้างต้น
         </p>
       </div>
 
       <div class="panel-card">
         <h2 id="policies">นโยบาย</h2>
         <ul>
-          <li>1 คีย์ = 1 เครื่อง</li>
-          <li>อายุคีย์ตามแผนที่ซื้อ (1 / 3 / 5 / 10 ปี) ไม่ต่ออัตโนมัติ</li>
-          <li>ย้ายเครื่องได้ 2 ครั้งต่อใบต่อปี เมื่อเครื่องเก่าเลิกใช้</li>
+          <li>1 คีย์ = 1 เครื่อง ไม่ต่ออัตโนมัติ</li>
+          <li>แผน 1 ปี ใช้และอัปเดตได้ประมาณ 1 ปี</li>
+          <li>ซื้อขาด (LT) ใช้เวอร์ชันที่ซื้อได้ตลอดไป รวมแก้บั๊กและอัปเดตความปลอดภัยของเวอร์ชันนั้น ไม่รวมเวอร์ชันใหญ่ใหม่</li>
+          <li>ซื้อขาด + อัปเดต 3 ปี ได้สิทธิ์ LT และรับเวอร์ชันใหญ่ใหม่ 3 ปีหลังซื้อ</li>
+          <li>ย้ายเครื่องได้ 2 ครั้งต่อใบต่อปี เมื่อเครื่องเก่าเลิกใช้ โดยคงวันหมดอายุและสิทธิ์อัปเดตเดิม ไม่เริ่มนับใหม่ และไม่ใช่การเพิ่มเครื่องใช้งาน</li>
           <li>เปิดใช้แล้วทำงานออฟไลน์ได้ ไม่เก็บไฟล์ลูกค้าบนเซิร์ฟเวอร์ผู้ขาย</li>
         </ul>
       </div>

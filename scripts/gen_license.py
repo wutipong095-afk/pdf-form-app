@@ -6,8 +6,7 @@
 
 ตัวอย่าง:
   python scripts/gen_license.py A1B2C3D4E5F67890 --term 1
-  python scripts/gen_license.py A1B2C3D4E5F67890 --term 5
-  python scripts/gen_license.py A1B2C3D4E5F67890 --term 10
+  python scripts/gen_license.py A1B2C3D4E5F67890 --days 36500
   python scripts/gen_license.py A1B2C3D4E5F67890 --days 400
 """
 from __future__ import annotations

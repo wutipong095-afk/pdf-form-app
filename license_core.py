@@ -25,16 +25,18 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from envutil import BASE, env_bool, is_frozen
 from i18n_core import t
 
-# อายุคีย์ที่ขายได้ (ปี → วัน) — ไทยเลือกแถว 1/3/5/10 · ต่างประเทศใช้ 10
+# อายุคีย์ที่ขายได้ (ปี → วัน) — แถว 1 ปียังขาย · 3/5/10 ไว้ย้ายเครื่องคีย์เก่า
 LICENSE_TERM_DAYS: dict[int, int] = {
     1: 365,
     3: 1095,
     5: 1825,
     10: 3650,
 }
+# ซื้อขาด (LT): คีย์มีวันหมดอายุวันเดียว จึงใช้ ~100 ปีเป็น perpetual ในทางปฏิบัติ
+LICENSE_LIFETIME_DAYS = 36500
 # เพดานอายุคีย์ = แถวที่ยาวสุดที่ขาย คีย์ที่ออกแล้ว revoke ไม่ได้ (แอปออฟไลน์ล้วน)
 # พิมพ์ --days เกินหนึ่งครั้งจึงเท่ากับที่นั่งฟรีถาวร และเลขโตพอจะทำ date overflow
-MAX_ISSUE_DAYS = max(LICENSE_TERM_DAYS.values())
+MAX_ISSUE_DAYS = max(max(LICENSE_TERM_DAYS.values()), LICENSE_LIFETIME_DAYS)
 TERM_CHOICES_TEXT = "{" + ",".join(str(y) for y in sorted(LICENSE_TERM_DAYS)) + "}"
 KEY_PREFIX = "PFM2"
 # แพ็กทดลองทางการ — ตรวจด้วย hash เนื้อไฟล์ ไม่ใช่แค่ชื่อ

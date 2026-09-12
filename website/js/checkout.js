@@ -9,7 +9,7 @@
   const incoming = new URLSearchParams(location.hash.slice(1)).get('machine_id');
   if (/^[a-f0-9]{16}$/i.test(incoming || '')) mid.value = incoming.toUpperCase();
   const choice = new URLSearchParams(location.search).get('plan');
-  if (['1','3','5','10'].includes(choice)) plan.value = choice;
+  if (['1','lt','lt3'].includes(choice)) plan.value = choice;
   let requestId = null;
   form.addEventListener('input', () => { requestId = null; });
   fetch('/api/sales/config').then(r => r.ok ? r.json() : {enabled:false}).then(data => {
