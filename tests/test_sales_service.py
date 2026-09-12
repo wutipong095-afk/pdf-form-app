@@ -146,6 +146,14 @@ def test_cross_origin_rejected(setup):
     create.assert_not_called()
 
 
+def test_bad_license_private_key_env_does_not_block_boot(tmp_path, monkeypatch):
+    monkeypatch.setenv('LICENSE_PRIVATE_KEY', 'keys/ed25519_private.pem')
+    app = sales.create_app({'TESTING': True, 'SALES_DB': str(tmp_path / 'orders.db'),
+        'SALES_ENABLED': False, 'SALES_ORIGIN': 'https://shop.example'})
+    client = app.test_client()
+    assert client.get('/api/sales/config').get_json() == {'enabled': False}
+
+
 def test_sales_origin_can_call_from_the_website(setup):
     client, *_ = setup
     config = client.get('/api/sales/config', headers={'Origin': 'https://shop.example'})
