@@ -10,14 +10,13 @@ COPY sales_service.py license_core.py envutil.py i18n_core.py ./
 COPY locales ./locales
 COPY website ./website
 
-RUN useradd -m -u 10001 appuser \
-    && mkdir -p /data \
-    && chown -R appuser:appuser /app /data
+RUN mkdir -p /data
 
 ENV SALES_DB=/data/orders.sqlite \
-    PORT=8000
+    PORT=8080
 
-USER appuser
-EXPOSE 8000
+EXPOSE 8080
 
-CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT:-8000} -w 1 --timeout 60 'sales_service:create_app()'"]
+# Run as root so a Railway volume mounted at /data is writable.
+# gunicorn 26 needs --factory; sales_service:create_app() without it exits immediately.
+CMD ["sh", "-c", "mkdir -p /data && gunicorn -b 0.0.0.0:${PORT:-8080} -w 1 --timeout 60 --factory sales_service:create_app"]
