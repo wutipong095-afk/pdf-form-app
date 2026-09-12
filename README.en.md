@@ -34,7 +34,7 @@ Open http://localhost:5000 — **no login required**
 In the app: **PDF output** · **Support report** · **Backup / restore**  
 (System folder `%LOCALAPPDATA%\PDFFormMarker\data` stays internal — not exposed as a UI button)
 
-On first launch you get **demo-form.pdf** + template **demo-ใบเบิก** to try immediately.
+On first launch you get a 6-form trial pack: **demo-form.pdf** / **demo-leave.pdf** / **demo-request.pdf** (pinned templates) and **house-lease-download.pdf** / **bun1.pdf** / **travel2.pdf** (Quick Fill). No key required for these files.
 
 UI language: choose **Thai / English** in the header (remembered via cookie + local file).
 
@@ -126,7 +126,7 @@ In-app **Document library** bar: set a root folder → auto scaffold `01-กา�
 
 - Verified with **Ed25519**: the app ships only `license_public.pem` — customers cannot mint keys
 - Machine ID persisted in `DATA_DIR/machine_id`
-- Without a key: PDF creation only for the official **contents** of `demo-form.pdf`
+- Without a key: PDF creation only for the official **contents** of the 6-file trial pack (`demo-form.pdf`, `demo-leave.pdf`, `demo-request.pdf`, `house-lease-download.pdf`, `bun1.pdf`, `travel2.pdf`)
 - With a key: any document until expiry (UTC)
 
 Issue keys (vendor machine with private key only):

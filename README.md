@@ -37,7 +37,7 @@ python app.py
 ในแอปมีปุ่ม **ผลลัพธ์ PDF** · **รายงานปัญหา** · **สำรองข้อมูล / กู้คืน**  
 (โฟลเดอร์ระบบ `%LOCALAPPDATA%\PDFFormMarker\data` ยังใช้ภายใน — ไม่เปิดให้กดจาก UI)
 
-หลังเปิดครั้งแรกจะมี **demo-form.pdf** + เทมเพลต **demo-ใบเบิก** ให้ลองทันที
+หลังเปิดครั้งแรกจะมีแพ็กทดลอง 6 ใบ: **demo-form.pdf** / **demo-leave.pdf** / **demo-request.pdf** (มีเทมเพลตจุด) และ **house-lease-download.pdf** / **bun1.pdf** / **travel2.pdf** (กรอกด่วน) — ใช้ได้โดยยังไม่มีคีย์
 
 สำรอง/กู้คืน: [docs/BACKUP.md](docs/BACKUP.md) — ZIP ไม่มี `machine_id`/license (เครื่องใหม่ต้องขอคีย์ใหม่)
 
@@ -123,7 +123,7 @@ docker compose up -d --build
 
 - ตรวจด้วย **Ed25519**: แอปมีแค่ `license_public.pem` — ลูกค้าออกคีย์เองไม่ได้
 - รหัสเครื่องเก็บถาวรใน `DATA_DIR/machine_id`
-- ไม่มีคีย์: สร้าง PDF ได้เฉพาะ **เนื้อหา** `demo-form.pdf` ทางการ
+- ไม่มีคีย์: สร้าง PDF ได้เฉพาะ **เนื้อหา** แพ็กทดลองทางการ 6 ใบ (`demo-form.pdf` · `demo-leave.pdf` · `demo-request.pdf` · `house-lease-download.pdf` · `bun1.pdf` · `travel2.pdf`)
 - มีคีย์: สร้าง PDF ได้ทุกเอกสาร จนถึงวันหมดอายุ (UTC)
 
 ออกคีย์ (เฉพาะเครื่องผู้ขายที่มี private key):

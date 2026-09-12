@@ -6,7 +6,7 @@
 - Preview the generated PDF before saving; preserve drafts during navigation.
 - Add a localized purchase link with machine ID prefill.
 - Lock Quick Fill to official sample forms until a license is activated. Own PDFs stay paid; Quick Fill is not a separate pack.
-- Experimental: not published to the website feed.
+- Expand the free trial pack to six official PDFs: the original three plus house-lease-download, bun1, and travel2.
 
 
 ## 0.4.0
