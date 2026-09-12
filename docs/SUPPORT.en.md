@@ -7,8 +7,8 @@ Key-issue email templates: [LICENSE_EMAIL.md](LICENSE_EMAIL.md)
 ## Product model
 
 **One Setup** for trial and full use.  
-No key: official sample forms only.  
-With a key: the customer’s own PDFs. No reinstall.
+No key: official sample forms only — both templates and Quick Fill.  
+With a key: the customer’s own PDFs in both modes. No reinstall. Quick Fill is not sold separately.
 
 ## Price (on the sales pages, not in the app)
 
