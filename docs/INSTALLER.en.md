@@ -43,7 +43,7 @@ Result: `dist\PDFFormMarker\PDFFormMarker.exe` and (with Inno) `dist\installer\F
 
 1. Run `dist\PDFFormMarker\PDFFormMarker.exe`
 2. Expect a status window + browser at `http://127.0.0.1:5000`
-3. Confirm demo-form and PDF creation work
+3. Confirm the trial pack is present (demo-form / leave / request plus Quick Fill samples) and PDF creation works
 4. Data under `%LOCALAPPDATA%\PDFFormMarker\`
 5. Switch UI language Thai ↔ English in the header
 

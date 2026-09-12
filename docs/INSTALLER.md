@@ -44,7 +44,7 @@
 
 1. รัน `dist\PDFFormMarker\PDFFormMarker.exe`
 2. ควรมีหน้าต่างสถานะ + เปิดเบราว์เซอร์ที่ `http://127.0.0.1:5000`
-3. ตรวจว่ามี demo-form และสร้าง PDF ได้
+3. ตรวจว่ามีแพ็กทดลอง (อย่างน้อย demo-form / ใบลา / ใบขอ และใบกรอกด่วน) แล้วสร้าง PDF ได้
 4. ข้อมูลอยู่ที่ `%LOCALAPPDATA%\PDFFormMarker\`
 
 ## พฤติกรรม first-run

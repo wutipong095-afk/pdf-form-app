@@ -3,6 +3,7 @@
   python scripts/make_demo.py
 
 ออกไฟล์ใน demo/uploads และ demo/templates_json — seed เข้าเครื่องผู้ใช้ตอนเปิดแอป
+สคริปต์นี้สร้างใบเบิก/ลา/ขอ — house-lease-download / bun1 / travel2 เป็นไฟล์ในเรโป ไม่ได้สร้างจากสคริปต์นี้
 """
 from __future__ import annotations
 

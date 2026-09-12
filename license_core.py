@@ -40,11 +40,15 @@ MAX_ISSUE_DAYS = max(max(LICENSE_TERM_DAYS.values()), LICENSE_LIFETIME_DAYS)
 TERM_CHOICES_TEXT = "{" + ",".join(str(y) for y in sorted(LICENSE_TERM_DAYS)) + "}"
 KEY_PREFIX = "PFM2"
 # แพ็กทดลองทางการ — ตรวจด้วย hash เนื้อไฟล์ ไม่ใช่แค่ชื่อ
+# ใบเบิก/ลา/ขอ มีจุดมาร์ค · house-lease / bun1 / travel2 สำหรับกรอกด่วน
 DEMO_DOC_NAME = "demo-form.pdf"
 TRIAL_DOC_NAMES: tuple[str, ...] = (
     "demo-form.pdf",
     "demo-leave.pdf",
     "demo-request.pdf",
+    "house-lease-download.pdf",
+    "bun1.pdf",
+    "travel2.pdf",
 )
 TRIAL_DIR = BASE / "demo" / "uploads"
 CANONICAL_DEMO_PATH = TRIAL_DIR / DEMO_DOC_NAME
